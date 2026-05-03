@@ -9,30 +9,38 @@ Notenotes is designed for musicians, producers, and anyone who wants a zero-fric
 ## ✨ Features
 
 ### 🎹 Creative Mode — The Jam Space
-- **Scale Board** — Dynamic multi-pad controller (up to 16 pads) locked to any scale (Major, Minor, Pentatonic, Blues, Dorian, Mixolydian, Chromatic)
+- **Scale Board** — Dynamic multi-pad controller (up to 16 pads) locked to any scale (Major, Minor, Pentatonic, Blues, Dorian, Mixolydian, Chromatic). Pad count follows scale degrees in Single/Chords mode; fully configurable in Custom mode.
 - **Micro Piano** — Configurable chromatic keyboard (1 or 2 stacked, 10–32 keys each) with octave shifting
-- **Sketch Kit** — 10-pad synthesized drum kit (Kick, Snare, Clap, Hi-Hat, Cymbal, Toms, Rim, Shaker), fully configurable pad count
-- **Mic Recorder** — Record audio from your microphone with live waveform visualization
+- **Sketch Kit** — 10-pad synthesized drum kit (Kick, Snare, Clap, Hi-Hat, Cymbal, Toms, Rim, Shaker), 4 selectable kits (Classic, 808, Electronic, Acoustic), configurable pad count
+- **Mic Recorder** — Record audio from your microphone with live waveform visualization. Audio snippets save as playable clips on the timeline.
+- **Arpeggio / Hold** — Toggle Normal / Hold (latch notes) / Arpeggio (repeat strikes). 10 chord types, 4 patterns, 4 rates. Drums not affected.
 - **8 Synth Presets** — Retro (Chip Lead, Warm Pad), Modern (Glass Pluck, Sub Bass, Bright Lead), Lo-fi (Tape Keys, Dusty Organ, Vinyl Strings)
 - **Loop Recording** — Punch-in recording with automatic snippet capture on loop wrap
 
 ### 🎼 Canvas Mode — The Arranger
 - Multi-track horizontal timeline with bar/beat grid
-- Drag snippets from the dock onto track lanes
+- Drag snippets from the dock onto track lanes (MIDI, drum, and audio clips)
 - Move, resize, and delete clips with full undo/redo
+- **✂️ Trim** button — remove empty space at start/end of all snippets
 - Per-track Mute/Solo controls
+- Loop region auto-calculated from clip positions (no manual bar selection needed)
 - Animated playhead synchronized to transport
+- Audio tracks auto-hide instrument selector, showing "🎤 Audio"
 
-### ✏️ Edit Mode — Piano Roll
+### ✏️ Inspect Mode — Piano Roll & Audio
 - Click-to-add notes on a pitch/time grid
 - Drag notes to move (pitch + time), resize for duration
-- Velocity editing via dedicated lane at the bottom
+- Vertical zoom (+/−) and configurable octave range (C1–C6)
+- **Split view** — dual stacked piano rolls for separate octave ranges
 - Configurable grid quantization (1/4, 1/8, 1/16, 1/2)
 - Delete notes via keyboard or button
+- **Audio snippets** open an audio player with controls and metadata
 
 ### ⚙️ Settings & Export
-- **Sheet Music Export** — Render snippets as sheet music via [abcjs](https://paulrosen.github.io/abcjs/), export as SVG or ABC text
-- **Project Settings** — Name, BPM, quantization grid, Scale Board pad counts, Time Signature background visualizer (custom beat colors), metronome volume, master volume
+- **Sheet Music Export** — Render snippets as sheet music via [abcjs](https://paulrosen.github.io/abcjs/). Drum snippets use percussion clef. Export as SVG or ABC text.
+- **Project Settings** — Name, BPM, quantization grid, metronome volume, master volume, Time Signature background visualizer with custom beat colors
+- **Instrument Settings** — Scale Board pad count, Piano count/keys, Drum Kit pad count
+- **Arpeggio Settings** — Rate, chord type, pattern, hold duration
 - **Version History** — Auto-saves up to 5 snapshots; restore any previous version
 - **Metronome** — Available in every mode, with accent on beat 1
 
@@ -108,20 +116,22 @@ Notenotes/
     │   ├── Metronome.js       # Click track (oscillator-based)
     │   ├── Quantizer.js       # Grid quantization logic
     │   ├── RecordingManager.js# MIDI event capture during loops
+    │   ├── ArpeggioManager.js # Hold/arp modes, chord types, patterns
+    │   ├── PlaybackEngine.js  # Canvas clip playback (synth, drums, audio)
     │   └── MusicTheory.js     # Scales, note names, MIDI utilities
     │
     ├── instruments/           # Sound generators
     │   ├── WebAudioSynth.js   # 8-voice polyphonic synth (ADSR, filter, 8 presets)
-    │   ├── ScaleBoard.js      # Scale-locked 7-pad controller
-    │   ├── MicroPiano.js      # Chromatic 12-key keyboard
-    │   ├── SketchKit.js       # Synthesized 5-pad drum kit
+    │   ├── ScaleBoard.js      # Scale-locked multi-pad controller
+    │   ├── MicroPiano.js      # Chromatic keyboard (1-2 stacked, 10-32 keys)
+    │   ├── SketchKit.js       # 10-pad synth drum kit with 4 presets
     │   ├── MicRecorder.js     # MediaRecorder + live visualizer
     │   └── instruments.css    # Instrument-specific styles
     │
     ├── modes/                 # App modes (views)
-    │   ├── CreativeMode.js    # Jam space (instrument switcher + recording)
-    │   ├── CanvasMode.js      # Multi-track arranger timeline
-    │   ├── EditMode.js        # Piano roll note editor
+    │   ├── CreativeMode.js    # Jam space (instrument switcher + recording + arp)
+    │   ├── CanvasMode.js      # Multi-track arranger timeline + trim
+    │   ├── EditMode.js        # Piano roll editor + audio player (Inspect tab)
     │   ├── creative.css
     │   ├── canvas.css
     │   └── edit.css
@@ -287,6 +297,7 @@ Each phase was built iteratively — code first, then browser testing with scree
 | `Ctrl+Z` | Undo |
 | `Ctrl+Shift+Z` | Redo |
 | `Delete` / `Backspace` | Delete selected note or clip |
+| `Click HLD/ARP button` | Cycle between Normal / Hold / Arpeggio modes |
 
 ---
 

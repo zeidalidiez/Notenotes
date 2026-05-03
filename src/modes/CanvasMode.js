@@ -73,6 +73,8 @@ export class CanvasMode {
         <div style="width: 1px; height: 16px; background: var(--surface-3); margin: 0 4px;"></div>
         <button class="btn btn--ghost" id="canvas-zoom-out-btn" style="font-size:0.75rem;min-height:28px;padding:2px 8px;" title="Zoom Out (1/2x)">🔍-</button>
         <button class="btn btn--ghost" id="canvas-zoom-in-btn" style="font-size:0.75rem;min-height:28px;padding:2px 8px;" title="Zoom In (2x)">🔍+</button>
+        <div style="width: 1px; height: 16px; background: var(--surface-3); margin: 0 4px;"></div>
+        <button class="btn btn--ghost" id="canvas-trim-btn" style="font-size:0.75rem;min-height:28px;padding:2px 8px;" title="Trim empty space from all snippets">✂️ Trim</button>
       </div>
       <div class="canvas-toolbar__spacer"></div>
       <div class="canvas-toolbar__group">
@@ -175,19 +177,21 @@ export class CanvasMode {
       header.style.borderLeft = `3px solid ${color.replace('0.35', '0.8')}`;
 
       // Build instrument options
-      const instOptions = Object.values(TRACK_INSTRUMENTS).map(inst => {
+      const hasAudio = (track.clips || []).some(c => c.snippet?.type === 'audio');
+      const instOptions = hasAudio ? '' : Object.values(TRACK_INSTRUMENTS).map(inst => {
         const selected = (track.instrumentId === inst.id) ? 'selected' : '';
         return `<option value="${inst.id}" ${selected}>${inst.name}</option>`;
       }).join('');
+      const instSelect = hasAudio
+        ? `<span class="canvas-lane__inst-label">🎤 Audio</span>`
+        : `<select class="canvas-lane__instrument" data-track-inst="${track.id}" aria-label="Track instrument">${instOptions}</select>`;
 
       header.innerHTML = `
         <div class="canvas-lane__name-row">
           <span class="canvas-lane__name" data-track-id="${track.id}" title="Double-click to rename">${track.name}</span>
           <button class="canvas-lane__remove-btn" data-remove-track="${track.id}" title="Remove track" aria-label="Remove track">✕</button>
         </div>
-        <select class="canvas-lane__instrument" data-track-inst="${track.id}" aria-label="Track instrument">
-          ${instOptions}
-        </select>
+        ${instSelect}
         <div class="canvas-lane__controls">
           <button class="canvas-lane__ctrl-btn ${track.muted ? 'is-muted' : ''}" data-action="mute" data-track="${track.id}">M</button>
           <button class="canvas-lane__ctrl-btn ${track.solo ? 'is-solo' : ''}" data-action="solo" data-track="${track.id}">S</button>
@@ -498,6 +502,11 @@ export class CanvasMode {
       this._setZoom(this._zoomLevel / 2);
     });
 
+    // Trim empty space
+    this.el.querySelector('#canvas-trim-btn')?.addEventListener('click', () => {
+      this._trimEmptySpace();
+    });
+
     // Delegated events on the canvas element
     this.el.addEventListener('pointerdown', (e) => {
       // Mute/Solo buttons
@@ -694,6 +703,61 @@ export class CanvasMode {
     this._renderTracks();
     this._renderSnippetDock();
     this._autoSetLoopFromClips();
+  }
+
+  _trimEmptySpace() {
+    if (!this.project?.snippets) return;
+    let changed = false;
+    const ticksPerBeat = this.transport.ticksPerBeat;
+
+    for (const snippet of this.project.snippets) {
+      const notes = snippet.notes || [];
+      const hits = snippet.hits || [];
+      if (notes.length === 0 && hits.length === 0) continue;
+
+      let minTick = Infinity;
+      let maxTick = 0;
+
+      for (const n of notes) {
+        if (n.startTick < minTick) minTick = n.startTick;
+        const end = n.startTick + n.durationTick;
+        if (end > maxTick) maxTick = end;
+      }
+      for (const h of hits) {
+        if (h.startTick < minTick) minTick = h.startTick;
+        if (h.startTick > maxTick) maxTick = h.startTick;
+      }
+
+      if (minTick === Infinity) continue;
+
+      const contentTicks = Math.ceil((maxTick - minTick + ticksPerBeat) / ticksPerBeat) * ticksPerBeat;
+
+      if (minTick > 0) {
+        for (const n of notes) n.startTick -= minTick;
+        for (const h of hits) h.startTick -= minTick;
+        changed = true;
+      }
+      if (contentTicks !== snippet.durationTicks) {
+        snippet.durationTicks = contentTicks;
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      for (const track of (this.project.tracks || [])) {
+        for (const clip of (track.clips || [])) {
+          if (clip.snippet) {
+            clip.durationBars = Math.ceil(clip.snippet.durationTicks / this.transport.ticksPerBar) || 1;
+          }
+        }
+      }
+      this.store?.scheduleAutoSave(this.project);
+      this.refresh();
+      this._autoSetLoopFromClips();
+      showToast('Trimmed empty space');
+    } else {
+      showToast('Nothing to trim');
+    }
   }
 
   /** Set the zoom level for the canvas timeline */

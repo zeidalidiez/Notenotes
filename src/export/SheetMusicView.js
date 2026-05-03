@@ -12,7 +12,7 @@ export class SheetMusicView {
   constructor(project) {
     this.project = project;
     this.el = null;
-    this._currentSnippetIdx = 0;
+    this._currentSnippetId = null;
   }
 
   render() {
@@ -47,38 +47,42 @@ export class SheetMusicView {
     `;
 
     this._bindEvents();
+
+    if (!this._currentSnippetId) {
+      const first = (this.project?.snippets || []).find(s => s.type !== 'audio');
+      if (first) this._currentSnippetId = first.id;
+    }
     this._renderSheet();
 
     return this.el;
   }
 
   _renderSnippetOptions() {
-    const snippets = this.project?.snippets || [];
+    const snippets = (this.project?.snippets || []).filter(s => s.type !== 'audio');
     if (snippets.length === 0) {
-      return '<option value="-1">No snippets yet</option>';
+      return '<option value="">No snippets yet</option>';
     }
-    return snippets.map((s, i) => {
+    return snippets.map((s) => {
       const count = (s.notes?.length || 0) + (s.hits?.length || 0);
-      return `<option value="${i}">Snippet ${i + 1} (${count} notes)</option>`;
+      const icon = s.type === 'drum' ? '🥁 ' : '';
+      return `<option value="${s.id}">${icon}${s.name || 'Snippet'} (${count} events)</option>`;
     }).join('');
   }
 
   _renderSheet() {
     const renderEl = this.el.querySelector('#sm-render');
     const abcTextEl = this.el.querySelector('#sm-abc-text');
-    const snippets = this.project?.snippets || [];
+    const snippets = (this.project?.snippets || []).filter(s => s.type !== 'audio');
 
-    if (snippets.length === 0 || this._currentSnippetIdx < 0) {
-      renderEl.innerHTML = '<div class="sheet-music__empty">Record some notes in Creative Mode to see sheet music here</div>';
+    const snippet = snippets.find(s => s.id === this._currentSnippetId);
+    if (!snippet) {
+      renderEl.innerHTML = '<div class="sheet-music__empty">Record some MIDI notes in Creative Mode to see sheet music here</div>';
       abcTextEl.textContent = '';
       return;
     }
 
-    const snippet = snippets[this._currentSnippetIdx];
-    if (!snippet) return;
-
     const abc = snippetToABC(snippet, {
-      title: `${this.project?.name || 'Sketch'} - Snippet ${this._currentSnippetIdx + 1}`
+      title: `${this.project?.name || 'Sketch'} - ${snippet.name || 'Snippet'}`
     });
 
     // Render with abcjs
@@ -104,7 +108,7 @@ export class SheetMusicView {
   _bindEvents() {
     // Snippet selector
     this.el.querySelector('#sm-snippet-select')?.addEventListener('change', (e) => {
-      this._currentSnippetIdx = parseInt(e.target.value, 10);
+      this._currentSnippetId = e.target.value;
       this._renderSheet();
     });
 
@@ -135,16 +139,17 @@ export class SheetMusicView {
 
     const a = document.createElement('a');
     a.href = url;
-    a.download = `notenotes-snippet-${this._currentSnippetIdx + 1}.svg`;
+    const snippet = (this.project?.snippets || []).find(s => s.id === this._currentSnippetId);
+    a.download = `${snippet?.name || 'snippet'}.svg`;
     a.click();
     URL.revokeObjectURL(url);
     showToast('SVG exported!');
   }
 
   _exportABC() {
-    const snippets = this.project?.snippets || [];
+    const snippets = (this.project?.snippets || []).filter(s => s.type !== 'audio');
     if (snippets.length === 0) {
-      showToast('No snippets to export');
+      showToast('No MIDI snippets to export');
       return;
     }
 

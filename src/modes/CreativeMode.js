@@ -106,6 +106,39 @@ export class CreativeMode {
     // Arm recording when transport enters recording state
     this.transport.onStateChange((state) => {
       this.recordingManager.setArmed(state === TransportState.RECORDING);
+      if (state === TransportState.RECORDING && this.activeInstrument === INSTRUMENTS.MIC) {
+        this.micRecorder._startRecording();
+      }
+      if (state !== TransportState.RECORDING && this.micRecorder._isRecording) {
+        this.micRecorder._stopRecording();
+      }
+    });
+
+    // Wire mic audio blob → create audio snippet
+    this.micRecorder.setRecordingCallback((blob) => {
+      const url = URL.createObjectURL(blob);
+      const elapsedMs = this.micRecorder._startTime ? Date.now() - this.micRecorder._startTime : 8000;
+      const beats = this.transport.bpm / 60;
+      const ticksPerBeat = this.transport.ticksPerBeat;
+      const durationTicks = Math.max(480, Math.round((elapsedMs / 1000) * beats * ticksPerBeat));
+      const snippet = {
+        id: crypto.randomUUID(),
+        createdAt: Date.now(),
+        type: 'audio',
+        name: 'Mic recording',
+        notes: [],
+        hits: [],
+        durationTicks,
+        bpm: this.transport.bpm,
+        timeSignature: { ...this.transport.timeSignature },
+        audioUrl: url,
+      };
+      this.snippetTray.addSnippet(snippet);
+      if (this.project) {
+        this.project.snippets.push(snippet);
+        this.store?.scheduleAutoSave(this.project);
+      }
+      showToast('Mic snippet captured!');
     });
 
     this._initialized = true;

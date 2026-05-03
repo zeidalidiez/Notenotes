@@ -161,7 +161,7 @@ export class SettingsPanel {
             </select>
           </div>
           <div class="settings-row">
-            <label class="settings-label">Hold Duration (s)</label>
+            <label class="settings-label">Hold Duration (<span id="setting-hold-display">${(this.project?.settings?.holdDuration || 3000) / 1000}</span>s)</label>
             <input class="settings-range" id="setting-hold-dur" type="range" min="1" max="30" value="${(this.project?.settings?.holdDuration || 3000) / 1000}" aria-label="Hold note duration"/>
           </div>
         </div>
@@ -357,6 +357,8 @@ export class SettingsPanel {
 
       body.querySelector('#setting-hold-dur')?.addEventListener('input', (e) => {
         const secs = Math.max(1, Math.min(30, parseInt(e.target.value, 10) || 3));
+        const display = body.querySelector('#setting-hold-display');
+        if (display) display.textContent = secs;
         if (this.project) {
           this.project.settings.holdDuration = secs * 1000;
           this.store?.scheduleAutoSave(this.project);

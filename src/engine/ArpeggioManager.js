@@ -155,12 +155,11 @@ export class ArpeggioManager {
     if (group.length === 0) return;
 
     const rootNote = group[0].midi;
-    const ct = CHORD_TYPES.find(c => c.id === this._chordType) || CHORD_TYPES[0];
     let notes;
     if (group.length > 1) {
       notes = group.map(g => g.midi);
     } else {
-      notes = ct.semitones.map(s => rootNote + s);
+      notes = [rootNote];
     }
 
     this._arpNotes.set(rootNote, { notes, velocity: group[0].velocity });
@@ -196,25 +195,28 @@ export class ArpeggioManager {
   _stepArp() {
     if (this._arpNotes.size === 0) return;
 
-    this._safeAllOff();
-
     const allGroups = [];
     for (const [, data] of this._arpNotes) {
       allGroups.push({ notes: data.notes, velocity: data.velocity });
     }
 
     const stepNotes = this._getPatternNotes(allGroups);
-    if (stepNotes.length > 0) {
-      const note = stepNotes[this._arpStep % stepNotes.length];
-      this._safeNoteOn(note.midi, note.velocity);
-    }
-
-    this._arpStep++;
+    if (stepNotes.length === 0) return;
 
     const rateCfg = ARP_RATES.find(r => r.id === this._arpRate) || ARP_RATES[2];
     const bps = this.transport.bpm / 60;
     const beatMs = 1000 / bps;
-    const intervalMs = Math.max(30, beatMs * (rateCfg.divisor / 480));
+    const intervalMs = Math.max(40, beatMs * (rateCfg.divisor / 480));
+    const noteDuration = Math.floor(intervalMs * 0.55);
+
+    const note = stepNotes[this._arpStep % stepNotes.length];
+    this._safeNoteOn(note.midi, note.velocity);
+
+    this._arpStep++;
+
+    setTimeout(() => {
+      this._safeNoteOff(note.midi);
+    }, noteDuration);
 
     this._arpTimerId = setTimeout(() => {
       this._arpTimerId = null;

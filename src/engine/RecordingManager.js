@@ -156,6 +156,16 @@ export class RecordingManager {
     const loopLengthTicks = this.transport.loopEndTick - this.transport.loopStartTick;
     const noteCount = this._capturedNotes.length + this._capturedHits.length;
 
+    let maxEndTick = 480;
+    for (const n of this._capturedNotes) {
+      const end = n.startTick + n.durationTick;
+      if (end > maxEndTick) maxEndTick = end;
+    }
+    for (const h of this._capturedHits) {
+      if (h.startTick > maxEndTick) maxEndTick = h.startTick;
+    }
+    const contentTicks = Math.ceil((maxEndTick + 480) / 480) * 480;
+
     const snippet = {
       id: crypto.randomUUID(),
       createdAt: Date.now(),
@@ -163,7 +173,7 @@ export class RecordingManager {
       name: `${noteCount} notes`,
       notes: [...this._capturedNotes],
       hits: [...this._capturedHits],
-      durationTicks: loopLengthTicks,
+      durationTicks: contentTicks,
       bpm: this.transport.bpm,
       timeSignature: { ...this.transport.timeSignature },
     };

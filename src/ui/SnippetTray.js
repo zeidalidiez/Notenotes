@@ -78,9 +78,10 @@ export class SnippetTray {
 
     list.innerHTML = this.snippets.map((s, i) => {
       const noteCount = (s.notes?.length || 0) + (s.hits?.length || 0);
-      const typeIcon = s.type === 'drum' ? '🥁' : '🎵';
+      const typeIcon = s.type === 'drum' ? '🥁' : s.type === 'audio' ? '🎤' : '🎵';
       const bars = Math.ceil(s.durationTicks / (480 * (s.timeSignature?.beats || 4)));
-      const displayName = s.name || `${noteCount} notes · ${bars} bar${bars > 1 ? 's' : ''}`;
+      const autoMeta = s.type === 'audio' ? 'Audio' : `${noteCount} notes · ${bars} bar${bars > 1 ? 's' : ''}`;
+      const displayName = s.name || autoMeta;
 
       return `
         <div class="snippet-tray__item" data-id="${s.id}">
@@ -129,6 +130,14 @@ export class SnippetTray {
   _renderMiniPreview(snippet) {
     const width = 80;
     const height = 28;
+
+    if (snippet.type === 'audio') {
+      return `<svg width="${width}" height="${height}" style="display:block">
+        <rect width="${width}" height="${height}" fill="var(--surface-3)" rx="3"/>
+        <text x="${width/2}" y="${height/2 + 5}" text-anchor="middle" fill="var(--accent-light)" font-size="14">🎤</text>
+      </svg>`;
+    }
+
     const notes = snippet.notes || [];
     const hits = snippet.hits || [];
 

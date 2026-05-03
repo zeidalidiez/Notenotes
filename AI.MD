@@ -298,3 +298,227 @@ This also creates a version history snapshot. Max 5 versions kept per project.
 
 **Music Theory Note Generation**
 - `MusicTheory.js` > `getScaleNotes` generates 32 notes by default (spanning multiple octaves). This allows dynamic UI components (like a 16-pad ScaleBoard) to receive enough notes. If you add new instruments, you can leverage this to get extended scale ranges instantly.
+
+<!-- --- NEW CONTEXT ADDED DURING SESSION 2026-05-03 --- -->
+
+## 🎛️ ScaleBoard Enhancements
+
+**Balanced Grid Layout**
+- Pads use a computed balanced grid: `grid-template-columns: repeat(ceil(sqrt(padCount)), 1fr)`. This replaces the old `auto-fit` approach. 7 pads → 3 cols, 16 pads → 4 cols.
+- Grid also respects container width: `maxCols = floor((width - 4) / 72)`, ensuring minimum 72px column width for touch targets on mobile.
+- `_refreshPads()` updates both `gridTemplateColumns` and `gridTemplateGap` dynamically.
+- Window `resize` listener recalculates columns on orientation change or window resize.
+
+**Pad Count Logic**
+- In `single`/`chords` pad modes, pad count equals the scale's interval count (`SCALES[name].intervals.length`): Major → 7, Pentatonic → 5, Blues → 6.
+- In `custom` pad mode, pad count comes from Settings → `scalePadsCount` slider (1–16).
+- Changing scale or root recalculates pad count accordingly. `customPadTypes` array is trimmed to match current pad count.
+
+**Custom Mode Clarity**
+- Renamed the "Mode" label to "Pad Mode" to avoid confusion with musical modes.
+- Pad type labels ("Note"/"Chord") are always visible in custom mode, not just during editing.
+- Toast appears when switching to Custom: "Tap 'Edit Layout' to set each pad to Note or Chord."
+- `.is-editing` CSS class adds dashed border + accent hover for layout editing state.
+
+**Pad Sizing**
+- Removed `aspect-ratio: 1` — pads now use `min-height: 56px` with `grid-auto-rows: minmax(56px, 1fr)` to fill vertical space.
+- `align-content: start` + `overflow-y: auto` for graceful scrolling when pads overflow.
+
+---
+
+## 🎹 MicroPiano — Settings-Driven Dual Keyboard
+
+**Settings Integration**
+- Settings → Piano: **Pianos** dropdown (1 or 2), **Keys** slider (10–32 per keyboard).
+- Defaults: `pianoCount: 1, pianoKeys: 12` in `ProjectStore.js`.
+- Dispatches `settings-piano-changed` custom event on change. MicroPiano listens and re-renders.
+
+**Dual Keyboard Layout**
+- When `pianoCount === 2`: two `.micropiano__keyboard` elements stacked vertically inside `.micropiano__boards`.
+- Piano A covers lower octave range, Piano B covers the next contiguous range (starts at `baseMidi + pianoKeys`).
+- Octave ▼/▲ shifts both keyboards together. Display shows `A: Oct 3 · B: Oct 4`.
+- `_maxBaseOctave()` ensures the total key range doesn't exceed MIDI 108 (C8): `max(1, floor((97 - totalKeys) / 12))`.
+
+**CSS**
+- `.micropiano__boards` uses `flex-direction: column` with `gap` for stacked keyboards.
+- White key `min-height` reduced from 180px to 80px, black from 120px to 50px — flexible for many keys on mobile.
+- Old `.micropiano--multi` and `_resizeObserver` auto-fit removed; layout is now settings-driven.
+
+---
+
+## 🥁 SketchKit — Expanded Drum Kit with Presets
+
+**10 Drum Sounds** (up from 5)
+- Original: Kick, Snare, Clap, Hi-Hat, Cymbal.
+- New: **Tom Low**, **Tom Mid**, **Tom High**, **Rim**, **Shaker** — all synthesized.
+- Sounds defined in `SOUNDS` array with `{ id, icon, label }`.
+
+**Grid Layout**
+- Same balanced grid as ScaleBoard: `grid-template-columns: repeat(ceil(sqrt(count)), 1fr)`.
+- Settings → Drum Kit: **Number of Pads** slider (1–10). Dispatches `settings-pads-changed`.
+- CSS uses `display: grid` with `grid-auto-rows: minmax(64px, 1fr)` and `align-content: center`.
+
+**Drum Kit Presets** (`DRUM_KITS` export)
+- **Classic** — balanced general-purpose sounds (sine/triangle oscillators).
+- **808** — deep electronic TR-style (sine with click attacks, longer decays).
+- **Electronic** — aggressive sawtooth/square (bright, glitchy).
+- **Acoustic** — warm natural sounds (triangle oscillators, softer filters).
+- Each kit parameterizes: oscillator type, frequency start/end, filter cutoff/Q, decay time, volume, optional click attack.
+- Synthesis methods (`_synthTone`, `_synthSnare`, etc.) read from `this._activeKit.sounds[sid]`.
+- Kit selector dropdown (`#sk-kit-select`) rendered inside the SketchKit component (not the global patch selector).
+- Swap buttons (⇄) removed — each sound is now its own pad.
+
+**CSS**
+- `.sk-kit-selector` at top of SketchKit with label + styled select.
+- Each pad type has a distinct active color via `.sketchkit__pad--{type}.is-active`.
+- Removed old `.sketchkit__pad-wrapper` and `.sketchkit__swap-btn` styles.
+
+---
+
+## ♫ Arpeggio & Hold System
+
+**ArpeggioManager** (`src/engine/ArpeggioManager.js`)
+- Three modes cycling via transport bar button: **OFF → HLD → ARP → OFF**.
+- **OFF**: Normal playback — synth passes through unmodified.
+- **HLD** (Hold): Notes latch on first press, release on second press. Auto-release after configurable `holdDuration` (default 3s, slider 1–30s in Settings). Uses `setTimeout` per latched note.
+- **ARP** (Arpeggio): Holds trigger repeated strikes at configurable rate. 15ms grouping window detects chords vs single notes. Single notes repeat the same pitch at the arp rate. Chords arpeggiate through individual notes in the selected pattern.
+
+**Settings → Arpeggio**
+- **Rate**: 1/4, 1/8, 1/16, 1/32.
+- **Chord Type**: Major, Minor, Diminished, Augmented, Suspended, Major 7th, Minor 7th, Dominant 7th, Half dim/Min 7b5, Fully dim 7th. Each defines `semitones` array for chord generation.
+- **Pattern**: Up, Down, Up/Down, Random.
+- **Hold Duration**: 1–30s slider (stored as milliseconds in `holdDuration`).
+
+**Architecture — Synth Wrapping**
+- `ArpeggioManager.wrapSynth(synth)` overrides `synth.noteOn`/`synth.noteOff` in place.
+- Instrument classes (ScaleBoard, MicroPiano) call `synth.noteOn` as normal — arpeggio manager intercepts.
+- **Drum kit is NOT affected** — SketchKit calls `this._triggerSound()` directly, bypassing the synth wrapper.
+- All `_real*` calls guarded via `_safeNoteOn`/`_safeNoteOff`/`_safeAllOff` that silently no-op if synth hasn't been wrapped yet (prevents crashes before audio init).
+- ARP stepping uses `setTimeout` at BPM-timed intervals. Each step plays for ~55% of the interval, then releases for ~45% silence — creating distinct audible strikes.
+
+**Transport Bar Toggle**
+- Button `#btn-arp` between BPM and spacer. Cycles through OFF/HLD/ARP.
+- `setArpLabel(mode)` updates text: "OFF", "HLD" (accent color), "ARP" (red glow).
+- Wired via `transportBar.onArpClick` in `main.js`.
+
+---
+
+## 🎤 Mic Recording & Audio Playback
+
+**Mic — Transport Integration**
+- Mic recording now starts/stops with the transport record button (when Mic instrument is active).
+- Transport state change handler: `RECORDING + MIC → _startRecording()`, `!RECORDING + _isRecording → _stopRecording()`.
+- Manual Mic button still works independently for quick captures.
+
+**Audio Snippet Creation**
+- `_startTime` timestamp tracked inside `MicRecorder._startRecording()` itself.
+- Snippet duration calculated from `Date.now() - _startTime` → converted to ticks using current BPM.
+- Snippets created as `type: 'audio'` with `audioUrl` (blob URL).
+- Old `_micElapsed`/`_micStartTime` approach removed — start time now always set regardless of how recording is triggered.
+
+**Audio Playback** (`PlaybackEngine.js`)
+- Audio snippets decoded via `fetch` + `AudioContext.decodeAudioData`, cached in `_audioBuffers` Map by snippet ID.
+- Playback uses `AudioBufferSourceNode` connected through master gain.
+- Fires when `localTick === 0` for the clip (plays once at clip start).
+
+**Audio in Inspect Panel**
+- Clicking audio snippet opens Inspect with `<audio controls>` HTML5 player, showing BPM and beat duration.
+- Audio snippets skip the piano roll editor entirely (`loadSnippet` checks `snippet.type === 'audio'`).
+- Empty state text updated: "Select a MIDI snippet to view and edit its notes in the piano roll."
+
+**Canvas Integration**
+- Tracks with audio clips hide the instrument dropdown, showing "🎤 Audio" label instead.
+- Check: `track.clips.some(c => c.snippet?.type === 'audio')`.
+
+---
+
+## ✂️ Trim Empty Space
+
+**Canvas Trim Button**
+- **✂️ Trim** button in Canvas toolbar (next to zoom buttons).
+- `_trimEmptySpace()` method:
+  1. Scans all snippets for `minTick` (earliest note start) and `maxTick` (latest note end).
+  2. Shifts all notes/hits so earliest starts at tick 0.
+  3. Truncates `durationTicks` to actual content length (rounded up to nearest beat).
+  4. Updates all clips' `durationBars` to match new `durationTicks`.
+  5. Calls `_autoSetLoopFromClips()` to recalculate loop region.
+- Shows toast: "Trimmed empty space" or "Nothing to trim".
+
+---
+
+## 🔁 Loop Auto-Calculation
+
+**Loop Bars Dropdown Removed**
+- The "Loop length" dropdown (1/2/4/8 bars) removed from TransportBar.
+- Loop region now auto-derived from clips on the timeline.
+
+**`_autoSetLoopFromClips()`** in CanvasMode.js
+- Iterates all tracks' clips to find `max(startBar + durationBars)`.
+- Defaults to 4 bars minimum when timeline is empty.
+- Called after every clip mutation: drop, move, delete, plus initial render and refresh.
+- Calls `transport.setLoop(0, maxEndBar)`.
+
+---
+
+## ✏️ EditMode → Inspect
+
+**Tab Renamed**
+- ModeTabs: "Edit" → "Inspect" (bottom tab label and empty state).
+- Empty state message: "Select a MIDI snippet to view and edit its notes in the piano roll."
+
+**Piano Roll Enhancements**
+- Vertical zoom: `+`/`-` buttons adjust `_noteHeight` (8–24px). CSS var `--note-height` updates dynamically.
+- Octave range: Two dropdowns (Low/High octave: C1–C6) replace hardcoded `PITCH_MIN=36, PITCH_MAX=84`.
+- Split view: "Split" button toggles dual vertically-stacked piano rolls, each with independent octave range and key sidebar. Notes render in whichever pane's range they fall into. Mobile-friendly vertical stacking.
+- All rendering refactored into `_renderRollPane()`, `_renderKeysForRange()`, `_renderGridForRange()`, `_renderNotesForPane()`, `_createNoteElementForPane()`.
+
+---
+
+## 📋 Snippet Renaming
+
+**Name Propagation**
+- `SnippetTray._renderSnippets()` now displays `s.name` if set, falling back to `"N notes · M bars"`.
+- `EditMode._bindEvents()` fires `onSnippetRenamed` callback after name save.
+- `main.js` wires it: `editMode.onSnippetRenamed = () => snippetTray._renderSnippets()`.
+- `RecordingManager._finalizeSnippet()` auto-generates `name: "N notes"` on snippet creation.
+
+**Recording Duration**
+- `_finalizeSnippet()` no longer uses `loopLengthTicks`. Instead scans captured notes for `maxEndTick`, rounds up to nearest beat. Snippets end where the last note ends, not where the loop does.
+
+---
+
+## 🎼 Sheet Music — Percussion & Filtering
+
+**Audio Filtering**
+- Sheet music dropdown filters out `type: 'audio'` snippets. Only MIDI and drum appear.
+- Selection now uses snippet IDs instead of array indices — robust against filtering and reordering.
+- First MIDI snippet auto-selected on panel open.
+- Exported SVG filenames use the snippet name.
+
+**Percussion Notation**
+- Drum snippets render with `clef=perc` in ABC output.
+- Each drum type mapped to standard percussion staff position: kick→B,,, snare→D,, hi-hat→^F,, toms→C,/F,/G,, etc.
+- ABC title includes "(Drums)" suffix.
+- Dropdown shows 🥁 prefix for drum snippets: `🥁 My Beat (8 events)`.
+
+---
+
+## 🎨 UI/UX Changes
+
+**Transport Bar**
+- BPM input widened from 48px to 56px (no more cut-off text).
+- Hold/Arp toggle button (`#btn-arp`) between BPM and spacer. Styles: `.arp-toggle.is-hold` (accent), `.arp-toggle.is-arp` (record red glow).
+- Loop length dropdown removed.
+
+**Settings Panel**
+- Piano section: Pianos (1–2 dropdown) + Keys (10–32 slider).
+- Drum Kit section: Number of Pads (1–10 slider).
+- Arpeggio section: Rate (dropdown), Chord Type (dropdown), Pattern (dropdown), Hold Duration (1–30s slider with live display).
+- All `display` spans update live as sliders move.
+
+**ProjectStore Defaults**
+- Added: `pianoCount: 1, pianoKeys: 12, drumPads: 10, arpRate: '1/8', arpChordType: 'major', arpPattern: 'up', holdDuration: 3000`.
+
+**CSS**
+- Canvas: `.canvas-lane__inst-label` for "🎤 Audio" instrument display on audio tracks.
+- Edit/Inspect: `.piano-roll-pane` for split view, `.edit-audio` for audio player, `.edit-toolbar .btn.is-active` for split button state.

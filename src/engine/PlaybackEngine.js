@@ -8,6 +8,7 @@
 
 import { WebAudioSynth, PRESETS } from '../instruments/WebAudioSynth.js';
 import { SketchKit } from '../instruments/SketchKit.js';
+import { AudioEngine } from './AudioEngine.js';
 import { TransportState } from './Transport.js';
 
 /** Available instruments for track assignment */
@@ -41,6 +42,8 @@ export class PlaybackEngine {
 
     this._initialized = false;
     this._lastProcessedTick = -1;
+    this._audioBuffers = new Map(); // snippetId → AudioBuffer
+    this._engine = AudioEngine.getInstance();
   }
 
   /**
@@ -161,6 +164,11 @@ export class PlaybackEngine {
             }
           }
         }
+
+        // Play audio snippets
+        if (snippet.type === 'audio' && snippet.audioUrl && localTick === 0) {
+          this._playAudioClip(snippet);
+        }
       }
     }
 
@@ -199,6 +207,31 @@ export class PlaybackEngine {
     if (entry) {
       entry.synth.allNotesOff();
       this._trackSynths.delete(trackId);
+    }
+  }
+
+  async _playAudioClip(snippet) {
+    const ctx = this._engine.ctx;
+    if (!ctx || !snippet.audioUrl) return;
+
+    try {
+      let buffer = this._audioBuffers.get(snippet.id);
+      if (!buffer) {
+        const response = await fetch(snippet.audioUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        buffer = await ctx.decodeAudioData(arrayBuffer);
+        this._audioBuffers.set(snippet.id, buffer);
+      }
+
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      const gain = ctx.createGain();
+      gain.gain.value = 0.7;
+      source.connect(gain);
+      gain.connect(this._engine.masterGain || ctx.destination);
+      source.start(ctx.currentTime);
+    } catch (err) {
+      console.warn('[PlaybackEngine] Audio playback failed:', err);
     }
   }
 

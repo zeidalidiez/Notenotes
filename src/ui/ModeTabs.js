@@ -41,7 +41,7 @@ export class ModeTabs {
     const tabs = [
       { mode: Modes.CREATIVE, icon: '🎹', label: 'Create' },
       { mode: Modes.CANVAS, icon: '🎼', label: 'Canvas' },
-      { mode: Modes.PIANOROLL, icon: '✏️', label: 'Edit' }
+      { mode: Modes.PIANOROLL, icon: '✏️', label: 'Inspect' }
     ];
 
     for (const tab of tabs) {

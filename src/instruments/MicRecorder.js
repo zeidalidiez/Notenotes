@@ -82,6 +82,7 @@ export class MicRecorder {
   _startRecording() {
     if (!this._stream) return;
     this._chunks = [];
+    this._startTime = Date.now();
     this._recorder = new MediaRecorder(this._stream, { mimeType: 'audio/webm;codecs=opus' });
     this._recorder.ondataavailable = (e) => {
       if (e.data.size > 0) this._chunks.push(e.data);

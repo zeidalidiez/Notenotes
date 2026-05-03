@@ -88,6 +88,11 @@ export function snippetToABC(snippet, options = {}) {
   const bpm = snippet.bpm || 120;
   const timeSig = snippet.timeSignature || { beats: 4, subdivision: 4 };
   const ticksPerBeat = 480;
+  const isDrum = snippet.type === 'drum';
+
+  if (isDrum) {
+    return _drumSnippetToABC(snippet, title, bpm, timeSig, ticksPerBeat);
+  }
 
   const notes = [...(snippet.notes || [])].sort((a, b) => a.startTick - b.startTick);
 
@@ -145,6 +150,67 @@ export function snippetToABC(snippet, options = {}) {
 }
 
 /**
+ * Convert a drum snippet to ABC notation with percussion clef.
+ */
+function _drumSnippetToABC(snippet, title, bpm, timeSig, ticksPerBeat) {
+  const hits = [...(snippet.hits || [])].sort((a, b) => a.startTick - b.startTick);
+
+  const drumMap = {
+    kick:   'B,,',
+    snare:  'D,',
+    clap:   'E,',
+    hihat:  '^F,',
+    cymbal: 'A,',
+    tomlo:  'C,',
+    tommid: 'F,',
+    tomhi:  'G,',
+    rim:    '^C,',
+    shaker: '^G,',
+  };
+
+  if (hits.length === 0) {
+    return `X:1\nT:${title}\nM:${timeSig.beats}/${timeSig.subdivision}\nL:1/8\nQ:1/4=${bpm}\nK:C clef=perc\nz8 |\n`;
+  }
+
+  let body = '';
+  let currentTick = 0;
+  const ticksPerBar = ticksPerBeat * timeSig.beats;
+
+  for (const hit of hits) {
+    if (hit.startTick > currentTick) {
+      const gapTicks = hit.startTick - currentTick;
+      const restDur = ticksToABCDuration(gapTicks, ticksPerBeat);
+      body += `z${restDur} `;
+    }
+
+    const abcNote = drumMap[hit.type] || 'D,';
+    body += `${abcNote} `;
+    currentTick = hit.startTick;
+
+    if (currentTick > 0 && currentTick % ticksPerBar === 0) {
+      body += '| ';
+    }
+  }
+
+  const duration = snippet.durationTicks || (ticksPerBar * 4);
+  if (currentTick < duration) {
+    const remaining = duration - currentTick;
+    const restDur = ticksToABCDuration(remaining, ticksPerBeat);
+    body += `z${restDur} |`;
+  }
+
+  return [
+    'X:1',
+    `T:${title} (Drums)`,
+    `M:${timeSig.beats}/${timeSig.subdivision}`,
+    'L:1/8',
+    `Q:1/4=${bpm}`,
+    'K:C clef=perc',
+    body.trim(),
+  ].join('\n');
+}
+
+/**
  * Convert all project snippets to a single ABC string.
  * @param {object} project
  * @returns {string}
@@ -152,7 +218,9 @@ export function snippetToABC(snippet, options = {}) {
 export function projectToABC(project) {
   if (!project?.snippets?.length) return '';
 
-  return project.snippets.map((snippet, i) => {
-    return snippetToABC(snippet, { title: `${project.name} - Snippet ${i + 1}` });
-  }).join('\n\n');
+  return project.snippets
+    .filter(s => s.type !== 'audio')
+    .map((snippet, i) => {
+      return snippetToABC(snippet, { title: `${project.name} - ${snippet.name || `Snippet ${i + 1}`}` });
+    }).join('\n\n');
 }

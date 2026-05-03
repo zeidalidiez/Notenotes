@@ -96,7 +96,7 @@ class App {
       this.editMode.loadSnippet(snippet);
       this.modeTabs.setActive(Modes.PIANOROLL);
       this._switchMode(Modes.PIANOROLL);
-      showToast('Editing snippet');
+      showToast(snippet.type === 'audio' ? 'Audio preview' : 'Editing snippet');
     });
 
     // Wire snippet deletion: SnippetTray → Project

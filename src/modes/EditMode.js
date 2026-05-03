@@ -61,18 +61,39 @@ export class EditMode {
 
     this.el.innerHTML = '';
     if (this._snippet) {
-      this._renderEditor();
+      if (this._snippet.type === 'audio') {
+        this._renderAudioPlayer();
+      } else {
+        this._renderEditor();
+      }
     } else {
       this._renderEmpty();
     }
+  }
+
+  _renderAudioPlayer() {
+    this.el.innerHTML = `
+      <div class="edit-audio">
+        <div class="edit-audio__header">
+          <span class="edit-audio__title">🎤 ${this._snippet.name || 'Audio'}</span>
+        </div>
+        <div class="edit-audio__body">
+          <audio class="edit-audio__player" controls src="${this._snippet.audioUrl || ''}"></audio>
+          <p class="edit-audio__meta">
+            BPM: ${this._snippet.bpm} · 
+            Duration: ${(this._snippet.durationTicks / 480).toFixed(1)} beats
+          </p>
+        </div>
+      </div>
+    `;
   }
 
   _renderEmpty() {
     this.el.innerHTML = `
       <div class="edit-empty">
         <div class="edit-empty__icon">✏️</div>
-        <h2 class="edit-empty__title">Live Edit</h2>
-        <p class="edit-empty__desc">Select a snippet from the Snippet Tray or a clip from the Canvas to edit its notes here.</p>
+        <h2 class="edit-empty__title">Inspect</h2>
+        <p class="edit-empty__desc">Select a MIDI snippet to view and edit its notes in the piano roll.</p>
       </div>
     `;
   }

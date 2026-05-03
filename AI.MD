@@ -279,5 +279,22 @@ This also creates a version history snapshot. Max 5 versions kept per project.
 6. **Update this file** when making significant architectural changes
 7. **The design system is in `src/style.css`** — use existing CSS custom properties, don't invent new colors
 8. **Snippet data is mutable** — Piano Roll edits mutate notes in place; be careful with references
-9. **IndexedDB auto-saves** — call `store.scheduleAutoSave(project)` after any project mutation
 10. **Dev server**: `npm run dev` → runs on `http://localhost:5173/`
+
+<!-- --- NEW CONTEXT ADDED DURING RECENT UI SYNCHRONIZATION EFFORTS --- -->
+
+## 🔄 UI Synchronization & State Management
+
+**Initialization Order Gotcha**
+- Components (like `CreativeMode`, `ScaleBoard`, `LoopProgress`) are instantiated in `main.js` constructor **before** the project is loaded from IndexedDB.
+- `main.js` initially passes `null` for the project.
+- Once the project loads (`_loadOrCreateProject()`), `main.js` injects the project reference via setters (e.g., `this.creativeMode.project = this.project`).
+- **CRITICAL**: Sub-components MUST implement `set project(p)` setters to re-calculate state (e.g., `_updateNotes()`) and re-render. If a component just does `this.project = project` in its constructor, it will be permanently stuck with `null` defaults!
+
+**Global Visual Effects & CSS Variables**
+- The app background color is controlled via the `--surface-0` CSS variable defined in `:root` in `style.css`.
+- Some full-screen panels (like `.edit-mode`) explicitly set `background: var(--surface-0)`.
+- If you want to create a global background effect (e.g., the time signature visualizer pulsing on beats), **do not** use `document.body.style.backgroundColor`. Instead, use `document.documentElement.style.setProperty('--surface-0', color)`. This ensures seamless updates across all UI layers.
+
+**Music Theory Note Generation**
+- `MusicTheory.js` > `getScaleNotes` generates 32 notes by default (spanning multiple octaves). This allows dynamic UI components (like a 16-pad ScaleBoard) to receive enough notes. If you add new instruments, you can leverage this to get extended scale ranges instantly.

@@ -9,7 +9,7 @@ Notenotes is designed for musicians, producers, and anyone who wants a zero-fric
 ## ✨ Features
 
 ### 🎹 Creative Mode — The Jam Space
-- **Scale Board** — 7-pad controller locked to any scale (Major, Minor, Pentatonic, Blues, Dorian, Mixolydian, Chromatic)
+- **Scale Board** — Dynamic multi-pad controller (up to 16 pads) locked to any scale (Major, Minor, Pentatonic, Blues, Dorian, Mixolydian, Chromatic)
 - **Micro Piano** — Full chromatic 12-key keyboard with octave shifting
 - **Sketch Kit** — 5-pad synthesized drum kit (Kick, Snare, Clap, Hi-Hat, Cymbal)
 - **Mic Recorder** — Record audio from your microphone with live waveform visualization
@@ -32,7 +32,7 @@ Notenotes is designed for musicians, producers, and anyone who wants a zero-fric
 
 ### ⚙️ Settings & Export
 - **Sheet Music Export** — Render snippets as sheet music via [abcjs](https://paulrosen.github.io/abcjs/), export as SVG or ABC text
-- **Project Settings** — Name, BPM, quantization grid, metronome volume, master volume
+- **Project Settings** — Name, BPM, quantization grid, Scale Board pad counts, Time Signature background visualizer (custom beat colors), metronome volume, master volume
 - **Version History** — Auto-saves up to 5 snapshots; restore any previous version
 - **Metronome** — Available in every mode, with accent on beat 1
 
@@ -192,3 +192,19 @@ Each phase was built iteratively — code first, then browser testing with scree
 ## 📄 License
 
 MIT
+
+---
+
+## 🤖 For AI Developers
+
+If you are an AI agent or LLM assisting with this project, **you must read the `AI.MD` file before making structural changes.** 
+
+`AI.MD` is a living context document that contains:
+- Architectural overviews and the dependency graph.
+- Critical context regarding the Web Audio lookahead scheduler (e.g., why you should never use `setTimeout` for audio).
+- The exact state shape of projects and snippets in the IndexedDB store.
+- Common "gotchas" such as UI component initialization and project loading lifecycle.
+
+**How to use `AI.MD`:**
+1. Read it first when starting a new session.
+2. If you solve a complex architectural bug or establish a new UI pattern, **append your findings** to `AI.MD` as comments or new sections at the bottom. **Never delete** existing context unless explicitly told it is deprecated.

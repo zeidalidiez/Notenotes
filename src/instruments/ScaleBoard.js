@@ -13,7 +13,6 @@ export class ScaleBoard {
    */
   constructor(synth, project) {
     this.synth = synth;
-    this.project = project;
     this.el = null;
 
     // State
@@ -32,11 +31,30 @@ export class ScaleBoard {
     // Callbacks for note recording
     this._onNoteOn = null;
     this._onNoteOff = null;
+    
+    // Now that state is initialized, set the project to trigger updates
+    this.project = project;
 
-    window.addEventListener('settings-pads-changed', () => {
-      this._updateNotes();
+    window.addEventListener('settings-pads-changed', (e) => {
+      if (e.detail && e.detail.count) {
+        this._updateNotes(e.detail.count);
+      } else {
+        this._updateNotes();
+      }
       this._refreshPads();
     });
+  }
+
+  set project(p) {
+    this._project = p;
+    this._updateNotes();
+    if (this.el) {
+      this._refreshPads();
+    }
+  }
+
+  get project() {
+    return this._project;
   }
 
   /** Set callbacks for note events (used by recording system) */
@@ -46,9 +64,9 @@ export class ScaleBoard {
   }
 
   /** Recalculate scale notes */
-  _updateNotes() {
+  _updateNotes(overrideCount) {
     this._fullScaleNotes = getScaleNotes(this.scaleName, this.rootNote, this.octave);
-    const count = this.project?.settings?.scalePadsCount || 7;
+    const count = overrideCount || this.project?.settings?.scalePadsCount || 7;
     this._notes = this._fullScaleNotes.slice(0, count);
     while (this.customPadTypes.length < count) {
       this.customPadTypes.push('single');

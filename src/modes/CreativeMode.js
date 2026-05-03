@@ -52,6 +52,16 @@ export class CreativeMode {
     this._initialized = false;
   }
 
+  set project(p) {
+    this._project = p;
+    if (this.scaleBoard) this.scaleBoard.project = p;
+    if (this.loopProgress) this.loopProgress.project = p;
+  }
+
+  get project() {
+    return this._project;
+  }
+
   /**
    * Initialize audio nodes and recording hooks.
    */

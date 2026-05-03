@@ -59,11 +59,19 @@ export function noteNameToMidi(noteName, octave = 4) {
  * @param {number} octave - Base octave
  * @returns {number[]} Array of MIDI note numbers
  */
-export function getScaleNotes(scaleName, rootNote, octave = 4) {
+export function getScaleNotes(scaleName, rootNote, octave = 4, count = 32) {
   const scale = SCALES[scaleName];
   if (!scale) return [];
   const rootMidi = noteNameToMidi(rootNote, octave);
-  return scale.intervals.map(interval => rootMidi + interval);
+  const notes = [];
+  let currentOctaveOffset = 0;
+  while (notes.length < count) {
+    for (let i = 0; i < scale.intervals.length && notes.length < count; i++) {
+      notes.push(rootMidi + currentOctaveOffset + scale.intervals[i]);
+    }
+    currentOctaveOffset += 12;
+  }
+  return notes;
 }
 
 /**

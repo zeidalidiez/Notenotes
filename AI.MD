@@ -255,12 +255,9 @@ This also creates a version history snapshot. Max 5 versions kept per project.
 ## 🗺️ Roadmap / Open Work
 
 ### Not Yet Implemented
-- **Audio playback of arrangements** — Canvas Mode tracks don't play back yet; the Transport only drives Creative Mode's live instruments. Need to build a `PlaybackEngine` that reads clips from tracks and triggers the appropriate instrument for each note at the correct time.
-- **Clip copy/duplicate** — Only move and delete are implemented. Add a "Duplicate" action.
 - **Mic audio integration** — MicRecorder captures audio blobs, but they aren't stored as snippets or playable in the Canvas. Need to convert audio blobs to AudioBuffers and create an audio-type snippet.
 - **MIDI input** — No Web MIDI API integration yet. Could map MIDI keyboard input to the synth.
 - **Overdubbing** — Record additional notes on top of an existing snippet.
-- **Track renaming** — Tracks have names but no UI to edit them inline.
 - **Mobile touch optimization** — Touch events work but multi-touch (e.g., piano chords) needs testing.
 - **Export to MIDI file** — ABC export works, but .mid file export is not implemented.
 

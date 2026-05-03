@@ -31,6 +31,7 @@ export class CanvasMode {
     this.store = store;
     this.el = null;
 
+    this._zoomLevel = 1;
     this.barWidth = DEFAULT_BAR_WIDTH;
     this.beatWidth = DEFAULT_BAR_WIDTH / 4;
     this._selectedClip = null;
@@ -57,6 +58,9 @@ export class CanvasMode {
     toolbar.innerHTML = `
       <div class="canvas-toolbar__group">
         <button class="btn btn--ghost" id="canvas-add-track-btn" style="font-size:0.75rem;min-height:28px;padding:2px 10px;">+ Track</button>
+        <div style="width: 1px; height: 16px; background: var(--surface-3); margin: 0 4px;"></div>
+        <button class="btn btn--ghost" id="canvas-zoom-out-btn" style="font-size:0.75rem;min-height:28px;padding:2px 8px;" title="Zoom Out (1/2x)">🔍-</button>
+        <button class="btn btn--ghost" id="canvas-zoom-in-btn" style="font-size:0.75rem;min-height:28px;padding:2px 8px;" title="Zoom In (2x)">🔍+</button>
       </div>
       <div class="canvas-toolbar__spacer"></div>
       <div class="canvas-toolbar__group">
@@ -117,7 +121,7 @@ export class CanvasMode {
     if (!this.project) return;
     if (!this.project.tracks || this.project.tracks.length === 0) {
       this.project.tracks = [
-        { id: crypto.randomUUID(), name: 'Melody', type: 'midi', instrumentId: 'synth', clips: [], muted: false, solo: false, volume: 0.8 },
+        { id: crypto.randomUUID(), name: 'Melody', type: 'midi', instrumentId: 'chip_lead', clips: [], muted: false, solo: false, volume: 0.8 },
         { id: crypto.randomUUID(), name: 'Drums', type: 'midi', instrumentId: 'kit', clips: [], muted: false, solo: false, volume: 0.8 },
       ];
     }
@@ -228,8 +232,9 @@ export class CanvasMode {
     el.style.background = color;
 
     const noteCount = (clip.snippet?.notes?.length || 0) + (clip.snippet?.hits?.length || 0);
+    const snippetName = clip.snippet?.name || `${noteCount} notes`;
     el.innerHTML = `
-      <span class="canvas-clip__label">${noteCount} notes</span>
+      <span class="canvas-clip__label">${snippetName}</span>
       <div class="canvas-clip__preview">${this._renderClipPreview(clip, w)}</div>
     `;
 
@@ -400,9 +405,10 @@ export class CanvasMode {
 
     dock.innerHTML = snippets.map(s => {
       const count = (s.notes?.length || 0) + (s.hits?.length || 0);
+      const name = s.name || `${count} notes`;
       const icon = s.type === 'drum' ? '🥁' : '🎵';
       return `<div class="canvas-snippet-dock__item" draggable="true" data-snippet-id="${s.id}">
-        ${icon} ${count} notes
+        ${icon} ${name}
       </div>`;
     }).join('');
 
@@ -426,7 +432,7 @@ export class CanvasMode {
       id: crypto.randomUUID(),
       name: `Track ${trackNum}`,
       type: 'midi',
-      instrumentId: 'synth',
+      instrumentId: 'chip_lead',
       clips: [],
       muted: false,
       solo: false,
@@ -462,10 +468,19 @@ export class CanvasMode {
   }
 
   _bindEvents() {
-    // Add track from toolbar
-    this.el.querySelector('#canvas-add-track-btn')?.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
+    // Add track
+    this.el.querySelector('#canvas-add-track-btn')?.addEventListener('click', () => {
       this._addTrack();
+    });
+
+    // Zoom In
+    this.el.querySelector('#canvas-zoom-in-btn')?.addEventListener('click', () => {
+      this._setZoom(this._zoomLevel * 2);
+    });
+
+    // Zoom Out
+    this.el.querySelector('#canvas-zoom-out-btn')?.addEventListener('click', () => {
+      this._setZoom(this._zoomLevel / 2);
     });
 
     // Delegated events on the canvas element
@@ -574,6 +589,38 @@ export class CanvasMode {
         this._rulerEl.scrollLeft = this._tracksContainer.scrollLeft;
       }
     });
+
+    // Drag-to-pan timeline
+    this._tracksContainer?.addEventListener('pointerdown', (e) => {
+      // Ignore if clicking on a clip, track header, or scrollbar
+      if (e.target.closest('.canvas-clip') || e.target.closest('.canvas-lane__header')) return;
+      if (e.target.closest('button') || e.target.closest('select')) return;
+
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startScrollLeft = this._tracksContainer.scrollLeft;
+      const startScrollTop = this._tracksContainer.scrollTop;
+      
+      this._tracksContainer.style.cursor = 'grabbing';
+      this._tracksContainer.style.userSelect = 'none';
+
+      const onMove = (me) => {
+        const dx = me.clientX - startX;
+        const dy = me.clientY - startY;
+        this._tracksContainer.scrollLeft = startScrollLeft - dx;
+        this._tracksContainer.scrollTop = startScrollTop - dy;
+      };
+
+      const onUp = () => {
+        this._tracksContainer.style.cursor = '';
+        this._tracksContainer.style.userSelect = '';
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+      };
+
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+    });
   }
 
   /** Delete the currently selected clip */
@@ -630,6 +677,27 @@ export class CanvasMode {
     this._renderRuler();
     this._renderTracks();
     this._renderSnippetDock();
+  }
+
+  /** Set the zoom level for the canvas timeline */
+  _setZoom(level) {
+    this._zoomLevel = Math.max(0.125, Math.min(8, level));
+    this.barWidth = DEFAULT_BAR_WIDTH * this._zoomLevel;
+    this.beatWidth = this.barWidth / 4;
+    
+    if (this.el) {
+      this.el.style.setProperty('--bar-width', `${this.barWidth}px`);
+      this.el.style.setProperty('--beat-width', `${this.beatWidth}px`);
+      
+      const scrollRatio = this._tracksContainer.scrollLeft / this._tracksContainer.scrollWidth || 0;
+      
+      this._renderRuler();
+      this._renderTracks();
+      
+      if (this._tracksContainer.scrollWidth > 0) {
+         this._tracksContainer.scrollLeft = scrollRatio * this._tracksContainer.scrollWidth;
+      }
+    }
   }
 
   destroy() {

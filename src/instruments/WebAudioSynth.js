@@ -151,8 +151,9 @@ export class WebAudioSynth {
    * Trigger a note on (start playing).
    * @param {number} midi - MIDI note number
    * @param {number} [velocity=0.8] - Velocity 0–1
+   * @param {number} [atTime] - AudioContext time to schedule the note
    */
-  noteOn(midi, velocity = 0.8) {
+  noteOn(midi, velocity = 0.8, atTime) {
     if (!this._output) return;
 
     // If this note is already playing, stop it first
@@ -169,7 +170,7 @@ export class WebAudioSynth {
     }
 
     const ctx = this.engine.ctx;
-    const now = ctx.currentTime;
+    const now = atTime !== undefined ? atTime : ctx.currentTime;
     const p = this.patch;
 
     // Oscillator
@@ -211,22 +212,23 @@ export class WebAudioSynth {
   /**
    * Trigger a note off (release).
    * @param {number} midi - MIDI note number
+   * @param {number} [atTime] - AudioContext time to schedule the release
    */
-  noteOff(midi) {
+  noteOff(midi, atTime) {
     const voice = this._voices.get(midi);
     if (!voice) return;
 
     const ctx = this.engine.ctx;
-    const now = ctx.currentTime;
+    const now = atTime !== undefined ? atTime : ctx.currentTime;
     const p = this.patch;
 
     // Release envelope
     voice.env.gain.cancelScheduledValues(now);
-    voice.env.gain.setValueAtTime(voice.env.gain.value, now);
-    voice.env.gain.linearRampToValueAtTime(0, now + p.envelope.release);
+    // We use setTargetAtTime for a smoother release instead of linearRamp to avoid clicks if the value isn't exact
+    voice.env.gain.setTargetAtTime(0, now, p.envelope.release / 3);
 
     // Schedule oscillator stop after release
-    voice.osc.stop(now + p.envelope.release + 0.05);
+    voice.osc.stop(now + p.envelope.release + 0.1);
 
     // Remove from map
     this._voices.delete(midi);

@@ -101,6 +101,33 @@ export class SettingsPanel {
             <input class="settings-range" id="setting-master-vol" type="range" min="0" max="100" value="${Math.round(masterVol * 100)}" aria-label="Master volume"/>
           </div>
         </div>
+
+        <div class="settings-group">
+          <h3 class="settings-group__title">Scale Board</h3>
+          <div class="settings-row">
+            <label class="settings-label">Number of Pads (<span id="setting-pads-display">${this.project?.settings?.scalePadsCount || 7}</span>)</label>
+            <input class="settings-range" id="setting-pads-count" type="range" min="1" max="16" value="${this.project?.settings?.scalePadsCount || 7}" aria-label="Scale board pads count"/>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <h3 class="settings-group__title">Time Signature Visualizer</h3>
+          <div class="settings-row" style="justify-content: flex-start; gap: 10px;">
+            <input type="checkbox" id="setting-vis-enabled" ${this.project?.settings?.visualizerEnabled ? 'checked' : ''} />
+            <label class="settings-label" for="setting-vis-enabled">Enable background visualizer</label>
+          </div>
+          <div class="settings-row">
+            <label class="settings-label">Beat Colors</label>
+            <div style="display: flex; gap: 4px;">
+              ${(this.project?.settings?.beatColors || ['#1e1e2e', '#2a2a3e', '#1e1e2e', '#2a2a3e']).map((c, i) => 
+                `<input type="color" class="setting-vis-color" data-index="${i}" value="${c}" aria-label="Beat ${i+1} color" style="width: 24px; height: 24px; padding: 0; border: none; border-radius: 4px;" />`
+              ).join('')}
+            </div>
+          </div>
+        </div>
+        <div class="settings-row" style="margin-top: var(--space-xl); justify-content: center;">
+          <button class="btn btn--primary" id="setting-save-btn" style="width: 100%;">Save & Close</button>
+        </div>
       </div>
     `;
   }
@@ -182,16 +209,61 @@ export class SettingsPanel {
       if (this.project) this.project.settings.metronomeVolume = vol;
     });
 
-    // Master volume
-    body.querySelector('#setting-master-vol')?.addEventListener('input', (e) => {
-      const vol = parseInt(e.target.value, 10) / 100;
-      const engine = this.transport?.engine;
-      if (engine?.masterGain) {
-        engine.masterGain.gain.setTargetAtTime(vol, engine.currentTime, 0.01);
-      }
-      if (this.project) this.project.settings.masterVolume = vol;
-    });
-  }
+      // Master volume
+      body.querySelector('#setting-master-vol')?.addEventListener('input', (e) => {
+        const vol = parseInt(e.target.value, 10) / 100;
+        const engine = this.transport?.engine;
+        if (engine?.masterGain) {
+          engine.masterGain.gain.setTargetAtTime(vol, engine.currentTime, 0.01);
+        }
+        if (this.project) this.project.settings.masterVolume = vol;
+      });
+
+      // Scale pads count
+      body.querySelector('#setting-pads-count')?.addEventListener('input', (e) => {
+        let count = parseInt(e.target.value, 10);
+        if (isNaN(count) || count < 1) count = 7;
+        if (count > 16) count = 16;
+        
+        const display = body.querySelector('#setting-pads-display');
+        if (display) display.textContent = count;
+
+        if (this.project) {
+          this.project.settings.scalePadsCount = count;
+          this.store?.scheduleAutoSave(this.project);
+          // Trigger event for ScaleBoard to update
+          window.dispatchEvent(new CustomEvent('settings-pads-changed', { detail: { count } }));
+        }
+      });
+
+      // Visualizer toggle
+      body.querySelector('#setting-vis-enabled')?.addEventListener('change', (e) => {
+        if (this.project) {
+          this.project.settings.visualizerEnabled = e.target.checked;
+          this.store?.scheduleAutoSave(this.project);
+          if (!e.target.checked) document.documentElement.style.removeProperty('--surface-0');
+        }
+      });
+
+      // Visualizer colors
+      body.querySelectorAll('.setting-vis-color').forEach(input => {
+        input.addEventListener('input', (e) => {
+          if (this.project) {
+            const idx = parseInt(e.target.dataset.index, 10);
+            if (!this.project.settings.beatColors) {
+              this.project.settings.beatColors = ['#1e1e2e', '#2a2a3e', '#1e1e2e', '#2a2a3e'];
+            }
+            this.project.settings.beatColors[idx] = e.target.value;
+            this.store?.scheduleAutoSave(this.project);
+          }
+        });
+      });
+
+      // Save & Close button
+      body.querySelector('#setting-save-btn')?.addEventListener('click', () => {
+        this.close();
+      });
+    }
 
   _switchSection(section) {
     this._activeSection = section;

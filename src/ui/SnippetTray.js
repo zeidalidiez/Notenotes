@@ -18,6 +18,11 @@ export class SnippetTray {
    */
   onSnippetSelected(fn) { this._onSnippetSelected = fn; }
 
+  /**
+   * Set callback for when a snippet is deleted from the tray.
+   */
+  onSnippetDeleted(fn) { this._onSnippetDeleted = fn; }
+
   render() {
     this.el = document.createElement('div');
     this.el.className = 'snippet-tray';
@@ -54,6 +59,9 @@ export class SnippetTray {
   removeSnippet(id) {
     this.snippets = this.snippets.filter(s => s.id !== id);
     this._renderSnippets();
+    if (this._onSnippetDeleted) {
+      this._onSnippetDeleted(id);
+    }
   }
 
   _renderSnippets() {

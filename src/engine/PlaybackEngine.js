@@ -54,8 +54,8 @@ export class PlaybackEngine {
     this._kit.init();
 
     // Subscribe to transport tick events
-    this.transport.onTick((tick) => {
-      this._processTick(tick);
+    this.transport.onTick((tick, nextTickTime) => {
+      this._processTick(tick, nextTickTime);
     });
 
     // On stop, release all active notes
@@ -102,8 +102,9 @@ export class PlaybackEngine {
   /**
    * Process a transport tick — check all tracks for notes to play.
    * @param {number} tick - Current transport tick
+   * @param {number} nextTickTime - AudioContext time this tick occurs
    */
-  _processTick(tick) {
+  _processTick(tick, nextTickTime) {
     if (!this.project?.tracks) return;
     if (this.transport.state === TransportState.STOPPED) return;
 
@@ -142,7 +143,7 @@ export class PlaybackEngine {
           for (const note of snippet.notes) {
             // Trigger noteOn at the exact start tick
             if (note.startTick === localTick) {
-              synth.noteOn(note.pitch, note.velocity || 0.8);
+              synth.noteOn(note.pitch, note.velocity || 0.8, nextTickTime);
 
               // Schedule noteOff
               const noteOffTick = tick + (note.durationTick || 240);
@@ -156,7 +157,7 @@ export class PlaybackEngine {
         if (instDef.type === 'kit' && snippet.hits && this._kit) {
           for (const hit of snippet.hits) {
             if (hit.startTick === localTick) {
-              this._kit._triggerSound(hit.type || 'kick');
+              this._kit._triggerSound(hit.type || 'kick', nextTickTime);
             }
           }
         }
@@ -166,7 +167,7 @@ export class PlaybackEngine {
     // Process scheduled noteOffs
     for (const [key, entry] of this._activeNotes) {
       if (tick >= entry.noteOffTick) {
-        entry.synth.noteOff(entry.pitch);
+        entry.synth.noteOff(entry.pitch, nextTickTime);
         this._activeNotes.delete(key);
       }
     }

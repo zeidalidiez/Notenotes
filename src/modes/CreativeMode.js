@@ -37,7 +37,7 @@ export class CreativeMode {
     this.synth = new WebAudioSynth();
 
     // Instruments
-    this.scaleBoard = new ScaleBoard(this.synth);
+    this.scaleBoard = new ScaleBoard(this.synth, this.project);
     this.microPiano = new MicroPiano(this.synth);
     this.sketchKit = new SketchKit();
     this.micRecorder = new MicRecorder();
@@ -47,7 +47,7 @@ export class CreativeMode {
 
     // UI
     this.snippetTray = new SnippetTray();
-    this.loopProgress = new LoopProgress(transport);
+    this.loopProgress = new LoopProgress(transport, project);
 
     this._initialized = false;
   }

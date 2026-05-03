@@ -8,9 +8,11 @@ import { TransportState } from '../engine/Transport.js';
 export class LoopProgress {
   /**
    * @param {Transport} transport
+   * @param {Object} project
    */
-  constructor(transport) {
+  constructor(transport, project) {
     this.transport = transport;
+    this.project = project;
     this.el = null;
     this._bar = null;
     this._animFrame = null;
@@ -51,6 +53,7 @@ export class LoopProgress {
     if (this._bar) {
       this._bar.style.width = '0%';
     }
+    document.documentElement.style.removeProperty('--surface-0');
   }
 
   _animate() {
@@ -69,8 +72,21 @@ export class LoopProgress {
       // Color change when recording
       const isRecording = this.transport.state === TransportState.RECORDING;
       this._bar.classList.toggle('is-recording', isRecording);
+
+      // Time signature visualizer
+      const settings = this.project?.settings || {};
+      if (settings.visualizerEnabled) {
+        const ticksPerBeat = this.transport.ticksPerBeat || 480;
+        const currentBeat = Math.floor(relative / ticksPerBeat) % (this.transport.timeSignature.beats || 4);
+        const colors = settings.beatColors || ['#1e1e2e', '#2a2a3e', '#1e1e2e', '#2a2a3e'];
+        const color = colors[currentBeat] || colors[0] || '';
+        document.documentElement.style.setProperty('--surface-0', color);
+      } else {
+        document.documentElement.style.removeProperty('--surface-0');
+      }
     }
 
     this._animFrame = requestAnimationFrame(() => this._animate());
   }
+
 }

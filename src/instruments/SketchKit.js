@@ -79,10 +79,10 @@ export class SketchKit {
     });
   }
 
-  _triggerSound(sound) {
+  _triggerSound(sound, atTime) {
     const ctx = this.engine.ctx;
     if (!ctx || !this._output) return;
-    const now = ctx.currentTime;
+    const now = atTime !== undefined ? atTime : ctx.currentTime;
     switch (sound) {
       case 'kick': this._synthKick(ctx, now); break;
       case 'snare': this._synthSnare(ctx, now); break;

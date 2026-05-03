@@ -93,7 +93,7 @@ export class EditMode {
     const noteCount = (this._snippet.notes?.length || 0) + (this._snippet.hits?.length || 0);
     toolbar.innerHTML = `
       <div class="edit-toolbar__group">
-        <span class="edit-toolbar__label">Editing</span>
+        <input type="text" class="edit-toolbar__name-input" id="edit-snippet-name" value="${this._snippet.name || 'Snippet'}" placeholder="Snippet name" title="Edit snippet name" style="background:var(--surface-2); color:var(--text-primary); border:1px solid var(--surface-3); border-radius:4px; padding:2px 6px; font-size:var(--font-size-sm); font-weight:var(--font-weight-medium); outline:none; max-width:150px;" />
         <span class="edit-toolbar__value">${noteCount} notes</span>
       </div>
       <div class="edit-toolbar__group">
@@ -477,6 +477,26 @@ export class EditMode {
       this._gridSize = parseInt(e.target.value, 10);
       this._refreshGrid();
     });
+
+    // Snippet name input
+    const nameInput = toolbar.querySelector('#edit-snippet-name');
+    if (nameInput) {
+      const saveName = () => {
+        const newName = nameInput.value.trim() || 'Snippet';
+        if (this._snippet && this._snippet.name !== newName) {
+          this._snippet.name = newName;
+          this.store?.scheduleAutoSave(this.project);
+          showToast('Snippet renamed');
+        }
+      };
+      nameInput.addEventListener('blur', saveName);
+      nameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          nameInput.blur();
+        }
+      });
+    }
 
     // Delete note button
     toolbar.querySelector('#edit-delete-btn')?.addEventListener('pointerdown', (e) => {

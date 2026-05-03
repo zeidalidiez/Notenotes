@@ -94,6 +94,21 @@ class App {
       showToast('Editing snippet');
     });
 
+    // Wire snippet deletion: SnippetTray → Project
+    this.creativeMode.snippetTray.onSnippetDeleted((id) => {
+      if (this.project && this.project.snippets) {
+        this.project.snippets = this.project.snippets.filter(s => s.id !== id);
+        this.store?.scheduleAutoSave(this.project);
+      }
+    });
+
+    // Load existing snippets into SnippetTray
+    if (this.project && this.project.snippets) {
+      this.project.snippets.forEach(snippet => {
+        this.creativeMode.snippetTray.addSnippet(snippet);
+      });
+    }
+
     // Create and render Settings Panel (needs project)
     this.settingsPanel = new SettingsPanel({
       transport: this.transport,

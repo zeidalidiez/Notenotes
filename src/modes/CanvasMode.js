@@ -145,12 +145,16 @@ export class CanvasMode {
   /** Render the time ruler (bar numbers) */
   _renderRuler() {
     if (!this._rulerEl) return;
-    const totalBars = Math.min(this.transport.maxBars, 80); // Show up to 80 bars
+    const totalBars = Math.min(this.transport.maxBars, 80);
+    const totalBeats = totalBars * 4;
     let html = '';
-    // Offset for track header width
     html += `<div class="canvas-ruler__bar" style="width:140px;flex-shrink:0;border-right:1px solid var(--surface-4);"></div>`;
-    for (let i = 1; i <= totalBars; i++) {
-      html += `<div class="canvas-ruler__bar" style="width:${this.barWidth}px;">${i}</div>`;
+    for (let beat = 0; beat < totalBeats; beat++) {
+      const bar = Math.floor(beat / 4) + 1;
+      const beatInBar = (beat % 4) + 1;
+      const label = beatInBar === 1 ? `${bar}` : `${bar}.${beatInBar}`;
+      const isBar = beatInBar === 1;
+      html += `<div class="canvas-ruler__beat" style="width:${this.beatWidth}px;${isBar ? 'font-weight:var(--font-weight-semibold);color:var(--accent-light);' : ''}">${label}</div>`;
     }
     this._rulerEl.innerHTML = html;
   }
@@ -362,7 +366,7 @@ export class CanvasMode {
       const rect = contentEl.getBoundingClientRect();
       const offsetX = e.clientX - rect.left + contentEl.parentElement?.closest('.canvas-tracks')?.scrollLeft || 0;
       const startBar = Math.max(0, Math.floor(offsetX / this.barWidth));
-      const durationBars = Math.ceil(snippet.durationTicks / this.transport.ticksPerBar) || 1;
+      const durationBars = snippet.durationTicks / this.transport.ticksPerBar || 1;
 
       const clip = {
         id: crypto.randomUUID(),
@@ -887,7 +891,7 @@ export class CanvasMode {
       for (const track of (this.project.tracks || [])) {
         for (const clip of (track.clips || [])) {
           if (clip.snippet) {
-            clip.durationBars = Math.ceil(clip.snippet.durationTicks / this.transport.ticksPerBar) || 1;
+            clip.durationBars = clip.snippet.durationTicks / this.transport.ticksPerBar || 1;
           }
         }
       }

@@ -70,6 +70,19 @@
   font-variant-numeric: tabular-nums;
 }
 
+.canvas-ruler__beat {
+  flex-shrink: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  color: var(--text-tertiary);
+  border-right: 1px solid var(--surface-4);
+  box-sizing: border-box;
+  font-variant-numeric: tabular-nums;
+}
+
 .canvas-ruler__bar:nth-child(4n+1) {
   color: var(--text-secondary);
 }

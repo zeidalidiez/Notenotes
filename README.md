@@ -58,7 +58,7 @@ Notenotes is built for visual thinkers and non-traditional musicians who feel fr
 ## 🚀 Quick Start
 
 ### Prerequisites
-- **Node.js** 18+ (LTS recommended)
+- **Node.js** 20+ (LTS recommended)
 - **npm** (comes with Node.js)
 
 ### Install & Run

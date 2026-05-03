@@ -178,8 +178,21 @@ export class ControllerMode {
   }
 
   _updateOctave() {
+    this._releaseAllNotes();
     this.el.querySelector('#ct-oct-label').textContent = `Oct ${this.octave}`;
     this._updateNotes(); this._refreshPads();
+  }
+
+  _releaseAllNotes() {
+    for (const [midi] of this._activeMidis) {
+      this.synth.noteOff(midi);
+      if (this._onNoteOff) this._onNoteOff(midi);
+    }
+    this._activeMidis.clear();
+    for (const [, chordMidis] of this._activeChords) {
+      chordMidis.forEach(m => this.synth.noteOff(m));
+    }
+    this._activeChords.clear();
   }
 
   _refreshPads() {

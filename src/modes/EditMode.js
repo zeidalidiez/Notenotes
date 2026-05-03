@@ -102,13 +102,34 @@ export class EditMode {
   }
 
   _renderEmpty() {
+    const snippets = (this.project?.snippets || []).filter(s => s.type !== 'audio');
+    const options = snippets.length === 0
+      ? '<option value="">No snippets yet</option>'
+      : '<option value="">Select a snippet...</option>' +
+        snippets.map(s => {
+          const count = (s.notes?.length || 0) + (s.hits?.length || 0);
+          const icon = s.type === 'drum' ? '🥁' : '🎵';
+          const label = s.name || `${count} ${s.type === 'drum' ? 'hits' : 'notes'}`;
+          return `<option value="${s.id}">${icon} ${label}</option>`;
+        }).join('');
+
     this.el.innerHTML = `
       <div class="edit-empty">
         <div class="edit-empty__icon">✏️</div>
         <h2 class="edit-empty__title">Inspect</h2>
-        <p class="edit-empty__desc">Select a MIDI snippet to view and edit its notes in the piano roll.</p>
+        <p class="edit-empty__desc">Select a snippet to view or edit its notes.</p>
+        <select class="edit-empty__select" id="edit-empty-select" aria-label="Select snippet">
+          ${options}
+        </select>
       </div>
     `;
+
+    this.el.querySelector('#edit-empty-select')?.addEventListener('change', (e) => {
+      const id = e.target.value;
+      if (!id) return;
+      const snippet = this.project?.snippets?.find(s => s.id === id);
+      if (snippet) this.loadSnippet(snippet);
+    });
   }
 
   _renderEditor() {
@@ -792,11 +813,18 @@ export class EditMode {
     this._updateSnippetDuration();
     this._rebuildGrids();
 
+    const count = (this._snippet.notes?.length || 0) + (this._snippet.hits?.length || 0);
+    const isDrum = this._snippet?.type === 'drum';
+
     const countEl = this.el.querySelector('.edit-toolbar__value');
     if (countEl) {
-      const count = (this._snippet.notes?.length || 0) + (this._snippet.hits?.length || 0);
-      const isDrum = this._snippet?.type === 'drum';
       countEl.textContent = `${count} ${isDrum ? 'hits' : 'notes'}`;
+    }
+
+    if (this._snippet?.name && /^\d+\s+(notes|hits)$/.test(this._snippet.name)) {
+      this._snippet.name = `${count} ${isDrum ? 'hits' : 'notes'}`;
+      const nameInput = this.el.querySelector('#edit-snippet-name');
+      if (nameInput) nameInput.value = this._snippet.name;
     }
 
     this.store?.scheduleAutoSave(this.project);

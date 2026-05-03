@@ -261,8 +261,16 @@ export class CanvasMode {
       e.stopPropagation();
       this._selectClip(clip.id, el);
 
-      // Drag to move
-      this._startClipDrag(e, clip, el);
+      if (e.ctrlKey || e.metaKey) {
+        this._deleteSelectedClip();
+        return;
+      }
+
+      if (e.altKey) {
+        this._startClipResize(e, clip, el);
+      } else {
+        this._startClipDrag(e, clip, el);
+      }
     });
 
     return el;
@@ -430,6 +438,49 @@ export class CanvasMode {
         });
       } else {
         el.style.left = `${originalBar * this.barWidth}px`;
+      }
+    };
+
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+  }
+
+  _startClipResize(e, clip, el) {
+    const startX = e.clientX;
+    const startWidth = parseInt(el.style.width, 10) || clip.durationBars * this.barWidth;
+    const originalBars = clip.durationBars;
+
+    el.classList.add('is-dragging');
+
+    const onMove = (me) => {
+      const dx = me.clientX - startX;
+      const newWidth = Math.max(this.beatWidth, Math.min(startWidth, startWidth + dx));
+      el.style.width = `${newWidth}px`;
+    };
+
+    const onUp = () => {
+      el.classList.remove('is-dragging');
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+
+      const finalWidth = parseInt(el.style.width, 10);
+      const newBeats = Math.max(1, Math.round(finalWidth / this.beatWidth));
+      const newBars = newBeats / 4;
+      if (newBars !== originalBars) {
+        clip.durationBars = newBars;
+        el.style.width = `${newBars * this.barWidth}px`;
+        const snip = clip.snippet;
+        if (snip) {
+          const maxTick = Math.ceil(newBars * this.transport.ticksPerBar);
+          if (snip.notes) snip.notes = snip.notes.filter(n => n.startTick < maxTick);
+          if (snip.hits) snip.hits = snip.hits.filter(h => h.startTick < maxTick);
+          snip.durationTicks = maxTick;
+        }
+        this.store?.scheduleAutoSave(this.project);
+        this._renderTracks();
+        this._autoSetLoopFromClips();
+      } else {
+        el.style.width = `${originalBars * this.barWidth}px`;
       }
     };
 

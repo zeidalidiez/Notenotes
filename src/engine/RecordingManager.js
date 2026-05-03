@@ -37,12 +37,32 @@ export class RecordingManager {
     /** Loop subscription cleanup */
     this._unsubLoop = null;
     this._unsubState = null;
+    this._initialized = false;
   }
 
-  /**
-   * Set callback for when a snippet is created.
-   * @param {Function} fn - Called with (snippet)
-   */
+  init() {
+    if (this._initialized) return;
+    this._initialized = true;
+    this._unsubState = this.transport.onStateChange((state) => {
+      if (state === 'stopped' && this.armed) {
+        for (const [midi, noteData] of this._heldNotes.entries()) {
+          const endTick = this.transport.currentTick;
+          this._capturedNotes.push({
+            pitch: midi,
+            startTick: noteData.startTick,
+            durationTick: Math.max(1, endTick - noteData.startTick),
+            velocity: noteData.velocity,
+          });
+        }
+        this._heldNotes.clear();
+        if (this._capturedNotes.length + this._capturedHits.length > 0) {
+          this._finalizeSnippet();
+        }
+        this.armed = false;
+      }
+    });
+  }
+
   onSnippetCreated(fn) {
     this._onSnippetCreated = fn;
   }
@@ -64,46 +84,20 @@ export class RecordingManager {
   }
 
   /**
-   * Start listening for loop events to finalize recordings.
-   */
-  init() {
-    // When the loop wraps, finalize any recorded notes
-    this._unsubLoop = this.transport.onLoop(() => {
-      if (this.armed && this._capturedNotes.length + this._capturedHits.length > 0) {
-        this._finalizeSnippet();
-      }
-    });
-
-    // When transport stops, also finalize
-    this._unsubState = this.transport.onStateChange((state) => {
-      if (state === 'stopped' && this.armed) {
-        // Release any held notes
-        for (const [midi, noteData] of this._heldNotes.entries()) {
-          const endTick = this.transport.currentTick;
-          this._capturedNotes.push({
-            pitch: midi,
-            startTick: noteData.startTick,
-            durationTick: Math.max(1, endTick - noteData.startTick),
-            velocity: noteData.velocity,
-          });
-        }
-        this._heldNotes.clear();
-
-        if (this._capturedNotes.length + this._capturedHits.length > 0) {
-          this._finalizeSnippet();
-        }
-        this.armed = false;
-      }
-    });
-  }
-
-  /**
    * Arm/disarm recording.
    */
   setArmed(armed) {
     this.armed = armed;
     if (!armed) {
-      // Release held notes
+      for (const [midi, noteData] of this._heldNotes.entries()) {
+        const endTick = this.transport.currentTick;
+        this._capturedNotes.push({
+          pitch: midi,
+          startTick: noteData.startTick,
+          durationTick: Math.max(1, endTick - noteData.startTick),
+          velocity: noteData.velocity,
+        });
+      }
       this._heldNotes.clear();
     }
   }

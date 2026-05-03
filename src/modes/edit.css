@@ -87,6 +87,19 @@
   line-height: 1.5;
 }
 
+.edit-empty__select {
+  background: var(--surface-3);
+  border: var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  padding: var(--space-xs) var(--space-sm);
+  min-height: 32px;
+  min-width: 200px;
+  margin-top: var(--space-md);
+}
+
 /* --- Piano Roll Container --- */
 .piano-roll {
   flex: 1;

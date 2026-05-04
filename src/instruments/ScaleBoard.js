@@ -216,20 +216,12 @@ export class ScaleBoard {
     // Octave controls
     this.el.querySelector('#sb-oct-down').addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      if (this.octave > 2) {
-        this.octave--;
-        this.el.querySelector('#sb-oct-display').textContent = `Oct ${this.octave}`;
-        this._refreshPads();
-      }
+      this.shiftOctave(-1);
     });
 
     this.el.querySelector('#sb-oct-up').addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      if (this.octave < 6) {
-        this.octave++;
-        this.el.querySelector('#sb-oct-display').textContent = `Oct ${this.octave}`;
-        this._refreshPads();
-      }
+      this.shiftOctave(1);
     });
 
     // Mode selector
@@ -332,6 +324,19 @@ export class ScaleBoard {
     }
 
     this._activePadIndexes.delete(index);
+  }
+
+  releaseAllPads() {
+    [...this._activePadIndexes].forEach(index => this.releasePad(index));
+  }
+
+  shiftOctave(delta) {
+    const next = Math.max(2, Math.min(6, this.octave + delta));
+    if (next === this.octave) return;
+    this.releaseAllPads();
+    this.octave = next;
+    this.el?.querySelector('#sb-oct-display')?.replaceChildren(`Oct ${this.octave}`);
+    if (this.el) this._refreshPads();
   }
 
   _noteOn(midi) {

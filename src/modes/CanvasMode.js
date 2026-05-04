@@ -304,6 +304,7 @@ export class CanvasMode {
 
     const notes = snippet.notes || [];
     const hits = snippet.hits || [];
+    if (snippet.type === 'audio') return this._renderAudioClipPreview(snippet, width, height);
     if (notes.length === 0 && hits.length === 0) return '';
 
     let svgContent = '';
@@ -330,6 +331,30 @@ export class CanvasMode {
     }
 
     return `<svg width="${width - 4}" height="${height}" style="display:block;">${svgContent}</svg>`;
+  }
+
+  _renderAudioClipPreview(snippet, width, height) {
+    const svgWidth = Math.max(24, width - 4);
+    const seed = [...(snippet.id || snippet.name || 'audio')]
+      .reduce((acc, char) => (acc * 31 + char.charCodeAt(0)) >>> 0, 2166136261);
+    const bars = Math.max(10, Math.min(56, Math.floor(svgWidth / 5)));
+    const gap = 2;
+    const barWidth = Math.max(2, (svgWidth - gap * (bars - 1)) / bars);
+    const center = height / 2;
+    let state = seed || 1;
+    let svgContent = `<line x1="0" y1="${center}" x2="${svgWidth}" y2="${center}" stroke="rgba(255,255,255,0.22)" stroke-width="1"/>`;
+
+    for (let i = 0; i < bars; i++) {
+      state = (state * 1664525 + 1013904223) >>> 0;
+      const noise = state / 0xffffffff;
+      const envelope = Math.sin((i / Math.max(1, bars - 1)) * Math.PI);
+      const barHeight = Math.max(4, (0.25 + noise * 0.55) * envelope * (height - 8));
+      const x = i * (barWidth + gap);
+      const y = center - barHeight / 2;
+      svgContent += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${barHeight.toFixed(1)}" rx="1.5" fill="rgba(255,255,255,0.58)"/>`;
+    }
+
+    return `<svg width="${svgWidth}" height="${height}" class="canvas-clip__audio-preview" style="display:block;">${svgContent}</svg>`;
   }
 
   _renderModOverlay(clip, clipWidth) {

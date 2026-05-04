@@ -276,6 +276,14 @@ export class CreativeMode {
     document.addEventListener('keydown', (e) => {
       if (!this._isCreativeActive() || this._isTextInput(e.target) || e.repeat) return;
 
+      if (e.code === 'ArrowUp' || e.code === 'ArrowDown') {
+        if (this._shiftActiveInstrumentOctave(e.code === 'ArrowUp' ? 1 : -1)) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        return;
+      }
+
       if (this.activeInstrument === INSTRUMENTS.SCALEBOARD) {
         const idx = SCALE_KEYS.indexOf(e.code);
         if (idx === -1) return;
@@ -340,6 +348,22 @@ export class CreativeMode {
 
   _isTextInput(target) {
     return ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName) || target?.isContentEditable;
+  }
+
+  _shiftActiveInstrumentOctave(delta) {
+    if (this.activeInstrument === INSTRUMENTS.SCALEBOARD) {
+      this.scaleBoard.shiftOctave(delta);
+      return true;
+    }
+    if (this.activeInstrument === INSTRUMENTS.PIANO) {
+      this.microPiano.shiftOctave(delta);
+      return true;
+    }
+    if (this.activeInstrument === INSTRUMENTS.CONTROLLER) {
+      this.controllerMode.shiftOctave(delta);
+      return true;
+    }
+    return false;
   }
 
   _switchInstrument(id) {

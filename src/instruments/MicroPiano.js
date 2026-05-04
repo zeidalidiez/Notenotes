@@ -141,20 +141,12 @@ export class MicroPiano {
   _bindEvents() {
     this.el.querySelector('#mp-oct-down').addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      if (this._baseOctave > 1) {
-        this._baseOctave--;
-        this.el.querySelector('#mp-oct-display').textContent = this._octaveDisplay();
-        this._refreshKeys();
-      }
+      this.shiftOctave(-1);
     });
 
     this.el.querySelector('#mp-oct-up').addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      if (this._baseOctave < this._maxBaseOctave()) {
-        this._baseOctave++;
-        this.el.querySelector('#mp-oct-display').textContent = this._octaveDisplay();
-        this._refreshKeys();
-      }
+      this.shiftOctave(1);
     });
 
     this._bindKeyEvents();
@@ -197,6 +189,18 @@ export class MicroPiano {
   releaseVisibleKey(index) {
     const midi = this.visibleMidis()[index];
     if (midi !== undefined) this.releaseMidi(midi);
+  }
+
+  releaseAllKeys() {
+    [...this._activeKeys].forEach(midi => this.releaseMidi(midi));
+  }
+
+  shiftOctave(delta) {
+    const next = Math.max(1, Math.min(this._maxBaseOctave(), this._baseOctave + delta));
+    if (next === this._baseOctave) return;
+    this.releaseAllKeys();
+    this._baseOctave = next;
+    this._refreshAll();
   }
 
   pressMidi(midi) {

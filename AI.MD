@@ -255,7 +255,7 @@ This also creates a version history snapshot. Max 5 versions kept per project.
 ## 🗺️ Roadmap / Open Work
 
 ### Not Yet Implemented
-- **Mic audio integration** — MicRecorder captures audio blobs, but they aren't stored as snippets or playable in the Canvas. Need to convert audio blobs to AudioBuffers and create an audio-type snippet.
+- **Deeper Audio In editing** — Audio In creates playable audio snippets, but there is no destructive trim, normalize, waveform analysis, or per-clip gain UI yet.
 - **MIDI input** — No Web MIDI API integration yet. Could map MIDI keyboard input to the synth.
 - **Overdubbing** — Record additional notes on top of an existing snippet.
 - **Mobile touch optimization** — Touch events work but multi-touch (e.g., piano chords) needs testing.
@@ -687,6 +687,7 @@ This means the music sounds at the same tick positions, while the bar lines and 
 - Scale Board: number row `1`–`9`, `0` hold visible scale pads 1–10.
 - SketchKit: number row `1`–`9`, `0` trigger visible drum pads 1–10.
 - MicroPiano: `` ` 1 2 3 4 5 6 7 8 9 0 - = `` hold visible piano keys left-to-right.
+- `ArrowUp` / `ArrowDown` shift octave only for the currently active Scale Board, MicroPiano, or Controller screen. Kit and Audio In ignore octave arrows.
 - These mappings are scoped to Creative Mode and the active instrument. They run in capture phase so they can override global pitch/mod shortcuts when appropriate.
 
 **Input method pattern**:
@@ -697,3 +698,8 @@ This means the music sounds at the same tick positions, while the bar lines and 
 - The former Mic tab is labeled **Audio In**.
 - `MicRecorder` now includes an audio input selector. Browser device labels usually appear only after the first successful `getUserMedia()` permission grant.
 - Recording MIME type uses `MediaRecorder.isTypeSupported()` fallback (`audio/webm;codecs=opus`, `audio/webm`, `audio/mp4`, `audio/aac`) instead of assuming WebM, which is important for Safari/iOS.
+- The live meter uses time-domain RMS with a small silence gate. This avoids showing misleading frequency-bin movement from noise floor or stale analyser data on quiet/disconnected inputs.
+
+**Canvas / Controller visuals**:
+- Audio snippets render a deterministic lightweight bar waveform preview in Canvas. It is intentionally a visual presence indicator, not decoded waveform analysis.
+- Controller Mode uses `public/controller.png` as the base controller art with absolute-positioned highlight overlays for D-pad, face buttons, bumpers, and sticks.

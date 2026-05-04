@@ -1,7 +1,7 @@
 /**
- * ControllerMode — Gamepad instrument.
+ * ControllerMode - Gamepad instrument.
  * Maps D-pad + face buttons to scale notes, analog sticks to pitch/mod.
- * Supports pad modes: single, chords, custom. Records modulation.
+ * Supports pad modes: single and chords. Records modulation.
  */
 
 import { getScaleNotes, midiToNoteName, SCALES, NOTE_NAMES } from '../engine/MusicTheory.js';
@@ -51,12 +51,12 @@ export class ControllerMode {
   }
 
   _getChordMidis(startIndex) {
-    const midis = [];
     const maxIdx = this._fullScaleNotes.length - 1;
-    midis.push(this._fullScaleNotes[startIndex]);
-    midis.push(this._fullScaleNotes[Math.min(startIndex + 2, maxIdx)]);
-    midis.push(this._fullScaleNotes[Math.min(startIndex + 4, maxIdx)]);
-    return midis;
+    return [
+      this._fullScaleNotes[startIndex],
+      this._fullScaleNotes[Math.min(startIndex + 2, maxIdx)],
+      this._fullScaleNotes[Math.min(startIndex + 4, maxIdx)],
+    ];
   }
 
   render() {
@@ -90,9 +90,9 @@ export class ControllerMode {
           </select>
         </div>
         <div class="ctrlmode__octave">
-          <button class="btn btn--ghost" id="ct-oct-down" style="min-width:28px;min-height:28px;">▼</button>
+          <button class="btn btn--ghost" id="ct-oct-down" style="min-width:28px;min-height:28px;" aria-label="Octave down">v</button>
           <span class="ctrlmode__oct-label" id="ct-oct-label">Oct ${this.octave}</span>
-          <button class="btn btn--ghost" id="ct-oct-up" style="min-width:28px;min-height:28px;">▲</button>
+          <button class="btn btn--ghost" id="ct-oct-up" style="min-width:28px;min-height:28px;" aria-label="Octave up">^</button>
         </div>
         <span class="ctrlmode__status" id="ct-status">No controller detected</span>
       </div>
@@ -101,38 +101,21 @@ export class ControllerMode {
           ${this._renderPads()}
         </div>
         <div class="ctrlmode__controller" id="ct-controller">
-          <svg width="100%" height="100%" viewBox="0 0 300 220" class="ctrlmode__svg">
-            <!-- Body -->
-            <path d="M55,30 Q30,30 30,60 L30,140 Q30,190 70,190 L90,190 Q110,190 110,160 L110,100 Q110,70 130,70 L170,70 Q190,70 190,100 L190,160 Q190,190 210,190 L230,190 Q270,190 270,140 L270,60 Q270,30 245,30 Z" fill="var(--surface-3)" stroke="var(--surface-4)" stroke-width="2"/>
-            <!-- D-pad base -->
-            <circle cx="80" cy="75" r="28" fill="var(--surface-2)" stroke="var(--surface-4)" stroke-width="1"/>
-            <!-- D-pad directions -->
-            <polygon id="ct-dpad-u" points="80,52 72,65 88,65" fill="var(--surface-5)" stroke="var(--surface-4)" stroke-width="1"/>
-            <polygon id="ct-dpad-d" points="80,98 72,85 88,85" fill="var(--surface-5)" stroke="var(--surface-4)" stroke-width="1"/>
-            <polygon id="ct-dpad-l" points="52,75 65,67 65,83" fill="var(--surface-5)" stroke="var(--surface-4)" stroke-width="1"/>
-            <polygon id="ct-dpad-r" points="108,75 95,67 95,83" fill="var(--surface-5)" stroke="var(--surface-4)" stroke-width="1"/>
-            <!-- Right buttons -->
-            <circle cx="225" cy="62" r="11" fill="var(--surface-5)" stroke="var(--accent-dim)" stroke-width="1.5" id="ct-btn-y"/>
-            <text x="225" y="66" text-anchor="middle" fill="var(--text-tertiary)" font-size="9" font-family="var(--font-family)">Y</text>
-            <circle cx="205" cy="85" r="11" fill="var(--surface-5)" stroke="var(--accent-dim)" stroke-width="1.5" id="ct-btn-x"/>
-            <text x="205" y="89" text-anchor="middle" fill="var(--text-tertiary)" font-size="9" font-family="var(--font-family)">X</text>
-            <circle cx="245" cy="85" r="11" fill="var(--surface-5)" stroke="var(--accent-dim)" stroke-width="1.5" id="ct-btn-a"/>
-            <text x="245" y="89" text-anchor="middle" fill="var(--text-tertiary)" font-size="9" font-family="var(--font-family)">A</text>
-            <circle cx="225" cy="108" r="11" fill="var(--surface-5)" stroke="var(--accent-dim)" stroke-width="1.5" id="ct-btn-b"/>
-            <text x="225" y="112" text-anchor="middle" fill="var(--text-tertiary)" font-size="9" font-family="var(--font-family)">B</text>
-            <!-- Left stick -->
-            <circle cx="80" cy="140" r="22" fill="var(--surface-2)" stroke="var(--surface-4)" stroke-width="1.5"/>
-            <circle id="ct-stick-l" cx="80" cy="140" r="10" fill="var(--surface-5)" stroke="var(--accent-dim)" stroke-width="1"/>
-            <!-- Right stick -->
-            <circle cx="220" cy="140" r="22" fill="var(--surface-2)" stroke="var(--surface-4)" stroke-width="1.5"/>
-            <circle id="ct-stick-r" cx="220" cy="140" r="10" fill="var(--surface-5)" stroke="var(--accent-dim)" stroke-width="1"/>
-            <!-- Bumpers -->
-            <rect id="ct-bumper-l" x="60" y="24" width="60" height="7" rx="3" fill="var(--surface-5)" stroke="var(--surface-4)" stroke-width="1"/>
-            <rect id="ct-bumper-r" x="180" y="24" width="60" height="7" rx="3" fill="var(--surface-5)" stroke="var(--surface-4)" stroke-width="1"/>
-            <!-- Labels -->
-            <text x="80" y="180" text-anchor="middle" fill="var(--text-tertiary)" font-size="7" font-family="var(--font-family)">MOD (L↑↓)</text>
-            <text x="220" y="180" text-anchor="middle" fill="var(--text-tertiary)" font-size="7" font-family="var(--font-family)">PITCH (R↑↓)</text>
-          </svg>
+          <div class="ctrlmode__art" aria-label="Game controller">
+            <img class="ctrlmode__img" src="${import.meta.env.BASE_URL}controller.png" alt="" aria-hidden="true">
+            <span class="ctrlmode__hotspot ctrlmode__hotspot--dpad" id="ct-dpad-u"></span>
+            <span class="ctrlmode__hotspot ctrlmode__hotspot--dpad" id="ct-dpad-d"></span>
+            <span class="ctrlmode__hotspot ctrlmode__hotspot--dpad" id="ct-dpad-l"></span>
+            <span class="ctrlmode__hotspot ctrlmode__hotspot--dpad" id="ct-dpad-r"></span>
+            <span class="ctrlmode__hotspot ctrlmode__hotspot--button" id="ct-btn-y"></span>
+            <span class="ctrlmode__hotspot ctrlmode__hotspot--button" id="ct-btn-x"></span>
+            <span class="ctrlmode__hotspot ctrlmode__hotspot--button" id="ct-btn-a"></span>
+            <span class="ctrlmode__hotspot ctrlmode__hotspot--button" id="ct-btn-b"></span>
+            <span class="ctrlmode__hotspot ctrlmode__hotspot--bumper" id="ct-bumper-l"></span>
+            <span class="ctrlmode__hotspot ctrlmode__hotspot--bumper" id="ct-bumper-r"></span>
+            <span class="ctrlmode__stick" id="ct-stick-l"></span>
+            <span class="ctrlmode__stick" id="ct-stick-r"></span>
+          </div>
         </div>
       </div>
     `;
@@ -158,29 +141,40 @@ export class ControllerMode {
   _bindEvents() {
     this.el.querySelector('#ct-p-root')?.addEventListener('change', (e) => {
       this.rootNote = e.target.value;
-      this._updateNotes(); this._refreshPads();
+      this._updateNotes();
+      this._refreshPads();
     });
     this.el.querySelector('#ct-p-scale')?.addEventListener('change', (e) => {
       this.scaleName = e.target.value;
-      this._updateNotes(); this._refreshPads();
+      this._updateNotes();
+      this._refreshPads();
     });
     this.el.querySelector('#ct-p-mode')?.addEventListener('change', (e) => {
       this.padMode = e.target.value;
     });
     this.el.querySelector('#ct-oct-down')?.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      if (this.octave > 2) { this.octave--; this._updateOctave(); }
+      this.shiftOctave(-1);
     });
     this.el.querySelector('#ct-oct-up')?.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      if (this.octave < 6) { this.octave++; this._updateOctave(); }
+      this.shiftOctave(1);
     });
+  }
+
+  shiftOctave(delta) {
+    const next = Math.max(2, Math.min(6, this.octave + delta));
+    if (next === this.octave) return;
+    this.octave = next;
+    this._updateOctave();
   }
 
   _updateOctave() {
     this._releaseAllNotes();
-    this.el.querySelector('#ct-oct-label').textContent = `Oct ${this.octave}`;
-    this._updateNotes(); this._refreshPads();
+    const label = this.el?.querySelector('#ct-oct-label');
+    if (label) label.textContent = `Oct ${this.octave}`;
+    this._updateNotes();
+    this._refreshPads();
   }
 
   _releaseAllNotes() {
@@ -196,7 +190,7 @@ export class ControllerMode {
   }
 
   _refreshPads() {
-    const pads = this.el.querySelector('#ct-pads');
+    const pads = this.el?.querySelector('#ct-pads');
     if (pads) pads.innerHTML = this._renderPads();
   }
 
@@ -218,7 +212,11 @@ export class ControllerMode {
     if (this._gamepadIndex >= 0) pad = gamepads[this._gamepadIndex];
     if (!pad) {
       for (let i = 0; i < gamepads.length; i++) {
-        if (gamepads[i]) { pad = gamepads[i]; this._gamepadIndex = i; break; }
+        if (gamepads[i]) {
+          pad = gamepads[i];
+          this._gamepadIndex = i;
+          break;
+        }
       }
     }
 
@@ -247,19 +245,15 @@ export class ControllerMode {
 
     for (const idx of pressed) {
       const deg = map[idx];
-      if (deg === -1 && this.octave > 2) { this.octave--; this._updateOctave(); }
-      else if (deg === -2 && this.octave < 6) { this.octave++; this._updateOctave(); }
-      else if (deg !== undefined && deg >= 0 && deg < this._notes.length) {
-        this._triggerPad(deg);
-      }
+      if (deg === -1) this.shiftOctave(-1);
+      else if (deg === -2) this.shiftOctave(1);
+      else if (deg !== undefined && deg >= 0 && deg < this._notes.length) this._triggerPad(deg);
       this._highlightButton(idx, true);
     }
 
     for (const idx of released) {
       const deg = map[idx];
-      if (deg !== undefined && deg >= 0 && deg < this._notes.length) {
-        this._releasePad(deg);
-      }
+      if (deg !== undefined && deg >= 0 && deg < this._notes.length) this._releasePad(deg);
       this._highlightButton(idx, false);
     }
   }
@@ -309,8 +303,8 @@ export class ControllerMode {
     if (axes.length < 4) return;
     const deadZone = 0.1;
 
-    let ry = axes[3]; // right stick Y → pitch bend
-    let ly = -axes[1]; // left stick Y → modulation (up=100%, down=200%)
+    let ry = axes[3];
+    let ly = -axes[1];
 
     if (Math.abs(ry) < deadZone) ry = 0;
     if (Math.abs(ly) < deadZone) ly = 0;
@@ -329,8 +323,8 @@ export class ControllerMode {
 
     const ls = this.el?.querySelector('#ct-stick-l');
     const rs = this.el?.querySelector('#ct-stick-r');
-    if (ls) { ls.setAttribute('cx', 80 + Math.round(axes[0] * 14)); ls.setAttribute('cy', 140 + Math.round(axes[1] * 14)); }
-    if (rs) { rs.setAttribute('cx', 220 + Math.round(axes[2] * 14)); rs.setAttribute('cy', 140 + Math.round(axes[3] * 14)); }
+    if (ls) ls.style.transform = `translate(-50%, -50%) translate(${Math.round(axes[0] * 14)}px, ${Math.round(axes[1] * 14)}px)`;
+    if (rs) rs.style.transform = `translate(-50%, -50%) translate(${Math.round(axes[2] * 14)}px, ${Math.round(axes[3] * 14)}px)`;
   }
 
   _highlightButton(idx, on) {
@@ -340,9 +334,6 @@ export class ControllerMode {
       4: '#ct-bumper-l', 5: '#ct-bumper-r',
     };
     const el = this.el?.querySelector(ids[idx]);
-    if (el) {
-      el.setAttribute('fill', on ? 'var(--accent-light)' : 'var(--surface-5)');
-      el.setAttribute('stroke', on ? 'var(--accent)' : (ids[idx].includes('bumper') ? 'var(--surface-4)' : 'var(--accent-dim)'));
-    }
+    if (el) el.classList.toggle('is-active', on);
   }
 }

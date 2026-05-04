@@ -318,6 +318,7 @@ Each phase was built iteratively — code first, then browser testing with scree
 | Scale `1`–`9`, `0` | Hold visible scale pads |
 | Kit `1`–`9`, `0` | Trigger visible drum pads |
 | Piano `` ` ``–`=` | Hold visible piano keys from left to right |
+| `Arrow Up` / `Arrow Down` | Shift octave on the active Scale, Piano, or Ctrl screen |
 | `Delete` / `Backspace` | Delete selected note or clip |
 | `Ctrl+click` | Delete note (Inspect) or clip (Canvas) |
 | `Alt+drag` | Resize note (Inspect) or clip (Canvas, shrink only) |

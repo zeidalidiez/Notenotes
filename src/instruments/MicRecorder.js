@@ -178,25 +178,46 @@ export class MicRecorder {
     const canvas = this.el.querySelector('#mic-meter');
     if (!canvas) return;
     const canvasCtx = canvas.getContext('2d');
-    const bufferLength = this._analyser.frequencyBinCount;
+    const analyser = this._analyser;
+    if (!analyser) return;
+    const bufferLength = analyser.fftSize;
     const dataArray = new Uint8Array(bufferLength);
+    const barCount = 28;
+    const silenceFloor = 0.012;
 
     const draw = () => {
+      if (!this._analyser) return;
       this._animFrame = requestAnimationFrame(draw);
-      this._analyser.getByteFrequencyData(dataArray);
+      this._analyser.getByteTimeDomainData(dataArray);
 
       canvasCtx.fillStyle = '#141414';
       canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
 
-      const barWidth = (canvas.width / bufferLength) * 2.5;
-      let x = 0;
+      let sumSquares = 0;
       for (let i = 0; i < bufferLength; i++) {
-        const barHeight = (dataArray[i] / 255) * canvas.height;
-        const hue = 0;
-        const lightness = 40 + (dataArray[i] / 255) * 30;
-        canvasCtx.fillStyle = `hsl(${hue}, 0%, ${lightness}%)`;
-        canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-        x += barWidth + 1;
+        const centered = (dataArray[i] - 128) / 128;
+        sumSquares += centered * centered;
+      }
+
+      const rms = Math.sqrt(sumSquares / bufferLength);
+      const level = Math.min(1, Math.max(0, (rms - silenceFloor) / 0.16));
+      const center = canvas.height / 2;
+      const barWidth = canvas.width / barCount;
+
+      canvasCtx.strokeStyle = 'rgba(255,255,255,0.12)';
+      canvasCtx.beginPath();
+      canvasCtx.moveTo(0, center);
+      canvasCtx.lineTo(canvas.width, center);
+      canvasCtx.stroke();
+
+      for (let i = 0; i < barCount; i++) {
+        const phase = Math.sin((i / (barCount - 1)) * Math.PI);
+        const height = Math.max(2, phase * level * (canvas.height - 18));
+        const x = i * barWidth + 1.5;
+        const y = center - height / 2;
+        const lightness = 34 + level * 36;
+        canvasCtx.fillStyle = `hsl(0, 0%, ${lightness}%)`;
+        canvasCtx.fillRect(x, y, Math.max(2, barWidth - 3), height);
       }
     };
     draw();

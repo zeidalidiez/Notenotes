@@ -582,11 +582,81 @@
   min-width: 0;
 }
 
+.ctrlmode__art {
+  position: relative;
+  width: min(100%, 520px);
+  aspect-ratio: 479 / 310;
+}
+
 .ctrlmode__img {
-  max-width: 100%;
-  max-height: 100%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
-  opacity: 0.85;
+  opacity: 0.92;
+  display: block;
+}
+
+.ctrlmode__hotspot,
+.ctrlmode__stick {
+  position: absolute;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 80ms ease, box-shadow 80ms ease, transform 80ms ease;
+}
+
+.ctrlmode__hotspot {
+  background: rgba(245, 245, 245, 0.45);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.12), 0 0 22px rgba(255, 255, 255, 0.5);
+}
+
+.ctrlmode__hotspot.is-active {
+  opacity: 1;
+}
+
+.ctrlmode__hotspot--dpad {
+  width: 15%;
+  height: 15%;
+  border-radius: 999px;
+}
+
+.ctrlmode__hotspot--button {
+  width: 8%;
+  height: 12%;
+  border-radius: 999px;
+}
+
+.ctrlmode__hotspot--bumper {
+  width: 17%;
+  height: 8%;
+  border-radius: 8px;
+}
+
+.ctrlmode__stick {
+  width: 10%;
+  height: 15%;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  opacity: 1;
+}
+
+#ct-dpad-u { left: 25.5%; top: 27%; }
+#ct-dpad-d { left: 25.5%; top: 43%; }
+#ct-dpad-l { left: 18.6%; top: 35%; }
+#ct-dpad-r { left: 32.3%; top: 35%; }
+#ct-btn-y { left: 73.5%; top: 22.5%; }
+#ct-btn-x { left: 66.4%; top: 34.8%; }
+#ct-btn-a { left: 73.6%; top: 45.5%; }
+#ct-btn-b { left: 81.4%; top: 34.8%; }
+#ct-bumper-l { left: 30.6%; top: 2.8%; }
+#ct-bumper-r { left: 69.4%; top: 2.8%; }
+#ct-stick-l { left: 34.7%; top: 64.2%; }
+#ct-stick-r { left: 65.3%; top: 64.2%; }
+
+.ctrlmode__stick:is(#ct-stick-l, #ct-stick-r) {
+  box-shadow: 0 0 0 5px rgba(0, 0, 0, 0.05);
 }
 
 /* --- Instrument Container (active instrument view) --- */

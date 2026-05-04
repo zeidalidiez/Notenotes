@@ -785,9 +785,10 @@ export class SettingsPanel {
       btn.disabled = true;
       showToast('Rendering Canvas WAV...');
       try {
-        const blob = await projectToWavBlob(this.project, { store: this.store });
+        const stats = { skippedAudio: 0 };
+        const blob = await projectToWavBlob(this.project, { store: this.store, stats });
         downloadBlob(blob, safeFilename(`${this.project.name || 'notenotes'}-canvas`, 'wav'));
-        showToast('Canvas WAV exported');
+        showToast(stats.skippedAudio ? `Canvas WAV exported, skipped ${stats.skippedAudio} unavailable audio clip${stats.skippedAudio === 1 ? '' : 's'}` : 'Canvas WAV exported');
       } catch (err) {
         console.error('[Settings] Canvas WAV export failed:', err);
         showToast('Canvas WAV export failed');
@@ -814,9 +815,10 @@ export class SettingsPanel {
       btn.disabled = true;
       showToast('Rendering snippet WAV...');
       try {
-        const blob = await snippetToWavBlob(snippet, this.project, { store: this.store });
+        const stats = { skippedAudio: 0 };
+        const blob = await snippetToWavBlob(snippet, this.project, { store: this.store, stats });
         downloadBlob(blob, safeFilename(snippet.name || 'snippet', 'wav'));
-        showToast('Snippet WAV exported');
+        showToast(stats.skippedAudio ? 'Snippet WAV exported without unavailable audio' : 'Snippet WAV exported');
       } catch (err) {
         console.error('[Settings] Snippet WAV export failed:', err);
         showToast('Snippet WAV export failed');

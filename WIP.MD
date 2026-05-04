@@ -161,9 +161,9 @@ Make WAV export trustworthy enough for beta users.
 
 Checklist:
 
-- Honor muted tracks.
-- Honor soloed tracks.
-- Report skipped unavailable audio clips.
+- Honor muted tracks. Implemented locally.
+- Honor soloed tracks. Implemented locally.
+- Report skipped unavailable audio clips. Implemented locally.
 - Test snippet WAV export for MIDI, drum, audio, and Tone.
 - Test canvas WAV export for mixed MIDI, drum, and audio tracks.
 - Test clips starting after bar 1.
@@ -175,7 +175,35 @@ Small to medium.
 
 Recommendation:
 
-Do this next. Export trust matters for beta, and the storage/track-type foundation is now in better shape.
+Finish manual export testing next. Export trust matters for beta, and the storage/track-type foundation is now in better shape.
+
+## Newly Added: Controller Trigger Note Modifiers
+
+Status: implemented locally.
+
+Controller trigger dropdowns now support both Tone Traits and note modifiers.
+
+Initial note modifiers:
+
+- 7th note
+- 9th note
+- 11th note
+- 13th note
+- Octave up
+- Fifth up
+
+Behavior:
+
+- In single-note mode, holding a trigger with a note modifier changes the note struck into that related note.
+- If both triggers have note modifiers and both are held, both related notes can sound.
+- In chord mode, holding a trigger adds the related note to the chord.
+- Existing Tone Trait trigger behavior still works.
+
+Needs hands-on testing:
+
+- Confirm real controller trigger values feel right on desktop Chrome.
+- Confirm trigger dropdowns fit on mobile.
+- Decide whether any modifiers should be removed if the list feels too theory-heavy.
 
 ## 2. Backup Options and History Limits
 

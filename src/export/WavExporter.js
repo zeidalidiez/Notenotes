@@ -230,7 +230,10 @@ function audioSource(snippet) {
 
 async function decodeAudioSnippet(snippet, options = {}) {
   const source = audioSource(snippet);
-  if (!source && !snippet?.audioAssetId) return null;
+  if (!source && !snippet?.audioAssetId) {
+    if (options.stats) options.stats.skippedAudio = (options.stats.skippedAudio || 0) + 1;
+    return null;
+  }
   try {
     let arrayBuffer = null;
     if (options.store?.audioSnippetToArrayBuffer) {
@@ -239,12 +242,16 @@ async function decodeAudioSnippet(snippet, options = {}) {
       const response = await fetch(source);
       arrayBuffer = await response.arrayBuffer();
     }
-    if (!arrayBuffer) return null;
+    if (!arrayBuffer) {
+      if (options.stats) options.stats.skippedAudio = (options.stats.skippedAudio || 0) + 1;
+      return null;
+    }
     const Ctx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
     const ctx = new Ctx(1, 1, SAMPLE_RATE);
     return await ctx.decodeAudioData(arrayBuffer.slice(0));
   } catch (err) {
     console.warn('[WavExporter] Skipping unavailable audio snippet:', snippet?.name || snippet?.id, err);
+    if (options.stats) options.stats.skippedAudio = (options.stats.skippedAudio || 0) + 1;
     return null;
   }
 }
@@ -329,8 +336,10 @@ export async function projectToWavBlob(project, options = {}) {
   const bpm = project?.bpm || 120;
   const secPerTick = secondsPerTick(bpm);
   const barTicks = ticksPerBar(project);
+  const hasSolo = (project?.tracks || []).some(track => track.solo);
+  const audibleTracks = (project?.tracks || []).filter(track => !track.muted && (!hasSolo || track.solo));
   let maxTick = barTicks;
-  for (const track of project?.tracks || []) {
+  for (const track of audibleTracks) {
     for (const clip of track.clips || []) {
       const snippet = clip.snippet;
       if (!snippet) continue;
@@ -338,16 +347,19 @@ export async function projectToWavBlob(project, options = {}) {
     }
   }
 
-  const hasAnyClipTone = (project?.tracks || []).some(track =>
+  const hasAnyClipTone = audibleTracks.some(track =>
     (track.clips || []).some(clip => hasSnippetTone(clip.snippet, project?.settings?.soundTraits || {}))
   );
   const samples = ensureLength(null, maxTick * secPerTick + (hasAnyClipTone ? 3 : 1));
   const audioMixes = [];
-  for (const track of project?.tracks || []) {
+  for (const track of audibleTracks) {
     const trackType = track.type || (track.instrumentId === 'kit' ? 'drum' : 'midi');
     for (const clip of track.clips || []) {
       const snippet = clip.snippet;
       if (!snippet) continue;
+      if (trackType === 'audio' && snippet.type !== 'audio') continue;
+      if (trackType === 'drum' && snippet.type !== 'drum') continue;
+      if (trackType === 'midi' && snippet.type !== 'midi') continue;
       const startSec = (clip.startBar || 0) * barTicks * secPerTick;
       if (snippet.type === 'audio') {
         audioMixes.push(decodeAudioSnippet(snippet, options).then(decoded => mixAudioBuffer(samples, decoded, startSec)));

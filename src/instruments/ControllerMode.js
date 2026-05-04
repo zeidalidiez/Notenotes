@@ -8,6 +8,14 @@ import { getScaleNotes, midiToNoteName, SCALES, NOTE_NAMES } from '../engine/Mus
 import { SOUND_TRAITS, normalizeSoundTraits } from './WebAudioSynth.js';
 
 const POLL_INTERVAL = 30;
+const TRIGGER_NOTE_MODIFIERS = {
+  seventh: { id: 'seventh', name: '7th note', scaleOffset: 6 },
+  ninth: { id: 'ninth', name: '9th note', scaleOffset: 8 },
+  eleventh: { id: 'eleventh', name: '11th note', scaleOffset: 10 },
+  thirteenth: { id: 'thirteenth', name: '13th note', scaleOffset: 12 },
+  octave: { id: 'octave', name: 'Octave up', semitoneOffset: 12 },
+  fifth: { id: 'fifth', name: 'Fifth up', semitoneOffset: 7 },
+};
 
 export class ControllerMode {
   constructor(synth, project, modManager) {
@@ -38,6 +46,7 @@ export class ControllerMode {
     this._modulation = 0;
     this._activeToneOverrides = new Map();
     this._triggerToneValues = { leftTrigger: 0, rightTrigger: 0 };
+    this._activePadNotes = new Map();
   }
 
   set project(p) { this._project = p; }
@@ -62,6 +71,23 @@ export class ControllerMode {
       this._fullScaleNotes[Math.min(startIndex + 2, maxIdx)],
       this._fullScaleNotes[Math.min(startIndex + 4, maxIdx)],
     ];
+  }
+
+  _getModifiedMidis(startIndex) {
+    const activeModifiers = this._activeTriggerNoteModifiers();
+    if (activeModifiers.length === 0) return [];
+    const midis = [];
+    const root = this._fullScaleNotes[startIndex] ?? this._notes[startIndex];
+    for (const modifier of activeModifiers) {
+      let midi = null;
+      if (Number.isFinite(modifier.scaleOffset)) {
+        midi = this._fullScaleNotes[startIndex + modifier.scaleOffset];
+      } else if (Number.isFinite(modifier.semitoneOffset) && Number.isFinite(root)) {
+        midi = root + modifier.semitoneOffset;
+      }
+      if (Number.isFinite(midi) && !midis.includes(midi)) midis.push(midi);
+    }
+    return midis;
   }
 
   render() {
@@ -106,7 +132,7 @@ export class ControllerMode {
           ${this._renderPads()}
         </div>
         <div class="ctrlmode__controller" id="ct-controller">
-          <div class="ctrlmode__trigger-assignments" aria-label="Trigger effect assignments">
+          <div class="ctrlmode__trigger-assignments" aria-label="Trigger assignments">
             <label class="ctrlmode__trigger-select ctrlmode__trigger-select--left">
               <span>Left trigger</span>
               <select class="ctrlmode__select" id="ct-tone-left">
@@ -141,6 +167,7 @@ export class ControllerMode {
             <span>Left stick: modulation</span>
             <span>Right stick: pitch bend</span>
             <span>Shoulders: octave down / up</span>
+            <span>Triggers: Tone or note modifiers</span>
           </div>
         </div>
       </div>
@@ -168,9 +195,12 @@ export class ControllerMode {
     const value = this._controllerToneAssignments()[key] || 'none';
     const options = [
       ['none', 'None'],
+      ['__tone', 'Tone Traits', true],
       ...Object.values(SOUND_TRAITS).map(trait => [trait.id, trait.name]),
+      ['__notes', 'Note Modifiers', true],
+      ...Object.values(TRIGGER_NOTE_MODIFIERS).map(mod => [`note:${mod.id}`, mod.name]),
     ];
-    return options.map(([id, label]) => `<option value="${id}" ${value === id ? 'selected' : ''}>${label}</option>`).join('');
+    return options.map(([id, label, disabled]) => `<option value="${id}" ${value === id ? 'selected' : ''} ${disabled ? 'disabled' : ''}>${label}</option>`).join('');
   }
 
   _bindEvents() {
@@ -228,6 +258,7 @@ export class ControllerMode {
       chordMidis.forEach(m => this.synth.noteOff(m));
     }
     this._activeChords.clear();
+    this._activePadNotes.clear();
   }
 
   _refreshPads() {
@@ -324,7 +355,10 @@ export class ControllerMode {
 
   _setTriggerTone(key, value) {
     const traitId = this._controllerToneAssignments()[key];
-    if (!traitId || traitId === 'none') return;
+    if (!traitId || traitId === 'none' || traitId.startsWith('note:')) {
+      this._applyToneOverrides();
+      return;
+    }
     const amount = Math.max(0, Math.min(1, value));
     if (amount > 0) this._activeToneOverrides.set(traitId, amount);
     else this._activeToneOverrides.delete(traitId);
@@ -345,6 +379,17 @@ export class ControllerMode {
     if (assignments.leftTrigger !== 'none' && this._triggerToneValues.leftTrigger > 0.02) labels.push('LT');
     if (assignments.rightTrigger !== 'none' && this._triggerToneValues.rightTrigger > 0.02) labels.push('RT');
     return labels;
+  }
+
+  _activeTriggerNoteModifiers() {
+    const assignments = this._controllerToneAssignments();
+    return [
+      ['leftTrigger', assignments.leftTrigger],
+      ['rightTrigger', assignments.rightTrigger],
+    ]
+      .filter(([key, value]) => this._triggerToneValues[key] > 0.02 && value?.startsWith('note:'))
+      .map(([, value]) => TRIGGER_NOTE_MODIFIERS[value.replace('note:', '')])
+      .filter(Boolean);
   }
 
   _mapAnalogTriggers(buttons, axes = []) {
@@ -381,18 +426,24 @@ export class ControllerMode {
     if (!midi) return;
 
     if (this.padMode === 'chords') {
-      const chordMidis = this._getChordMidis(deg);
+      const chordMidis = [...new Set([...this._getChordMidis(deg), ...this._getModifiedMidis(deg)])];
       this._activeChords.set(deg, chordMidis);
       chordMidis.forEach(m => {
         this.synth.noteOn(m);
         if (this._onNoteOn) this._onNoteOn(m, 0.8);
       });
       this._activeMidis.set(midi, true);
+      this._activePadNotes.set(deg, chordMidis);
     } else {
-      if (this._activeMidis.has(midi)) return;
-      this._activeMidis.set(midi, true);
-      this.synth.noteOn(midi, 0.8);
-      if (this._onNoteOn) this._onNoteOn(midi, 0.8);
+      const modifiedMidis = this._getModifiedMidis(deg);
+      const midis = modifiedMidis.length ? modifiedMidis : [midi];
+      if (midis.some(m => this._activeMidis.has(m))) return;
+      midis.forEach(m => {
+        this._activeMidis.set(m, true);
+        this.synth.noteOn(m, 0.8);
+        if (this._onNoteOn) this._onNoteOn(m, 0.8);
+      });
+      this._activePadNotes.set(deg, midis);
     }
     this._refreshPads();
   }
@@ -402,7 +453,7 @@ export class ControllerMode {
     if (!midi) return;
 
     if (this.padMode === 'chords') {
-      const chordMidis = this._activeChords.get(deg) || [];
+      const chordMidis = this._activeChords.get(deg) || this._activePadNotes.get(deg) || [];
       chordMidis.forEach(m => {
         this.synth.noteOff(m);
         if (this._onNoteOff) this._onNoteOff(m);
@@ -410,10 +461,14 @@ export class ControllerMode {
       this._activeChords.delete(deg);
       this._activeMidis.delete(midi);
     } else {
-      this._activeMidis.delete(midi);
-      this.synth.noteOff(midi);
-      if (this._onNoteOff) this._onNoteOff(midi);
+      const midis = this._activePadNotes.get(deg) || [midi];
+      midis.forEach(m => {
+        this._activeMidis.delete(m);
+        this.synth.noteOff(m);
+        if (this._onNoteOff) this._onNoteOff(m);
+      });
     }
+    this._activePadNotes.delete(deg);
     this._refreshPads();
   }
 

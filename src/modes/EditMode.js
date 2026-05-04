@@ -90,13 +90,16 @@ export class EditMode {
   }
 
   _renderAudioPlayer() {
+    const immediateSource = this._snippet.audioDataUrl || this._snippet.audioUrl || '';
+    const unavailable = this._snippet.audioUnavailable || (!immediateSource && !this._snippet.audioAssetId);
     this.el.innerHTML = `
       <div class="edit-audio">
         <div class="edit-audio__header">
           <span class="edit-audio__title">🎤 ${this._snippet.name || 'Audio'}</span>
         </div>
         <div class="edit-audio__body">
-          <audio class="edit-audio__player" controls src="${this._snippet.audioDataUrl || this._snippet.audioUrl || ''}"></audio>
+          <audio class="edit-audio__player" controls src="${immediateSource}"></audio>
+          <p class="edit-audio__status">${unavailable ? (this._snippet.audioUnavailableReason || 'Audio data unavailable') : ''}</p>
           <p class="edit-audio__meta">
             BPM: ${this._snippet.bpm} · 
             Duration: ${(this._snippet.durationTicks / 480).toFixed(1)} beats
@@ -104,6 +107,28 @@ export class EditMode {
         </div>
       </div>
     `;
+    this._resolveAudioPlayerSource();
+  }
+
+  async _resolveAudioPlayerSource() {
+    if (!this._snippet?.audioAssetId || !this.store?.getAudioAssetObjectUrl) return;
+    const player = this.el.querySelector('.edit-audio__player');
+    const status = this.el.querySelector('.edit-audio__status');
+    try {
+      const url = await this.store.getAudioAssetObjectUrl(this._snippet.audioAssetId);
+      if (!url) {
+        if (status) status.textContent = 'Audio data unavailable';
+        this._snippet.audioUnavailable = true;
+        return;
+      }
+      if (player && this._snippet?.audioAssetId) {
+        player.src = url;
+        if (status) status.textContent = '';
+      }
+    } catch (err) {
+      console.warn('[EditMode] Audio preview failed:', err);
+      if (status) status.textContent = 'Audio preview failed';
+    }
   }
 
   _renderEmpty() {

@@ -152,7 +152,11 @@ export class CreativeMode {
 
     // Wire mic audio blob → create audio snippet
     this.micRecorder.setRecordingCallback(async (blob) => {
-      const audioDataUrl = await this._blobToDataUrl(blob);
+      const record = await this.store?.saveAudioAsset(blob, {
+        mimeType: blob.type || 'audio/webm',
+        size: blob.size,
+        createdAt: Date.now(),
+      });
       const url = URL.createObjectURL(blob);
       const elapsedMs = this.micRecorder._startTime ? Date.now() - this.micRecorder._startTime : 8000;
       const beats = this.transport.bpm / 60;
@@ -168,8 +172,8 @@ export class CreativeMode {
         durationTicks,
         bpm: this.transport.bpm,
         timeSignature: { ...this.transport.timeSignature },
+        audioAssetId: record?.audioAssetId || null,
         audioUrl: url,
-        audioDataUrl,
         audioMimeType: blob.type || 'audio/webm',
         audioSize: blob.size,
       };
@@ -200,15 +204,6 @@ export class CreativeMode {
       console.warn('[CreativeMode] Audio unlock failed:', err);
       return false;
     }
-  }
-
-  _blobToDataUrl(blob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(reader.error || new Error('Audio backup encoding failed'));
-      reader.readAsDataURL(blob);
-    });
   }
 
   /**

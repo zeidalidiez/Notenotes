@@ -78,7 +78,7 @@ class App {
     }
 
     // Create PlaybackEngine (plays clips from Canvas tracks)
-    this.playbackEngine = new PlaybackEngine(this.transport, this.project);
+    this.playbackEngine = new PlaybackEngine(this.transport, this.project, this.store);
 
     // Wire instrument changes from Canvas → PlaybackEngine
     this.canvasMode.onTrackInstrumentChanged = (trackId) => {
@@ -111,6 +111,7 @@ class App {
       if (this.project && this.project.snippets) {
         this.project.snippets = this.project.snippets.filter(s => s.id !== id);
         this.store?.scheduleAutoSave(this.project);
+        setTimeout(() => this.store?.garbageCollectAudioAssets?.(), 2500);
       }
     });
 

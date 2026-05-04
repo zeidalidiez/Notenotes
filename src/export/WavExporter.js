@@ -228,12 +228,18 @@ function audioSource(snippet) {
   return snippet?.audioDataUrl || snippet?.audioUrl || '';
 }
 
-async function decodeAudioSnippet(snippet) {
+async function decodeAudioSnippet(snippet, options = {}) {
   const source = audioSource(snippet);
-  if (!source) return null;
+  if (!source && !snippet?.audioAssetId) return null;
   try {
-    const response = await fetch(source);
-    const arrayBuffer = await response.arrayBuffer();
+    let arrayBuffer = null;
+    if (options.store?.audioSnippetToArrayBuffer) {
+      arrayBuffer = await options.store.audioSnippetToArrayBuffer(snippet);
+    } else if (source && !source.startsWith('blob:')) {
+      const response = await fetch(source);
+      arrayBuffer = await response.arrayBuffer();
+    }
+    if (!arrayBuffer) return null;
     const Ctx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
     const ctx = new Ctx(1, 1, SAMPLE_RATE);
     return await ctx.decodeAudioData(arrayBuffer.slice(0));
@@ -299,14 +305,14 @@ function encodeWav(samples) {
   return new Blob([buffer], { type: 'audio/wav' });
 }
 
-export async function snippetToWavBlob(snippet, project = {}) {
+export async function snippetToWavBlob(snippet, project = {}, options = {}) {
   const bpm = snippet?.bpm || project?.bpm || 120;
   const traits = snippet?.soundTraits || project?.settings?.soundTraits || {};
   const toneTail = (snippet?.type === 'midi' || snippet?.type === 'drum') && hasSnippetTone(snippet, traits) ? 3 : 0.75;
   let durationSec = Math.max(1, (snippet?.durationTicks || ticksPerBar(snippet)) * secondsPerTick(bpm)) + toneTail;
   let decoded = null;
   if (snippet?.type === 'audio') {
-    decoded = await decodeAudioSnippet(snippet);
+    decoded = await decodeAudioSnippet(snippet, options);
     durationSec = Math.max(durationSec, decoded?.duration || 0);
   }
   const samples = ensureLength(null, durationSec);
@@ -319,7 +325,7 @@ export async function snippetToWavBlob(snippet, project = {}) {
   return encodeWav(samples);
 }
 
-export async function projectToWavBlob(project) {
+export async function projectToWavBlob(project, options = {}) {
   const bpm = project?.bpm || 120;
   const secPerTick = secondsPerTick(bpm);
   const barTicks = ticksPerBar(project);
@@ -344,7 +350,7 @@ export async function projectToWavBlob(project) {
       if (!snippet) continue;
       const startSec = (clip.startBar || 0) * barTicks * secPerTick;
       if (snippet.type === 'audio') {
-        audioMixes.push(decodeAudioSnippet(snippet).then(decoded => mixAudioBuffer(samples, decoded, startSec)));
+        audioMixes.push(decodeAudioSnippet(snippet, options).then(decoded => mixAudioBuffer(samples, decoded, startSec)));
       } else if (trackType === 'midi' && snippet.type === 'midi') {
         const traits = snippet.soundTraits || project?.settings?.soundTraits || {};
         renderMidiWithTone(samples, snippet, startSec, bpm, traits);

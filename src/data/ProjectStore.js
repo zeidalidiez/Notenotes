@@ -6,11 +6,12 @@
 import { openDB } from 'idb';
 
 const DB_NAME = 'notenotes';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 const STORE_PROJECTS = 'projects';
 const STORE_VERSIONS = 'versions';
 const STORE_MILESTONES = 'milestones';
+const STORE_AUDIO_ASSETS = 'audioAssets';
 
 /** Maximum number of version history snapshots per project */
 const MAX_VERSIONS = 5;
@@ -80,8 +81,48 @@ async function getDB() {
         milestoneStore.createIndex('projectId', 'projectId', { unique: false });
         milestoneStore.createIndex('timestamp', 'timestamp', { unique: false });
       }
+      if (!db.objectStoreNames.contains(STORE_AUDIO_ASSETS)) {
+        db.createObjectStore(STORE_AUDIO_ASSETS, { keyPath: 'audioAssetId' });
+      }
     }
   });
+}
+
+function clone(value) {
+  return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+}
+
+function isBlobUrl(value) {
+  return typeof value === 'string' && value.startsWith('blob:');
+}
+
+function isDataUrl(value) {
+  return typeof value === 'string' && value.startsWith('data:');
+}
+
+async function dataUrlToBlob(dataUrl) {
+  const response = await fetch(dataUrl);
+  return response.blob();
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error('Audio backup encoding failed'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function walkSnippets(projectOrSnippets) {
+  if (Array.isArray(projectOrSnippets)) return projectOrSnippets;
+  const snippets = [...(projectOrSnippets?.snippets || [])];
+  for (const track of projectOrSnippets?.tracks || []) {
+    for (const clip of track.clips || []) {
+      if (clip.snippet) snippets.push(clip.snippet);
+    }
+  }
+  return snippets;
 }
 
 export class ProjectStore {
@@ -90,6 +131,7 @@ export class ProjectStore {
     this._autoSaveTimer = null;
     this._autoSaveDelay = 2000; // 2 second debounce
     this._pendingSave = null;
+    this._audioObjectUrls = new Map();
   }
 
   /**
@@ -99,13 +141,127 @@ export class ProjectStore {
     this._db = await getDB();
   }
 
+  async saveAudioAsset(blob, meta = {}) {
+    if (!blob) return null;
+    const audioAssetId = meta.audioAssetId || crypto.randomUUID();
+    const record = {
+      audioAssetId,
+      blob,
+      mimeType: meta.mimeType || blob.type || 'audio/webm',
+      size: meta.size || blob.size || 0,
+      createdAt: meta.createdAt || Date.now(),
+      updatedAt: Date.now(),
+    };
+    await this._db.put(STORE_AUDIO_ASSETS, record);
+    return record;
+  }
+
+  async getAudioAsset(audioAssetId) {
+    if (!audioAssetId) return null;
+    return this._db.get(STORE_AUDIO_ASSETS, audioAssetId);
+  }
+
+  async getAudioAssetBlob(audioAssetId) {
+    const record = await this.getAudioAsset(audioAssetId);
+    return record?.blob || null;
+  }
+
+  async getAudioAssetObjectUrl(audioAssetId) {
+    if (!audioAssetId) return '';
+    if (this._audioObjectUrls.has(audioAssetId)) return this._audioObjectUrls.get(audioAssetId);
+    const blob = await this.getAudioAssetBlob(audioAssetId);
+    if (!blob) return '';
+    const url = URL.createObjectURL(blob);
+    this._audioObjectUrls.set(audioAssetId, url);
+    return url;
+  }
+
+  async audioSnippetToArrayBuffer(snippet) {
+    if (snippet?.audioAssetId) {
+      const blob = await this.getAudioAssetBlob(snippet.audioAssetId);
+      return blob ? blob.arrayBuffer() : null;
+    }
+
+    const source = snippet?.audioDataUrl || snippet?.audioUrl || '';
+    if (!source || isBlobUrl(source)) return null;
+    const response = await fetch(source);
+    return response.arrayBuffer();
+  }
+
+  async embedAudioForBackup(value) {
+    const backup = clone(value);
+    const snippets = walkSnippets(backup);
+    for (const snippet of snippets) {
+      if (snippet?.type !== 'audio' || snippet.audioDataUrl || !snippet.audioAssetId) continue;
+      const record = await this.getAudioAsset(snippet.audioAssetId);
+      if (!record?.blob) {
+        snippet.audioUnavailable = true;
+        snippet.audioUnavailableReason = 'Audio asset missing from browser storage';
+        continue;
+      }
+      snippet.audioDataUrl = await blobToDataUrl(record.blob);
+      snippet.audioMimeType = record.mimeType || snippet.audioMimeType;
+      snippet.audioSize = record.size || snippet.audioSize;
+    }
+    return backup;
+  }
+
+  _sanitizeProjectForStorage(project) {
+    const safe = clone(project);
+    for (const snippet of walkSnippets(safe)) {
+      if (snippet.type !== 'audio') continue;
+      delete snippet.audioDataUrl;
+      if (isBlobUrl(snippet.audioUrl)) delete snippet.audioUrl;
+    }
+    return safe;
+  }
+
+  async migrateSnippetsAudioAssets(snippets = []) {
+    let changed = false;
+    for (const snippet of snippets) {
+      if (snippet?.type !== 'audio') continue;
+
+      if (!snippet.audioAssetId && isDataUrl(snippet.audioDataUrl)) {
+        const blob = await dataUrlToBlob(snippet.audioDataUrl);
+        const record = await this.saveAudioAsset(blob, {
+          mimeType: snippet.audioMimeType || blob.type,
+          size: snippet.audioSize || blob.size,
+          createdAt: snippet.createdAt,
+        });
+        snippet.audioAssetId = record.audioAssetId;
+        snippet.audioMimeType = record.mimeType;
+        snippet.audioSize = record.size;
+        changed = true;
+      }
+
+      if (!snippet.audioAssetId && isBlobUrl(snippet.audioUrl)) {
+        snippet.audioUnavailable = true;
+        snippet.audioUnavailableReason = 'This recording used a temporary browser URL and cannot be restored after reload.';
+        delete snippet.audioUrl;
+        changed = true;
+      }
+
+      if (snippet.audioDataUrl) {
+        delete snippet.audioDataUrl;
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
+  async migrateProjectAudioAssets(project) {
+    if (!project) return false;
+    return this.migrateSnippetsAudioAssets(walkSnippets(project));
+  }
+
   /**
    * Save a project to IndexedDB.
    * @param {object} project
    */
   async save(project) {
     project.updatedAt = Date.now();
-    await this._db.put(STORE_PROJECTS, project);
+    await this.migrateProjectAudioAssets(project);
+    await this._db.put(STORE_PROJECTS, this._sanitizeProjectForStorage(project));
   }
 
   /**
@@ -114,7 +270,11 @@ export class ProjectStore {
    * @returns {Promise<object|undefined>}
    */
   async load(id) {
-    return this._db.get(STORE_PROJECTS, id);
+    const project = await this._db.get(STORE_PROJECTS, id);
+    if (project && await this.migrateProjectAudioAssets(project)) {
+      await this.save(project);
+    }
+    return project;
   }
 
   /**
@@ -143,14 +303,25 @@ export class ProjectStore {
       cursor = await cursor.continue();
     }
     await tx.done;
+
+    const milestoneTx = this._db.transaction(STORE_MILESTONES, 'readwrite');
+    const milestoneIndex = milestoneTx.store.index('projectId');
+    let milestoneCursor = await milestoneIndex.openCursor(id);
+    while (milestoneCursor) {
+      await milestoneCursor.delete();
+      milestoneCursor = await milestoneCursor.continue();
+    }
+    await milestoneTx.done;
+    await this.garbageCollectAudioAssets();
   }
 
   async saveMilestone(project, name = '') {
+    await this.migrateProjectAudioAssets(project);
     const snapshot = {
       projectId: project.id,
       timestamp: Date.now(),
       label: name.trim() || `Milestone ${new Date().toLocaleString()}`,
-      data: JSON.parse(JSON.stringify(project))
+      data: this._sanitizeProjectForStorage(project)
     };
     return this._db.add(STORE_MILESTONES, snapshot);
   }
@@ -184,10 +355,11 @@ export class ProjectStore {
    * @param {object} project
    */
   async saveVersion(project) {
+    await this.migrateProjectAudioAssets(project);
     const snapshot = {
       projectId: project.id,
       timestamp: Date.now(),
-      data: JSON.parse(JSON.stringify(project)) // deep clone
+      data: this._sanitizeProjectForStorage(project)
     };
     await this._db.add(STORE_VERSIONS, snapshot);
 
@@ -253,5 +425,69 @@ export class ProjectStore {
       await this.saveVersion(project);
       console.log('[ProjectStore] Auto-saved:', project.name);
     }, this._autoSaveDelay);
+  }
+
+  _collectAudioAssetIdsFromValue(value, ids = new Set()) {
+    for (const snippet of walkSnippets(value)) {
+      if (snippet?.audioAssetId) ids.add(snippet.audioAssetId);
+    }
+    return ids;
+  }
+
+  async getAudioAssetStats(value) {
+    const snippets = walkSnippets(value).filter(snippet => snippet?.type === 'audio');
+    const ids = this._collectAudioAssetIdsFromValue(value);
+    let bytes = 0;
+    let missing = 0;
+
+    for (const audioAssetId of ids) {
+      const record = await this.getAudioAsset(audioAssetId);
+      if (!record) {
+        missing++;
+        continue;
+      }
+      bytes += record.size || record.blob?.size || 0;
+    }
+
+    for (const snippet of snippets) {
+      if (!snippet.audioAssetId && snippet.audioSize) {
+        bytes += snippet.audioSize;
+      }
+      if (snippet.audioUnavailable) {
+        missing++;
+      }
+    }
+
+    return {
+      audioSnippetCount: snippets.length,
+      audioAssetCount: ids.size,
+      bytes,
+      missing,
+    };
+  }
+
+  async garbageCollectAudioAssets() {
+    const used = new Set();
+    const projects = await this._db.getAll(STORE_PROJECTS);
+    projects.forEach(project => this._collectAudioAssetIdsFromValue(project, used));
+
+    const versions = await this._db.getAll(STORE_VERSIONS);
+    versions.forEach(version => this._collectAudioAssetIdsFromValue(version.data, used));
+
+    const milestones = await this._db.getAll(STORE_MILESTONES);
+    milestones.forEach(milestone => this._collectAudioAssetIdsFromValue(milestone.data, used));
+
+    const tx = this._db.transaction(STORE_AUDIO_ASSETS, 'readwrite');
+    let cursor = await tx.store.openCursor();
+    while (cursor) {
+      if (!used.has(cursor.value.audioAssetId)) {
+        const url = this._audioObjectUrls.get(cursor.value.audioAssetId);
+        if (url) URL.revokeObjectURL(url);
+        this._audioObjectUrls.delete(cursor.value.audioAssetId);
+        await cursor.delete();
+      }
+      cursor = await cursor.continue();
+    }
+    await tx.done;
   }
 }

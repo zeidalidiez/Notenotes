@@ -19,6 +19,28 @@ const TIME_SIGNATURE_OPTIONS = [
   { beats: 5, subdivision: 4, label: '5/4' },
 ];
 
+function byteLength(text = '') {
+  return new TextEncoder().encode(text).length;
+}
+
+function formatBytes(bytes = 0) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  const digits = value >= 100 || unit === 0 ? 0 : value >= 10 ? 1 : 2;
+  return `${value.toFixed(digits)} ${units[unit]}`;
+}
+
+function percent(value, total) {
+  if (!Number.isFinite(value) || !Number.isFinite(total) || total <= 0) return 0;
+  return Math.max(0, Math.min(100, (value / total) * 100));
+}
+
 export class SettingsPanel {
   /**
    * @param {object} deps - { transport, metronome, quantizer, store, project }
@@ -277,6 +299,28 @@ export class SettingsPanel {
   _renderHistorySection() {
     return `
       <div class="settings-section" id="section-history">
+        <div class="settings-group">
+          <h3 class="settings-group__title">Storage</h3>
+          <p class="settings-desc">Notenotes saves work in this browser. Browser storage is convenient, but it is not a backup file you own. Save workspace backups for anything you would hate to lose.</p>
+          <div class="storage-meter" id="storage-meter">
+            <div class="storage-meter__bar" aria-hidden="true">
+              <span class="storage-meter__fill" id="storage-meter-fill" style="width:0%;"></span>
+            </div>
+            <div class="storage-meter__stats">
+              <span id="storage-meter-used">Checking storage...</span>
+              <span id="storage-meter-quota"></span>
+            </div>
+          </div>
+          <div class="settings-row">
+            <label class="settings-label">Audio</label>
+            <span class="settings-value" id="storage-audio-count">Checking...</span>
+          </div>
+          <div class="settings-row">
+            <label class="settings-label">Workspace backup</label>
+            <span class="settings-value" id="storage-backup-size">Estimating...</span>
+          </div>
+          <p class="settings-desc" id="storage-advice">Checking storage...</p>
+        </div>
         <div class="settings-group">
           <h3 class="settings-group__title">Backups</h3>
           <p class="settings-desc">Save portable JSON files outside browser storage. Workspace backups restore the whole project; snippet backups restore just the snippet library.</p>
@@ -609,6 +653,7 @@ export class SettingsPanel {
         body.innerHTML = this._renderHistorySection();
         this._bindBackupEvents();
         this._bindMilestoneEvents();
+        this._loadStorageStatus();
         this._loadMilestones();
         this._loadVersionHistory();
         break;
@@ -661,6 +706,69 @@ export class SettingsPanel {
     }
   }
 
+  async _loadStorageStatus() {
+    const body = this.el.querySelector('#settings-body');
+    if (!body || !this.project) return;
+
+    const fillEl = body.querySelector('#storage-meter-fill');
+    const usedEl = body.querySelector('#storage-meter-used');
+    const quotaEl = body.querySelector('#storage-meter-quota');
+    const audioEl = body.querySelector('#storage-audio-count');
+    const backupEl = body.querySelector('#storage-backup-size');
+    const adviceEl = body.querySelector('#storage-advice');
+
+    try {
+      const estimate = await navigator.storage?.estimate?.();
+      const usage = estimate?.usage || 0;
+      const quota = estimate?.quota || 0;
+      const usedPercent = percent(usage, quota);
+
+      if (fillEl) {
+        fillEl.style.width = `${usedPercent}%`;
+        fillEl.classList.toggle('is-warning', usedPercent >= 70);
+        fillEl.classList.toggle('is-danger', usedPercent >= 85);
+      }
+      if (usedEl) usedEl.textContent = quota ? `${formatBytes(usage)} used` : 'Storage estimate unavailable';
+      if (quotaEl) quotaEl.textContent = quota ? `${usedPercent.toFixed(1)}% of ${formatBytes(quota)}` : '';
+
+      const audioStats = await this.store?.getAudioAssetStats?.(this.project);
+      const audioBytes = audioStats?.bytes || 0;
+      const audioCount = audioStats?.audioSnippetCount || 0;
+      const missing = audioStats?.missing || 0;
+      const backupBytes = this._estimateWorkspaceBackupBytes(audioBytes);
+
+      if (audioEl) {
+        const missingText = missing ? `, ${missing} unavailable` : '';
+        audioEl.textContent = `${audioCount} recording${audioCount === 1 ? '' : 's'}, ${formatBytes(audioBytes)}${missingText}`;
+      }
+      if (backupEl) backupEl.textContent = `About ${formatBytes(backupBytes)}`;
+      if (adviceEl) {
+        if (missing > 0) {
+          adviceEl.textContent = 'Some older audio clips are unavailable. Save a fresh workspace backup after checking the project.';
+        } else if (usedPercent >= 85) {
+          adviceEl.textContent = 'Storage is getting tight. Save a workspace backup outside the browser before recording more audio.';
+        } else if (audioCount > 0) {
+          adviceEl.textContent = 'Audio recordings are stored locally. Save a workspace backup when you reach a version you care about.';
+        } else {
+          adviceEl.textContent = 'No audio recordings yet. Browser storage is still local, so workspace backups are the safest handoff point.';
+        }
+      }
+    } catch (err) {
+      console.warn('[Settings] Storage estimate failed:', err);
+      if (usedEl) usedEl.textContent = 'Storage estimate unavailable';
+      if (quotaEl) quotaEl.textContent = '';
+      if (audioEl) audioEl.textContent = 'Could not check audio storage';
+      if (backupEl) backupEl.textContent = 'Could not estimate';
+      if (adviceEl) adviceEl.textContent = 'Save workspace backups outside the browser for anything important.';
+    }
+  }
+
+  _estimateWorkspaceBackupBytes(audioBytes = 0) {
+    const structuralBytes = byteLength(JSON.stringify(workspaceBackup(this.project)));
+    const base64AudioBytes = Math.ceil(audioBytes * 1.37);
+    return structuralBytes + base64AudioBytes;
+  }
+
   _bindExportEvents() {
     const body = this.el.querySelector('#settings-body');
     body.querySelector('#export-canvas-midi')?.addEventListener('pointerdown', (e) => {
@@ -677,7 +785,7 @@ export class SettingsPanel {
       btn.disabled = true;
       showToast('Rendering Canvas WAV...');
       try {
-        const blob = await projectToWavBlob(this.project);
+        const blob = await projectToWavBlob(this.project, { store: this.store });
         downloadBlob(blob, safeFilename(`${this.project.name || 'notenotes'}-canvas`, 'wav'));
         showToast('Canvas WAV exported');
       } catch (err) {
@@ -706,7 +814,7 @@ export class SettingsPanel {
       btn.disabled = true;
       showToast('Rendering snippet WAV...');
       try {
-        const blob = await snippetToWavBlob(snippet, this.project);
+        const blob = await snippetToWavBlob(snippet, this.project, { store: this.store });
         downloadBlob(blob, safeFilename(snippet.name || 'snippet', 'wav'));
         showToast('Snippet WAV exported');
       } catch (err) {
@@ -726,7 +834,8 @@ export class SettingsPanel {
       if (!this.project) return;
       await this.store?.save(this.project);
       try {
-        await saveJsonFile(workspaceBackup(this.project), backupFilename(this.project, 'workspace'));
+        const portableProject = await this.store.embedAudioForBackup(this.project);
+        await saveJsonFile(workspaceBackup(portableProject), backupFilename(this.project, 'workspace'));
         showToast('Workspace backup saved');
       } catch (err) {
         if (err?.name !== 'AbortError') {
@@ -741,7 +850,8 @@ export class SettingsPanel {
       if (!this.project) return;
       await this.store?.save(this.project);
       try {
-        await saveJsonFile(snippetsBackup(this.project), backupFilename(this.project, 'snippets'));
+        const portableProject = await this.store.embedAudioForBackup(this.project);
+        await saveJsonFile(snippetsBackup(portableProject), backupFilename(this.project, 'snippets'));
         showToast('Snippet backup saved');
       } catch (err) {
         if (err?.name !== 'AbortError') {
@@ -767,6 +877,7 @@ export class SettingsPanel {
         const type = validateBackup(backup);
 
         if (type === 'workspace') {
+          await this.store.migrateProjectAudioAssets(backup.project);
           await this.store.save(backup.project);
           showToast('Workspace restored. Reloading...');
           setTimeout(() => window.location.reload(), 500);
@@ -778,6 +889,7 @@ export class SettingsPanel {
           ...(this.project.snippets || []),
           ...snippetsWithFreshIds(backup.snippets),
         ];
+        await this.store.migrateSnippetsAudioAssets(this.project.snippets);
         await this.store.save(this.project);
         showToast(`Imported ${backup.snippets.length} snippets. Reloading...`);
         setTimeout(() => window.location.reload(), 500);

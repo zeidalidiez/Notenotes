@@ -33,9 +33,10 @@ export class PlaybackEngine {
    * @param {Transport} transport
    * @param {object} project - Project data with tracks[]
    */
-  constructor(transport, project) {
+  constructor(transport, project, store = null) {
     this.transport = transport;
     this.project = project;
+    this.store = store;
 
     /** One synth instance per track (keyed by track ID) */
     this._trackSynths = new Map();
@@ -200,7 +201,7 @@ export class PlaybackEngine {
         }
 
         // Play audio snippets
-        if (snippet.type === 'audio' && this._audioSource(snippet) && localTick === 0) {
+        if (snippet.type === 'audio' && this._hasAudioSource(snippet) && localTick === 0) {
           this._playAudioClip(snippet);
         }
 
@@ -255,14 +256,19 @@ export class PlaybackEngine {
 
   async _playAudioClip(snippet) {
     const ctx = this._engine.ctx;
-    const audioSource = this._audioSource(snippet);
-    if (!ctx || !audioSource) return;
+    if (!ctx || !this._hasAudioSource(snippet)) return;
 
     try {
       let buffer = this._audioBuffers.get(snippet.id);
       if (!buffer) {
-        const response = await fetch(audioSource);
-        const arrayBuffer = await response.arrayBuffer();
+        const arrayBuffer = this.store
+          ? await this.store.audioSnippetToArrayBuffer(snippet)
+          : await this._legacyAudioArrayBuffer(snippet);
+        if (!arrayBuffer) {
+          snippet.audioUnavailable = true;
+          snippet.audioUnavailableReason ||= 'Audio data is not available in browser storage.';
+          return;
+        }
         buffer = await ctx.decodeAudioData(arrayBuffer);
         this._audioBuffers.set(snippet.id, buffer);
       }
@@ -281,6 +287,17 @@ export class PlaybackEngine {
 
   _audioSource(snippet) {
     return snippet?.audioDataUrl || snippet?.audioUrl || '';
+  }
+
+  _hasAudioSource(snippet) {
+    return !!(snippet?.audioAssetId || this._audioSource(snippet));
+  }
+
+  async _legacyAudioArrayBuffer(snippet) {
+    const source = this._audioSource(snippet);
+    if (!source || source.startsWith('blob:')) return null;
+    const response = await fetch(source);
+    return response.arrayBuffer();
   }
 
   _applyModulation(snippet, synth, localTick, clipKey, audioTime = null) {

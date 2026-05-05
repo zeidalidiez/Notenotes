@@ -181,7 +181,7 @@ export class PlaybackEngine {
         if (instDef.type === 'synth' && synth && snippet.notes) {
           for (const note of snippet.notes) {
             if (note.startTick === localTick) {
-              synth.setSoundTraits(note.soundTraits || snippet.soundTraits || this.project?.settings?.soundTraits);
+              synth.setSoundTraits(note.soundTraits || clip.soundTraits || snippet.soundTraits || this.project?.settings?.soundTraits);
               synth.noteOn(note.pitch, note.velocity || 0.8, nextTickTime);
               const noteOffTick = tick + (note.durationTick || 240);
               const key = `${track.id}-${note.pitch}`;
@@ -194,7 +194,7 @@ export class PlaybackEngine {
         if (instDef.type === 'kit' && snippet.hits && this._kit) {
           for (const hit of snippet.hits) {
             if (hit.startTick === localTick) {
-              this._kit.setSoundTraits(hit.soundTraits || snippet.soundTraits || this.project?.settings?.soundTraits);
+              this._kit.setSoundTraits(hit.soundTraits || clip.soundTraits || snippet.soundTraits || this.project?.settings?.soundTraits);
               this._kit._triggerSound(hit.type || 'kick', nextTickTime);
             }
           }

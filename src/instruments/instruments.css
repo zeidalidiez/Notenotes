@@ -149,6 +149,35 @@
   gap: var(--space-xs);
 }
 
+.tone-preset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-sm);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--surface-3);
+}
+
+.tone-preset__row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-xs);
+  align-items: center;
+}
+
+.tone-preset__select,
+.tone-preset__input {
+  min-width: 0;
+  height: 30px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--surface-4);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+}
+
 .tone-row {
   display: grid;
   grid-template-columns: minmax(70px, auto) 1fr 42px;

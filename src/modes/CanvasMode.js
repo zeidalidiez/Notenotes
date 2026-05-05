@@ -7,6 +7,7 @@
 import './canvas.css';
 import { TransportState } from '../engine/Transport.js';
 import { TRACK_INSTRUMENTS } from '../engine/PlaybackEngine.js';
+import { normalizeSoundTraits } from '../instruments/WebAudioSynth.js';
 import { showToast } from '../ui/Toast.js';
 
 /** Pixels per bar at default zoom */
@@ -42,6 +43,8 @@ export class CanvasMode {
 
     /** Called when a track's instrument changes */
     this.onTrackInstrumentChanged = null;
+
+    window.addEventListener('project-tone-presets-changed', () => this._refreshTonePresetSelect());
   }
 
   _beatsPerBar() {
@@ -106,6 +109,11 @@ export class CanvasMode {
         <button class="btn btn--ghost" id="canvas-zoom-in-btn" style="font-size:0.75rem;min-height:28px;padding:2px 8px;" title="Zoom In (2x)">🔍+</button>
         <div style="width: 1px; height: 16px; background: var(--surface-3); margin: 0 4px;"></div>
         <button class="btn btn--ghost" id="canvas-trim-btn" style="font-size:0.75rem;min-height:28px;padding:2px 8px;" title="Trim empty space from all snippets">✂️ Trim</button>
+        <div style="width: 1px; height: 16px; background: var(--surface-3); margin: 0 4px;"></div>
+        <select class="canvas-toolbar__select" id="canvas-tone-preset" aria-label="Tone preset for selected clip">
+          ${this._renderTonePresetOptions()}
+        </select>
+        <button class="btn btn--ghost" id="canvas-tone-apply" style="font-size:0.75rem;min-height:28px;padding:2px 8px;" title="Apply Tone preset to selected clip">Apply to Clip</button>
       </div>
       <div class="canvas-toolbar__spacer"></div>
       <div class="canvas-toolbar__group">
@@ -397,7 +405,6 @@ export class CanvasMode {
   }
 
   _renderToneBadges(clip) {
-    if (clip.snippet?.type !== 'midi') return '';
     const labels = {
       crush: 'CR',
       echo: 'EC',
@@ -407,14 +414,53 @@ export class CanvasMode {
       noise: 'NO',
     };
     const sources = [
-      clip.snippet?.soundTraits || this.project?.settings?.soundTraits || {},
+      clip.soundTraits || clip.snippet?.soundTraits || {},
       ...(clip.snippet?.notes || []).map(note => note.soundTraits || {}),
+      ...(clip.snippet?.hits || []).map(hit => hit.soundTraits || {}),
     ];
     const active = Object.entries(labels)
       .filter(([id]) => sources.some(traits => traits[id]?.enabled !== false && (traits[id]?.amount || 0) > 0))
       .slice(0, 3);
     if (active.length === 0) return '';
     return `<span class="canvas-clip__tone-badges">${active.map(([id, label]) => `<span title="${id}">${label}</span>`).join('')}</span>`;
+  }
+
+  _tonePresets() {
+    return Array.isArray(this.project?.settings?.tonePresets) ? this.project.settings.tonePresets : [];
+  }
+
+  _renderTonePresetOptions() {
+    return `<option value="">Tone preset...</option>${this._tonePresets().map(preset => `<option value="${preset.id}">${preset.name}</option>`).join('')}`;
+  }
+
+  _refreshTonePresetSelect() {
+    const select = this.el?.querySelector('#canvas-tone-preset');
+    if (!select) return;
+    const value = select.value;
+    select.innerHTML = this._renderTonePresetOptions();
+    if (this._tonePresets().some(p => p.id === value)) select.value = value;
+  }
+
+  _findClip(clipId = this._selectedClip) {
+    if (!clipId) return null;
+    for (const track of this.project?.tracks || []) {
+      const clip = (track.clips || []).find(c => c.id === clipId);
+      if (clip) return clip;
+    }
+    return null;
+  }
+
+  _applyTonePresetToSelectedClip() {
+    const presetId = this.el?.querySelector('#canvas-tone-preset')?.value;
+    const preset = this._tonePresets().find(p => p.id === presetId);
+    if (!preset) return showToast('Choose a Tone preset first');
+    const clip = this._findClip();
+    if (!clip) return showToast('Select a clip first');
+    if (clip.snippet?.type === 'audio') return showToast('Tone presets work on MIDI and drum clips');
+    clip.soundTraits = normalizeSoundTraits(preset.soundTraits);
+    this.store?.scheduleAutoSave(this.project);
+    this._renderTracks();
+    showToast(`Tone preset applied: ${preset.name}`);
   }
 
   _renderModOverlay(clip, clipWidth) {
@@ -774,6 +820,10 @@ export class CanvasMode {
     // Trim empty space
     this.el.querySelector('#canvas-trim-btn')?.addEventListener('click', () => {
       this._trimEmptySpace();
+    });
+
+    this.el.querySelector('#canvas-tone-apply')?.addEventListener('click', () => {
+      this._applyTonePresetToSelectedClip();
     });
 
     // Delegated events on the canvas element

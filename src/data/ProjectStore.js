@@ -50,6 +50,7 @@ export function createProject(name = 'Untitled Sketch') {
       arpPattern: 'up',
       holdDuration: 3000,
       soundTraits: {},
+      tonePresets: [],
       controllerToneAssignments: {
         leftTrigger: 'none',
         rightTrigger: 'none'

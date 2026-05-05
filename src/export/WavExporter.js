@@ -42,7 +42,8 @@ function hasToneTraits(traits = {}) {
 }
 
 function hasSnippetTone(snippet, fallbackTraits = {}) {
-  return hasToneTraits(snippet?.soundTraits || fallbackTraits)
+  return hasToneTraits(fallbackTraits)
+    || hasToneTraits(snippet?.soundTraits)
     || (snippet?.notes || []).some(note => hasToneTraits(note.soundTraits))
     || (snippet?.hits || []).some(hit => hasToneTraits(hit.soundTraits));
 }
@@ -371,7 +372,8 @@ export async function projectToWavBlob(project, options = {}) {
 
       const startSec = (clip.startBar || 0) * barTicks * secPerTick;
       const durationSec = (snippet.durationTicks || barTicks) * secPerTick;
-      const job = { trackType, snippet, startSec, durationSec, gain };
+      const traits = clip.soundTraits || snippet.soundTraits || project?.settings?.soundTraits || {};
+      const job = { trackType, snippet, startSec, durationSec, gain, traits };
 
       if (snippet.type === 'audio') {
         job.decoded = await decodeAudioSnippet(snippet, options);
@@ -384,19 +386,17 @@ export async function projectToWavBlob(project, options = {}) {
     }
   }
 
-  const hasAnyClipTone = jobs.some(job => hasSnippetTone(job.snippet, project?.settings?.soundTraits || {}));
+  const hasAnyClipTone = jobs.some(job => hasSnippetTone(job.snippet, job.traits));
   const samples = ensureLength(null, maxSec + (hasAnyClipTone ? 3 : 1));
   if (options.stats) options.stats.renderedClips = jobs.length;
 
   for (const job of jobs) {
-    const { trackType, snippet, startSec, gain } = job;
+    const { trackType, snippet, startSec, gain, traits } = job;
     if (snippet.type === 'audio') {
       mixAudioBuffer(samples, job.decoded, startSec, gain);
     } else if (trackType === 'midi' && snippet.type === 'midi') {
-      const traits = snippet.soundTraits || project?.settings?.soundTraits || {};
       renderMidiWithTone(samples, snippet, startSec, bpm, traits, gain, { useSnippetBpm: false });
     } else {
-      const traits = snippet.soundTraits || project?.settings?.soundTraits || {};
       renderSnippetEvents(samples, snippet, startSec, bpm, { includeMidi: false, toneTraits: traits, gain, useSnippetBpm: false });
     }
   }

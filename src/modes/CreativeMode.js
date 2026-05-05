@@ -494,6 +494,7 @@ export class CreativeMode {
         <span>Tone</span>
         <button class="tone-popover__close" type="button" aria-label="Close tone">x</button>
       </div>
+      ${this._renderTonePresetControls()}
       <div class="tone-popover__list">
         ${Object.values(SOUND_TRAITS).map(trait => {
           const state = traits[trait.id] || { amount: 0 };
@@ -522,6 +523,97 @@ export class CreativeMode {
       const update = () => this._setToneTraitAmount(slider.dataset.toneAmount, Number(slider.value) / 100, slider);
       slider.addEventListener('input', update);
       slider.addEventListener('change', update);
+    });
+
+    this._bindTonePresetControls();
+  }
+
+  _bindTonePresetControls() {
+    const popover = this._tonePopover;
+    if (!popover) return;
+    popover.querySelector('#tone-preset-apply')?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const preset = this._selectedTonePreset(popover);
+      if (!preset) return showToast('Choose a Tone preset first');
+      this._applyProjectSoundTraits(preset.soundTraits);
+      this._syncTonePopover();
+      showToast(`Tone preset applied: ${preset.name}`);
+    });
+
+    popover.querySelector('#tone-preset-save')?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const input = popover.querySelector('#tone-preset-name');
+      const name = input?.value?.trim();
+      if (!name) return showToast('Name the Tone preset first');
+      this._saveTonePreset(name);
+      if (input) input.value = '';
+      this._refreshTonePresetControls();
+      showToast(`Tone preset saved: ${name}`);
+    });
+  }
+
+  _renderTonePresetControls() {
+    const presets = this._tonePresets();
+    return `
+      <div class="tone-preset">
+        <div class="tone-preset__row">
+          <select class="tone-preset__select" id="tone-preset-select" aria-label="Tone preset">
+            <option value="">Preset...</option>
+            ${presets.map(preset => `<option value="${preset.id}">${preset.name}</option>`).join('')}
+          </select>
+          <button class="btn btn--ghost" id="tone-preset-apply" type="button">Apply</button>
+        </div>
+        <div class="tone-preset__row">
+          <input class="tone-preset__input" id="tone-preset-name" type="text" placeholder="Preset name" aria-label="Tone preset name">
+          <button class="btn btn--ghost" id="tone-preset-save" type="button">Save</button>
+        </div>
+      </div>
+    `;
+  }
+
+  _tonePresets() {
+    if (!this.project?.settings) return [];
+    if (!Array.isArray(this.project.settings.tonePresets)) this.project.settings.tonePresets = [];
+    return this.project.settings.tonePresets;
+  }
+
+  _selectedTonePreset(root = this._tonePopover) {
+    const id = root?.querySelector('#tone-preset-select')?.value;
+    return this._tonePresets().find(preset => preset.id === id) || null;
+  }
+
+  _saveTonePreset(name) {
+    const presets = this._tonePresets();
+    const existing = presets.find(p => p.name.toLowerCase() === name.toLowerCase());
+    const preset = {
+      id: existing?.id || crypto.randomUUID(),
+      name,
+      soundTraits: this._baseSoundTraitsSnapshot(),
+      updatedAt: Date.now(),
+    };
+    if (existing) Object.assign(existing, preset);
+    else presets.push(preset);
+    presets.sort((a, b) => a.name.localeCompare(b.name));
+    this.store?.scheduleAutoSave(this.project);
+    window.dispatchEvent(new CustomEvent('project-tone-presets-changed'));
+  }
+
+  _refreshTonePresetControls() {
+    if (!this._tonePopover) return;
+    const old = this._tonePopover.querySelector('.tone-preset');
+    old?.insertAdjacentHTML('beforebegin', this._renderTonePresetControls());
+    old?.remove();
+    this._bindTonePresetControls();
+  }
+
+  _syncTonePopover() {
+    const traits = this._ensureSoundTraits();
+    this._tonePopover?.querySelectorAll('[data-tone-amount]').forEach(slider => {
+      const id = slider.dataset.toneAmount;
+      const amount = Math.round((traits[id]?.amount || 0) * 100);
+      slider.value = String(amount);
+      const value = slider.closest('.tone-row')?.querySelector('.tone-row__value');
+      if (value) value.textContent = `${amount}%`;
     });
   }
 

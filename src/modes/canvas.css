@@ -19,12 +19,14 @@
   border-bottom: var(--border-subtle);
   flex-shrink: 0;
   min-height: 36px;
+  overflow-x: auto;
 }
 
 .canvas-toolbar__group {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
+  flex: 0 0 auto;
 }
 
 .canvas-toolbar__label {
@@ -32,6 +34,19 @@
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.canvas-toolbar__select {
+  height: 28px;
+  max-width: 150px;
+  min-width: 118px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--surface-4);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+  font-family: var(--font-family);
 }
 
 .canvas-toolbar__spacer { flex: 1; }

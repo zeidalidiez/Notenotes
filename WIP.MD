@@ -85,6 +85,15 @@ Goal:
 
 Let users save and reuse Tone settings without turning the Canvas into a full mixer.
 
+Current status:
+
+- Users can save named Tone presets from the Create Tone popover.
+- Users can apply a Tone preset to live playing from the Create Tone popover.
+- Canvas has a compact Tone preset picker that applies the preset to the selected MIDI or drum clip.
+- Clip-level Tone presets do not mutate the original snippet, so repeated uses of one snippet can have different Tone.
+- Playback and WAV export prefer clip Tone, then per-note/per-hit Tone, then snippet/project Tone.
+- Canvas Tone badges now work for drum clips too.
+
 Recommended model:
 
 - Users can save named Tone presets.
@@ -108,7 +117,7 @@ Export and backup logic:
 
 Expected scope:
 
-Medium if kept to presets, clip application, and badges.
+Mostly manual testing now. A later polish pass can add preset delete/rename and direct snippet-library application.
 
 ## 4. Controller Trigger Polish
 

@@ -6,6 +6,7 @@
 
 import { AudioEngine } from '../engine/AudioEngine.js';
 import { SOUND_TRAITS, normalizeSoundTraits } from './WebAudioSynth.js';
+import { showToast } from '../ui/Toast.js';
 
 export const DRUM_KITS = {
   classic: {
@@ -102,6 +103,7 @@ export class SketchKit {
     window.addEventListener('settings-pads-changed', () => {
       if (this.el) this._refreshPads();
     });
+    window.addEventListener('project-tone-presets-changed', () => this._refreshTonePresetControls());
   }
 
   set project(p) {
@@ -401,6 +403,7 @@ export class SketchKit {
         <span>Tone</span>
         <button class="tone-popover__close" type="button" aria-label="Close tone">x</button>
       </div>
+      ${this._renderTonePresetControls()}
       <div class="tone-popover__list">
         ${Object.values(SOUND_TRAITS).map(trait => {
           const amount = Math.round((this.soundTraits?.[trait.id]?.amount || 0) * 100);
@@ -425,6 +428,85 @@ export class SketchKit {
       slider.addEventListener('input', update);
       slider.addEventListener('change', update);
     });
+    this._bindTonePresetControls(popover);
+  }
+
+  _renderTonePresetControls() {
+    const presets = this._tonePresets();
+    return `
+      <div class="tone-preset">
+        <div class="tone-preset__row">
+          <select class="tone-preset__select" id="sk-tone-preset-select" aria-label="Tone preset">
+            <option value="">Preset...</option>
+            ${presets.map(preset => `<option value="${preset.id}">${preset.name}</option>`).join('')}
+          </select>
+          <button class="btn btn--ghost" id="sk-tone-preset-apply" type="button">Apply</button>
+        </div>
+        <div class="tone-preset__row">
+          <input class="tone-preset__input" id="sk-tone-preset-name" type="text" placeholder="Preset name" aria-label="Tone preset name">
+          <button class="btn btn--ghost" id="sk-tone-preset-save" type="button">Save</button>
+        </div>
+      </div>
+    `;
+  }
+
+  _bindTonePresetControls(popover = this.el?.querySelector('#sk-tone-popover')) {
+    if (!popover) return;
+    popover.querySelector('#sk-tone-preset-apply')?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const preset = this._selectedTonePreset(popover);
+      if (!preset) return showToast('Choose a Tone preset first');
+      this.setSoundTraits(preset.soundTraits);
+      if (this.onSoundTraitsChanged) this.onSoundTraitsChanged(this.soundTraits);
+      showToast(`Tone preset applied: ${preset.name}`);
+    });
+
+    popover.querySelector('#sk-tone-preset-save')?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const input = popover.querySelector('#sk-tone-preset-name');
+      const name = input?.value?.trim();
+      if (!name) return showToast('Name the Tone preset first');
+      this._saveTonePreset(name);
+      if (input) input.value = '';
+      this._refreshTonePresetControls();
+      showToast(`Tone preset saved: ${name}`);
+    });
+  }
+
+  _tonePresets() {
+    if (!this.project?.settings) return [];
+    if (!Array.isArray(this.project.settings.tonePresets)) this.project.settings.tonePresets = [];
+    return this.project.settings.tonePresets;
+  }
+
+  _selectedTonePreset(root) {
+    const id = root?.querySelector('#sk-tone-preset-select')?.value;
+    return this._tonePresets().find(preset => preset.id === id) || null;
+  }
+
+  _saveTonePreset(name) {
+    const presets = this._tonePresets();
+    const existing = presets.find(p => p.name.toLowerCase() === name.toLowerCase());
+    const preset = {
+      id: existing?.id || crypto.randomUUID(),
+      name,
+      soundTraits: normalizeSoundTraits(this.soundTraits),
+      updatedAt: Date.now(),
+    };
+    if (existing) Object.assign(existing, preset);
+    else presets.push(preset);
+    presets.sort((a, b) => a.name.localeCompare(b.name));
+    window.dispatchEvent(new CustomEvent('project-tone-presets-changed'));
+    if (this.onSoundTraitsChanged) this.onSoundTraitsChanged(this.soundTraits);
+  }
+
+  _refreshTonePresetControls() {
+    const popover = this.el?.querySelector('#sk-tone-popover');
+    if (!popover) return;
+    const old = popover.querySelector('.tone-preset');
+    old?.insertAdjacentHTML('beforebegin', this._renderTonePresetControls());
+    old?.remove();
+    this._bindTonePresetControls(popover);
   }
 
   _closeTonePopover() {

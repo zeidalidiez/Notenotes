@@ -154,12 +154,20 @@ export class MicRecorder {
     this._recorder.ondataavailable = (e) => {
       if (e.data.size > 0) this._chunks.push(e.data);
     };
+    this._recorder.onerror = (e) => {
+      console.warn('[MicRecorder] Recording error:', e.error || e);
+      this.el.querySelector('#mic-status').textContent = 'Audio recording failed';
+    };
     this._recorder.onstop = () => {
       const blob = new Blob(this._chunks, { type: this._recorder?.mimeType || mimeType || 'audio/webm' });
       this._chunks = [];
+      if (!blob.size) {
+        this.el.querySelector('#mic-status').textContent = 'No audio was captured. Try recording again.';
+        return;
+      }
       if (this._onRecordingComplete) this._onRecordingComplete(blob);
     };
-    this._recorder.start();
+    this._recorder.start(250);
     this._isRecording = true;
     this.el.querySelector('#mic-btn').classList.add('is-active');
     this.el.querySelector('#mic-status').textContent = 'Recording...';
@@ -167,6 +175,7 @@ export class MicRecorder {
 
   _stopRecording() {
     if (this._recorder && this._recorder.state === 'recording') {
+      try { this._recorder.requestData(); } catch (_) {}
       this._recorder.stop();
     }
     this._isRecording = false;

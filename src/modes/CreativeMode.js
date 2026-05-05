@@ -152,37 +152,43 @@ export class CreativeMode {
 
     // Wire mic audio blob → create audio snippet
     this.micRecorder.setRecordingCallback(async (blob) => {
-      const record = await this.store?.saveAudioAsset(blob, {
-        mimeType: blob.type || 'audio/webm',
-        size: blob.size,
-        createdAt: Date.now(),
-      });
-      const url = URL.createObjectURL(blob);
-      const elapsedMs = this.micRecorder._startTime ? Date.now() - this.micRecorder._startTime : 8000;
-      const beats = this.transport.bpm / 60;
-      const ticksPerBeat = this.transport.ticksPerBeat;
-      const durationTicks = Math.max(480, Math.round((elapsedMs / 1000) * beats * ticksPerBeat));
-      const snippet = {
-        id: crypto.randomUUID(),
-        createdAt: Date.now(),
-        type: 'audio',
-        name: 'Audio in recording',
-        notes: [],
-        hits: [],
-        durationTicks,
-        bpm: this.transport.bpm,
-        timeSignature: { ...this.transport.timeSignature },
-        audioAssetId: record?.audioAssetId || null,
-        audioUrl: url,
-        audioMimeType: blob.type || 'audio/webm',
-        audioSize: blob.size,
-      };
-      this.snippetTray.addSnippet(snippet);
-      if (this.project) {
-        this.project.snippets.push(snippet);
-        this.store?.scheduleAutoSave(this.project);
+      try {
+        if (!blob?.size) throw new Error('No audio was captured');
+        const record = await this.store?.saveAudioAsset(blob, {
+          mimeType: blob.type || 'audio/webm',
+          size: blob.size,
+          createdAt: Date.now(),
+        });
+        const url = URL.createObjectURL(blob);
+        const elapsedMs = this.micRecorder._startTime ? Date.now() - this.micRecorder._startTime : 8000;
+        const beats = this.transport.bpm / 60;
+        const ticksPerBeat = this.transport.ticksPerBeat;
+        const durationTicks = Math.max(480, Math.round((elapsedMs / 1000) * beats * ticksPerBeat));
+        const snippet = {
+          id: crypto.randomUUID(),
+          createdAt: Date.now(),
+          type: 'audio',
+          name: 'Audio in recording',
+          notes: [],
+          hits: [],
+          durationTicks,
+          bpm: this.transport.bpm,
+          timeSignature: { ...this.transport.timeSignature },
+          audioAssetId: record?.audioAssetId || null,
+          audioUrl: url,
+          audioMimeType: blob.type || 'audio/webm',
+          audioSize: blob.size,
+        };
+        this.snippetTray.addSnippet(snippet);
+        if (this.project) {
+          this.project.snippets.push(snippet);
+          this.store?.scheduleAutoSave(this.project);
+        }
+        showToast('Audio snippet captured!');
+      } catch (err) {
+        console.warn('[CreativeMode] Audio snippet capture failed:', err);
+        showToast(err?.message || 'Audio snippet capture failed');
       }
-      showToast('Audio snippet captured!');
     });
 
     this._initialized = true;

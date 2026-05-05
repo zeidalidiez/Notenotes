@@ -307,9 +307,13 @@ class App {
    * Required by browser autoplay policies.
    */
   _setupAudioInit() {
+    const events = ['pointerdown', 'keydown', 'touchstart', 'touchend'];
+    const removeUnlockListeners = (handler) => {
+      events.forEach(e => document.removeEventListener(e, handler, { capture: true }));
+    };
+
     const initAudio = () => {
       if (this._initialized) return;
-
       try {
         this.engine.initSync();
         this.metronome.init();
@@ -342,10 +346,17 @@ class App {
     };
 
     // Listen for first interaction — use touchend on iOS (preferred for audio), pointerdown on desktop
-    const events = ['pointerdown', 'keydown', 'touchstart', 'touchend'];
     const handler = () => {
       maybeResume();
-      events.forEach(e => document.removeEventListener(e, handler, { capture: true }));
+      if (this._initialized && this.engine.ctx?.state === 'running') {
+        removeUnlockListeners(handler);
+      } else {
+        setTimeout(() => {
+          if (this._initialized && this.engine.ctx?.state === 'running') {
+            removeUnlockListeners(handler);
+          }
+        }, 120);
+      }
     };
     events.forEach(e => document.addEventListener(e, handler, { passive: true, capture: true }));
   }

@@ -867,7 +867,7 @@ On import/migration, embedded `audioDataUrl` should always be converted into a f
 
 ## App Versioning
 
-Current App Version: `0.0.7`
+Current App Version: `0.0.8`
 
 The visible app version is displayed in Settings. Bump it for meaningful user-facing changes or architecture/storage changes, especially when AI.MD is updated for completed work.
 
@@ -904,3 +904,18 @@ Rules:
 - Deleting a preset asks for confirmation, then removes it from the shared preset list and dispatches `project-tone-presets-changed`.
 - Canvas listens for `project-tone-presets-changed` and refreshes the clip Tone picker.
 - Deleting a preset does not remove Tone already saved on snippets, notes, hits, or Canvas clips.
+
+---
+
+## iOS Audio In Stability
+
+iPhone Chrome uses WebKit audio/media behavior, so treat it like Safari for audio unlock and recording.
+
+Rules:
+
+- Do not remove global audio unlock listeners after the first pointer/key/touch event unless `AudioContext.state === 'running'`.
+- Some iOS gestures can create/init the context but leave it suspended; the next valid touch should still be able to resume it.
+- `MicRecorder` should call `MediaRecorder.start(timeslice)` instead of bare `start()` so iOS emits chunks during recording.
+- On stop, call `requestData()` before `stop()` when possible.
+- Reject zero-byte recording blobs and show a clear failure message instead of creating an unusable audio snippet.
+- Wrap the Audio In snippet creation path in `try/catch`; IndexedDB/audio asset save failures should surface as a toast rather than silently losing the recording.

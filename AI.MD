@@ -984,7 +984,7 @@ On import/migration, embedded `audioDataUrl` should always be converted into a f
 
 ## App Versioning
 
-Current App Version: `0.0.15`
+Current App Version: `0.0.16`
 
 The visible app version is displayed in Settings. Bump it for meaningful user-facing changes or architecture/storage changes, especially when AI.MD is updated for completed work.
 
@@ -1088,6 +1088,7 @@ Current behavior:
 - `PlaybackEngine` can preload/decode custom Patch samples and play MIDI clips through them.
 - Canvas WAV export can render custom Patch instruments by resampling the source audio according to note pitch.
 - Editing or deleting custom instruments dispatches `project-custom-instruments-changed` so Canvas refreshes and PlaybackEngine invalidates stale sample buffers.
+- Custom instrument create, edit, and delete use an immediate project save plus version snapshot instead of waiting for the 2 second debounced autosave. This keeps asset-backed instruments from disappearing if the user reloads or changes context right after saving.
 - Deleting a custom instrument is blocked while Canvas tracks, clips, or snippets reference it. Users should switch those references before deleting so old projects do not silently lose an instrument.
 - Changing an existing custom instrument from Patch to Kit, or Kit to Patch, is blocked while it is referenced. Type changes alter how the saved sample is interpreted, so references need to be moved first.
 - `WebAudioSynth` supports sample patches by decoding the stored audio asset into an `AudioBuffer` and using `playbackRate = 2 ** ((targetMidi - rootMidi) / 12)`.

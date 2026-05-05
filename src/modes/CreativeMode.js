@@ -524,84 +524,89 @@ export class CreativeMode {
   }
 
   async _saveCustomInstrument(root) {
-    if (!this.project || !this.store) return;
-    const name = root.querySelector('#ci-name')?.value?.trim();
-    if (!name) return showToast('Name the instrument first');
+    try {
+      if (!this.project || !this.store) return;
+      const name = root.querySelector('#ci-name')?.value?.trim();
+      if (!name) return showToast('Name the instrument first');
 
-    const type = root.querySelector('#ci-type')?.value || 'patch';
-    const snippetId = root.querySelector('#ci-snippet')?.value;
-    const file = root.querySelector('#ci-file')?.files?.[0];
-    let audioAssetId = null;
-    let audioMimeType = '';
-    let audioSize = 0;
+      const type = root.querySelector('#ci-type')?.value || 'patch';
+      const snippetId = root.querySelector('#ci-snippet')?.value;
+      const file = root.querySelector('#ci-file')?.files?.[0];
+      let audioAssetId = null;
+      let audioMimeType = '';
+      let audioSize = 0;
 
-    const editingInstrument = this._selectedCustomInstrument();
-    if (editingInstrument && editingInstrument.type !== type) {
-      const usage = this._customInstrumentUsage(editingInstrument.id);
-      if (usage.count > 0) {
-        showToast(`Switch ${usage.summary} before changing this instrument type`);
-        return;
+      const editingInstrument = this._selectedCustomInstrument();
+      if (editingInstrument && editingInstrument.type !== type) {
+        const usage = this._customInstrumentUsage(editingInstrument.id);
+        if (usage.count > 0) {
+          showToast(`Switch ${usage.summary} before changing this instrument type`);
+          return;
+        }
       }
-    }
 
-    if (file) {
-      const record = await this.store.saveAudioAsset(file, {
-        mimeType: file.type || 'audio/*',
-        size: file.size,
-        createdAt: Date.now(),
-      });
-      audioAssetId = record.audioAssetId;
-      audioMimeType = record.mimeType;
-      audioSize = record.size;
-    } else if (snippetId) {
-      const snippet = (this.project.snippets || []).find(item => item.id === snippetId);
-      if (!snippet?.audioAssetId) return showToast('Choose an audio source first');
-      audioAssetId = snippet.audioAssetId;
-      audioMimeType = snippet.audioMimeType || '';
-      audioSize = snippet.audioSize || 0;
-    } else if (editingInstrument?.audioAssetId) {
-      audioAssetId = editingInstrument.audioAssetId;
-      audioMimeType = editingInstrument.audioMimeType || '';
-      audioSize = editingInstrument.audioSize || 0;
-    } else {
-      return showToast('Choose an audio source first');
-    }
+      if (file) {
+        const record = await this.store.saveAudioAsset(file, {
+          mimeType: file.type || 'audio/*',
+          size: file.size,
+          createdAt: Date.now(),
+        });
+        audioAssetId = record.audioAssetId;
+        audioMimeType = record.mimeType;
+        audioSize = record.size;
+      } else if (snippetId) {
+        const snippet = (this.project.snippets || []).find(item => item.id === snippetId);
+        if (!snippet?.audioAssetId) return showToast('Choose an audio source first');
+        audioAssetId = snippet.audioAssetId;
+        audioMimeType = snippet.audioMimeType || '';
+        audioSize = snippet.audioSize || 0;
+      } else if (editingInstrument?.audioAssetId) {
+        audioAssetId = editingInstrument.audioAssetId;
+        audioMimeType = editingInstrument.audioMimeType || '';
+        audioSize = editingInstrument.audioSize || 0;
+      } else {
+        return showToast('Choose an audio source first');
+      }
 
-    const instrument = {
-      id: editingInstrument?.id || crypto.randomUUID(),
-      name,
-      type,
-      audioAssetId,
-      audioMimeType,
-      audioSize,
-      rootMidi: parseInt(root.querySelector('#ci-root')?.value, 10) || 60,
-      playbackMode: root.querySelector('#ci-playback')?.value || 'gated',
-      brightness: (parseInt(root.querySelector('#ci-brightness')?.value, 10) || 70) / 100,
-      gain: (parseInt(root.querySelector('#ci-gain')?.value, 10) || 55) / 100,
-      createdAt: editingInstrument?.createdAt || Date.now(),
-      updatedAt: Date.now(),
-    };
+      const instrument = {
+        id: editingInstrument?.id || crypto.randomUUID(),
+        name,
+        type,
+        audioAssetId,
+        audioMimeType,
+        audioSize,
+        rootMidi: parseInt(root.querySelector('#ci-root')?.value, 10) || 60,
+        playbackMode: root.querySelector('#ci-playback')?.value || 'gated',
+        brightness: (parseInt(root.querySelector('#ci-brightness')?.value, 10) || 70) / 100,
+        gain: (parseInt(root.querySelector('#ci-gain')?.value, 10) || 55) / 100,
+        createdAt: editingInstrument?.createdAt || Date.now(),
+        updatedAt: Date.now(),
+      };
 
-    if (editingInstrument) Object.assign(editingInstrument, instrument);
-    else this._customInstruments().push(instrument);
-    this._customInstruments().sort((a, b) => a.name.localeCompare(b.name));
-    this.store.scheduleAutoSave(this.project);
-    window.dispatchEvent(new CustomEvent('project-custom-instruments-changed', {
-      detail: { instrumentId: instrument.id, action: editingInstrument ? 'updated' : 'created' },
-    }));
-    this.sketchKit?.refreshKitSelector?.();
-    this._refreshPatchSelector();
-    if (type === 'patch') {
-      await this._selectPatch(`custom:${instrument.id}`);
+      if (editingInstrument) Object.assign(editingInstrument, instrument);
+      else this._customInstruments().push(instrument);
+      this._customInstruments().sort((a, b) => a.name.localeCompare(b.name));
+      await this._saveInstrumentChangeNow();
+      window.dispatchEvent(new CustomEvent('project-custom-instruments-changed', {
+        detail: { instrumentId: instrument.id, action: editingInstrument ? 'updated' : 'created' },
+      }));
+      this.sketchKit?.refreshKitSelector?.();
       this._refreshPatchSelector();
-    } else if (this._activePatchId === `custom:${instrument.id}`) {
-      await this._selectPatch('chip_lead');
-      this._refreshPatchSelector();
-    } else if (type === 'kit') {
-      this.sketchKit?.loadKit?.(`custom:${instrument.id}`);
+      if (type === 'patch') {
+        await this._selectPatch(`custom:${instrument.id}`);
+        this._refreshPatchSelector();
+      } else if (this._activePatchId === `custom:${instrument.id}`) {
+        await this._selectPatch('chip_lead');
+        this._refreshPatchSelector();
+      } else if (type === 'kit') {
+        this.sketchKit?.loadKit?.(`custom:${instrument.id}`);
+      }
+      this._closeCreateInstrumentPopover();
+      showToast(`${editingInstrument ? 'Instrument updated' : 'Instrument saved'}: ${name}`);
+    } catch (err) {
+      console.warn('[CreativeMode] Custom instrument save failed:', err);
+      showToast(err?.message || 'Instrument save failed');
     }
-    this._closeCreateInstrumentPopover();
-    showToast(`${editingInstrument ? 'Instrument updated' : 'Instrument saved'}: ${name}`);
   }
 
   _selectedCustomInstrument() {
@@ -620,7 +625,7 @@ export class CreativeMode {
       .replace(/>/g, '&gt;');
   }
 
-  _deleteSelectedCustomInstrument() {
+  async _deleteSelectedCustomInstrument() {
     const selected = this.activeInstrument === INSTRUMENTS.KIT
       ? (this.sketchKit?.selectedKitId || '')
       : (this.el?.querySelector('#patch-select')?.value || '');
@@ -645,13 +650,19 @@ export class CreativeMode {
       this._activePatchId = 'chip_lead';
       this.synth.loadPatch(PRESETS.chip_lead);
     }
-    this.store?.scheduleAutoSave(this.project);
+    await this._saveInstrumentChangeNow();
     window.dispatchEvent(new CustomEvent('project-custom-instruments-changed', {
       detail: { instrumentId: id, action: 'deleted' },
     }));
     this.sketchKit?.refreshKitSelector?.();
     this._refreshPatchSelector();
     showToast(`Instrument deleted: ${instrument.name}`);
+  }
+
+  async _saveInstrumentChangeNow() {
+    if (!this.store || !this.project) return;
+    await this.store.save(this.project);
+    await this.store.saveVersion?.(this.project);
   }
 
   _customInstrumentUsage(id) {

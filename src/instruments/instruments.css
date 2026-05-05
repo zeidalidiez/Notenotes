@@ -622,6 +622,7 @@
   height: 100%;
   padding: var(--space-md);
   gap: var(--space-md);
+  overflow: auto;
 }
 
 .ctrlmode__controls {
@@ -678,7 +679,7 @@
   flex: 1;
   display: flex;
   gap: var(--space-md);
-  overflow: hidden;
+  min-height: 0;
 }
 
 .ctrlmode__pads {
@@ -878,6 +879,64 @@
 
 .ctrlmode__trigger-status.is-active {
   opacity: 1;
+}
+
+@media (max-width: 760px) {
+  .controller-mode {
+    padding: var(--space-sm);
+  }
+
+  .ctrlmode__controls {
+    gap: var(--space-sm);
+  }
+
+  .ctrlmode__control-group {
+    flex: 1 1 126px;
+    justify-content: space-between;
+  }
+
+  .ctrlmode__control-group .ctrlmode__select {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ctrlmode__octave {
+    margin-left: 0;
+  }
+
+  .ctrlmode__body {
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .ctrlmode__pads {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
+    min-width: 0;
+  }
+
+  .ctrlmode__pad {
+    min-height: 34px;
+    justify-content: center;
+  }
+
+  .ctrlmode__controller {
+    justify-content: flex-start;
+  }
+
+  .ctrlmode__trigger-assignments {
+    grid-template-columns: 1fr;
+    gap: var(--space-sm);
+    width: min(100%, 420px);
+  }
+
+  .ctrlmode__art {
+    width: min(100%, 420px);
+  }
+
+  .ctrlmode__guide span {
+    white-space: normal;
+  }
 }
 
 /* --- Instrument Container (active instrument view) --- */

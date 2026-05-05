@@ -499,10 +499,10 @@ export class ControllerMode {
     const hasNotes = assignments.some(value => value?.startsWith('note:'));
     const lines = [];
     if (hasNotes) {
-      lines.push('<strong>Trigger Notes:</strong> hold the trigger, then strike a pad. Single mode plays the selected note color as the 7th, 9th, 11th, 13th, octave, or fifth. Chord mode keeps the chord and adds that extra note.');
+      lines.push('<strong>Trigger Notes:</strong> hold the trigger first, then strike a pad. Single mode plays the related note instead; chord mode keeps the chord and adds that related note.');
     }
     if (hasTone) {
-      lines.push('<strong>Tone triggers:</strong> hold the trigger while striking a pad to bake that Tone into the notes you record. Let go before the next note and the Tone stays off for that note.');
+      lines.push('<strong>Tone triggers:</strong> hold the trigger while striking a pad to record that Tone into those notes. Let go before the next note to leave Tone off.');
     }
     help.innerHTML = lines.join('<br>');
     help.classList.toggle('is-active', lines.length > 0);

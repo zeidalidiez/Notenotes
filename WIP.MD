@@ -4,7 +4,7 @@ This file is the current short roadmap for Notenotes. Keep it focused on what st
 
 ## Current Recommendation
 
-Move next to **WAV Export Hardening**.
+Move next to **Google Drive Backup** only if local backup/export testing feels solid. Otherwise spend a short manual QA pass on export, backup import, Tone presets, and controller triggers first.
 
 Why:
 
@@ -124,6 +124,12 @@ Mostly manual testing now. A later polish pass can add preset delete/rename and 
 Goal:
 
 Make trigger behavior obvious and consistent for users who do not already think like musicians.
+
+Current status:
+
+- Trigger helper copy is shorter and explains the hold-trigger-first behavior for Trigger Notes.
+- Tone trigger helper copy explains that Tone is recorded only into notes played while the trigger is held.
+- Controller layout now stacks and scrolls on narrower screens instead of forcing the controller art, dropdowns, and helper text into a cramped side-by-side view.
 
 Possible follow-up:
 

@@ -359,9 +359,22 @@ input, textarea, select, [contenteditable] {
     display: flex;
   }
 
+  .transport-bar__more > .btn,
+  .transport-bar__more .metronome-toggle {
+    align-self: center;
+  }
+
+  .transport-bar__more .metronome-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   .transport-bar__more .transport-bar__mod {
+    align-items: center;
     flex-direction: column;
     gap: 2px;
+    width: 100%;
   }
 
   .transport-bar__more-btn {

@@ -59,6 +59,8 @@ Current status:
 - Workspace backup import restores included milestones and version history when the backup file contains them.
 - Backup size estimate now reacts to the selected backup contents.
 - Embedded audio in imported backups is re-saved as fresh local audio assets, so workspace/snippet backup files remain portable across browsers and devices.
+- Workspace and snippet backup JSON now records the app version that created the file.
+- Backup import accepts older/matching app versions, but rejects backups created by a newer Notenotes version or newer backup schema.
 
 Recommended settings:
 

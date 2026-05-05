@@ -38,7 +38,7 @@ I built this app primarily to experiment with music myself, and to understand wa
 
 No install. Click a pad. You're making music.
 
-It's a Progressive Web App. In Chrome, use the three-dot menu, then Cast, save, and share, then Install page as app. In Edge, use Apps, then Install this site as an app. In Safari, use Share, then Add to Home Screen.
+It's a Progressive Web App. In Chrome, use the three-dot menu, then Cast, save, and share, then Install page as app. In Edge, use Apps, then Install this site as an app. In Safari, use Share, then Add to Home Screen. The current app version is shown in Settings so you can tell what build you are using.
 
 ---
 
@@ -56,7 +56,7 @@ Pick a scale. Mash the pads. Switch instruments mid-loop. Press record, jam, pre
 
 <sub>Controller artwork by [nicefrog](https://opengameart.org/users/nicefrog) — [Generic Gamepad Template](https://opengameart.org/content/generic-gamepad-template), released under [CC0](https://creativecommons.org/publicdomain/zero/1.0/). Thank you, nicefrog. 🐸</sub>
 
-Plug in any USB or Bluetooth controller. D-pad and face buttons map to the scale. Analog sticks bend pitch and add modulation. Pass the controller to a friend who's never touched a keyboard — watch what happens.
+Plug in any USB or Bluetooth controller. D-pad and face buttons map to the scale. Analog sticks bend pitch and add modulation. Triggers can punch in Tone effects, or turn the next note into a 7th, 9th, octave jump, and other related-note choices. Pass the controller to a friend who's never touched a keyboard — watch what happens.
 
 ### Canvas — composition as collage
 
@@ -91,8 +91,8 @@ Plus: **12 synth presets** (Chip Lead, Chip Bass, Cyber Secks, Heartbound, Trifo
 - **Scale-locked pads** — every press is in key. You can't pick a wrong note.
 - **Beat colors** — set a different color for each beat. The background pulses in time so you can *see* the meter.
 - **Hold & arpeggio modes** — latch notes, auto-arpeggiate chords across **10 chord types**, **4 patterns**, and **4 rates**. Or sustain a drone while you explore.
-- **Tone** - simple sliders for Crush, Echo, Space, Wobble, Drive, and Noise. They work on synths and the drum kit, and they are meant to be fast and playful rather than a wall of studio knobs.
-- **Controller triggers as sound switches** - assign LT and RT to Tone, then press them while playing to punch an effect in for just those notes.
+- **Tone** - simple sliders for Crush, Echo, Space, Wobble, Drive, and Noise. They work on synths and the drum kit, can be saved as presets, and are meant to be fast and playful rather than a wall of studio knobs.
+- **Controller triggers as sound switches or note switches** - assign LT and RT to Tone, or use them to reach related notes like 7ths and 9ths by holding the trigger before you strike the pad.
 - **Keyboard shortcuts as instrument** — number row triggers pads, letter row triggers piano keys, `ArrowUp`/`ArrowDown` shift octave.
 - **Pitch & mod via QWERTY** — Korg K25-style mod (1/4/7) and pitch (3/6/9) when keys aren't in use.
 - **Mobile and desktop focus, including iOS Safari** — touch drag-and-drop everywhere, transport collapses on narrow screens, audio-gesture quirks worked out.
@@ -109,11 +109,11 @@ You never have to leave Create to make a song. The other modes are there when yo
 
 - **Local-first.** IndexedDB storage. No accounts, no cloud sync, no telemetry.
 - **PWA.** Installable, works offline, lives on your home screen.
-- **Auto-saves up to 5 versions** — restore any one from history.
-- **Milestones and backups.** Save named checkpoints in the app, export a full workspace JSON backup, or export just your snippet library so browser storage is not the only copy.
+- **Auto-save history is adjustable** - keep 5, 10, 25, or 50 versions and restore from history when you need to.
+- **Milestones and backups.** Save named checkpoints in the app, export a full workspace JSON backup, or export just your snippet library so browser storage is not the only copy. Backup files include the app version that created them. Older backups can move forward into newer Notenotes versions, but newer backups are blocked from importing into older builds.
 - **Customizable everywhere.** 2/4, 3/4, 4/4, and 5/4 time signatures. Custom beat colors for the background visualizer. Configurable pad, piano-key, and drum counts.
 - **Snippets are nameable** — and auto-named ones update themselves as you edit.
-- **Exports.** Sheet music as **SVG** or **ABC**, with a **percussion clef** for drum snippets. Export the whole Canvas or individual snippets as **MIDI** or **WAV**. WAV export renders Tone; MIDI export keeps the notes and timing but not the Notenotes-specific sound shaping. MP3 is still on the [roadmap](#-where-its-going).
+- **Exports.** Sheet music as **SVG** or **ABC**, with a **percussion clef** for drum snippets. Export the whole Canvas or individual snippets as **MIDI** or **WAV**. WAV export renders Tone; MIDI export keeps the notes and timing but not the Notenotes-specific sound shaping. Empty or unavailable exports now fail clearly instead of handing you a misleading silent or tempo-only file. MP3 is still on the [roadmap](#-where-its-going).
 
 ---
 

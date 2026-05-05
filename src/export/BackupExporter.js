@@ -1,3 +1,5 @@
+import { APP_VERSION } from '../version.js';
+
 const BACKUP_VERSION = 1;
 
 function clone(value) {
@@ -8,10 +10,32 @@ function stamp() {
   return new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 }
 
+function parseVersion(version = '') {
+  return String(version)
+    .split('.')
+    .map(part => parseInt(part, 10))
+    .map(part => (Number.isFinite(part) ? part : 0));
+}
+
+function isNewerVersion(incoming, current) {
+  if (!incoming) return false;
+  const a = parseVersion(incoming);
+  const b = parseVersion(current);
+  const max = Math.max(a.length, b.length);
+  for (let i = 0; i < max; i++) {
+    const left = a[i] || 0;
+    const right = b[i] || 0;
+    if (left > right) return true;
+    if (left < right) return false;
+  }
+  return false;
+}
+
 export function workspaceBackup(project, options = {}) {
   return {
     kind: 'notenotes-workspace',
     version: BACKUP_VERSION,
+    appVersion: APP_VERSION,
     exportedAt: new Date().toISOString(),
     contents: options.contents || 'current',
     project: clone(project),
@@ -24,6 +48,7 @@ export function snippetsBackup(project) {
   return {
     kind: 'notenotes-snippets',
     version: BACKUP_VERSION,
+    appVersion: APP_VERSION,
     exportedAt: new Date().toISOString(),
     sourceProject: {
       id: project?.id,
@@ -75,6 +100,12 @@ export async function readJsonFile(file) {
 
 export function validateBackup(data) {
   if (!data || typeof data !== 'object') throw new Error('Backup is not valid JSON');
+  if ((data.version || 1) > BACKUP_VERSION) {
+    throw new Error(`Backup schema v${data.version} needs a newer Notenotes version`);
+  }
+  if (isNewerVersion(data.appVersion, APP_VERSION)) {
+    throw new Error(`Backup from Notenotes ${data.appVersion} needs a newer app version`);
+  }
   if (data.kind === 'notenotes-workspace' && data.project?.id) return 'workspace';
   if (data.kind === 'notenotes-snippets' && Array.isArray(data.snippets)) return 'snippets';
   throw new Error('Not a Notenotes backup file');

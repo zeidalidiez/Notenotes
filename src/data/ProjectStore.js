@@ -1,6 +1,6 @@
 /**
  * ProjectStore — IndexedDB persistence layer for Notenotes projects.
- * Handles CRUD, auto-save, and version history (5 snapshots).
+ * Handles CRUD, auto-save, and version history.
  */
 
 import { openDB } from 'idb';
@@ -13,8 +13,13 @@ const STORE_VERSIONS = 'versions';
 const STORE_MILESTONES = 'milestones';
 const STORE_AUDIO_ASSETS = 'audioAssets';
 
-/** Maximum number of version history snapshots per project */
-const MAX_VERSIONS = 5;
+export const VERSION_HISTORY_LIMITS = [5, 10, 25, 50];
+export const DEFAULT_VERSION_HISTORY_LIMIT = 5;
+
+function versionHistoryLimit(project) {
+  const requested = Number(project?.settings?.versionHistoryLimit);
+  return VERSION_HISTORY_LIMITS.includes(requested) ? requested : DEFAULT_VERSION_HISTORY_LIMIT;
+}
 
 /**
  * Create a new empty project with default values.
@@ -48,7 +53,9 @@ export function createProject(name = 'Untitled Sketch') {
       controllerToneAssignments: {
         leftTrigger: 'none',
         rightTrigger: 'none'
-      }
+      },
+      versionHistoryLimit: DEFAULT_VERSION_HISTORY_LIMIT,
+      backupContents: 'current',
     }
   };
 }
@@ -341,6 +348,15 @@ export class ProjectStore {
       .sort((a, b) => b.timestamp - a.timestamp);
   }
 
+  async getMilestoneSnapshots(projectId) {
+    const tx = this._db.transaction(STORE_MILESTONES, 'readonly');
+    const index = tx.store.index('projectId');
+    const milestones = await index.getAll(projectId);
+    return milestones
+      .map(m => clone(m))
+      .sort((a, b) => b.timestamp - a.timestamp);
+  }
+
   async restoreMilestone(milestoneId) {
     const milestone = await this._db.get(STORE_MILESTONES, milestoneId);
     if (!milestone) throw new Error(`Milestone ${milestoneId} not found`);
@@ -351,7 +367,7 @@ export class ProjectStore {
   }
 
   /**
-   * Save a version snapshot. Keeps only the last MAX_VERSIONS per project.
+   * Save a version snapshot. Keeps the configured number of versions per project.
    * @param {object} project
    */
   async saveVersion(project) {
@@ -363,14 +379,15 @@ export class ProjectStore {
     };
     await this._db.add(STORE_VERSIONS, snapshot);
 
-    // Prune old versions beyond MAX_VERSIONS
+    // Prune old versions beyond the project setting
+    const maxVersions = versionHistoryLimit(project);
     const tx = this._db.transaction(STORE_VERSIONS, 'readwrite');
     const index = tx.store.index('projectId');
     const versions = await index.getAll(project.id);
-    if (versions.length > MAX_VERSIONS) {
+    if (versions.length > maxVersions) {
       // Sort by timestamp ascending, delete oldest
       versions.sort((a, b) => a.timestamp - b.timestamp);
-      const toDelete = versions.slice(0, versions.length - MAX_VERSIONS);
+      const toDelete = versions.slice(0, versions.length - maxVersions);
       for (const v of toDelete) {
         await tx.store.delete(v.versionId);
       }
@@ -395,6 +412,56 @@ export class ProjectStore {
         bpm: v.data.bpm
       }))
       .sort((a, b) => b.timestamp - a.timestamp);
+  }
+
+  async getVersionSnapshots(projectId) {
+    const tx = this._db.transaction(STORE_VERSIONS, 'readonly');
+    const index = tx.store.index('projectId');
+    const versions = await index.getAll(projectId);
+    return versions
+      .map(v => clone(v))
+      .sort((a, b) => b.timestamp - a.timestamp);
+  }
+
+  async replaceProjectArchive(project, archive = {}) {
+    await this.migrateProjectAudioAssets(project);
+    await this.save(project);
+
+    if (Array.isArray(archive.milestones)) {
+      await this._replaceSnapshots(STORE_MILESTONES, project.id, archive.milestones, 'milestoneId');
+    }
+    if (Array.isArray(archive.versions)) {
+      await this._replaceSnapshots(STORE_VERSIONS, project.id, archive.versions, 'versionId');
+    }
+    await this.garbageCollectAudioAssets();
+  }
+
+  async _replaceSnapshots(storeName, projectId, snapshots, keyName) {
+    const prepared = [];
+    for (const snapshot of snapshots) {
+      const clean = clone(snapshot);
+      delete clean[keyName];
+      clean.projectId = projectId;
+      if (clean.data) {
+        clean.data.id = projectId;
+        await this.migrateProjectAudioAssets(clean.data);
+        clean.data = this._sanitizeProjectForStorage(clean.data);
+      }
+      prepared.push(clean);
+    }
+
+    const tx = this._db.transaction(storeName, 'readwrite');
+    const index = tx.store.index('projectId');
+    let cursor = await index.openCursor(projectId);
+    while (cursor) {
+      await cursor.delete();
+      cursor = await cursor.continue();
+    }
+
+    for (const clean of prepared) {
+      await tx.store.add(clean);
+    }
+    await tx.done;
   }
 
   /**

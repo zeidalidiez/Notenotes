@@ -8,12 +8,15 @@ function stamp() {
   return new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 }
 
-export function workspaceBackup(project) {
+export function workspaceBackup(project, options = {}) {
   return {
     kind: 'notenotes-workspace',
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
+    contents: options.contents || 'current',
     project: clone(project),
+    milestones: options.milestones ? clone(options.milestones) : undefined,
+    versions: options.versions ? clone(options.versions) : undefined,
   };
 }
 

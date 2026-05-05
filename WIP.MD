@@ -48,6 +48,13 @@ Goal:
 
 Give users clearer control over how much history and backup data they keep.
 
+Current status:
+
+- Version history depth is selectable per project: `5`, `10`, `25`, or `50`.
+- Workspace backups can be saved as current workspace only, workspace plus milestones, or full archive with milestones plus version history.
+- Workspace backup import restores included milestones and version history when the backup file contains them.
+- Backup size estimate now reacts to the selected backup contents.
+
 Recommended settings:
 
 - Version history depth: `5`, `10`, `25`, `50`.
@@ -61,13 +68,16 @@ Needed UX:
 - Explain that exported backup files are the user's portable copy.
 - Show a rough backup size estimate before export when possible.
 
-Code note:
+Still needs testing:
 
-Version history is currently capped at 5. Backups already exist, but options for milestones/history are not user-facing yet.
+- Export and import a workspace-only backup.
+- Export and import a milestones backup.
+- Export and import a full archive backup.
+- Confirm older workspace and snippet backups still import correctly.
 
 Expected scope:
 
-Medium.
+Mostly manual testing now.
 
 ## 3. Tone Presets and Clip Tone Editing
 

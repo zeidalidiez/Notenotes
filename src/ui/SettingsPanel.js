@@ -10,6 +10,7 @@ import { downloadBlob, projectToMidiBlob, safeFilename, snippetToMidiBlob } from
 import { projectToWavBlob, snippetToWavBlob } from '../export/WavExporter.js';
 import { backupFilename, readJsonFile, saveJsonFile, snippetsBackup, snippetsWithFreshIds, validateBackup, workspaceBackup } from '../export/BackupExporter.js';
 import { CHORD_TYPES, ARP_PATTERNS, ARP_RATES } from '../engine/ArpeggioManager.js';
+import { DEFAULT_VERSION_HISTORY_LIMIT, VERSION_HISTORY_LIMITS } from '../data/ProjectStore.js';
 import { showToast } from './Toast.js';
 
 const TIME_SIGNATURE_OPTIONS = [
@@ -17,6 +18,12 @@ const TIME_SIGNATURE_OPTIONS = [
   { beats: 3, subdivision: 4, label: '3/4' },
   { beats: 4, subdivision: 4, label: '4/4' },
   { beats: 5, subdivision: 4, label: '5/4' },
+];
+
+const BACKUP_CONTENT_OPTIONS = [
+  { id: 'current', label: 'Current workspace' },
+  { id: 'milestones', label: 'Workspace + milestones' },
+  { id: 'archive', label: 'Full archive' },
 ];
 
 function byteLength(text = '') {
@@ -297,6 +304,10 @@ export class SettingsPanel {
   }
 
   _renderHistorySection() {
+    const historyLimit = VERSION_HISTORY_LIMITS.includes(Number(this.project?.settings?.versionHistoryLimit))
+      ? Number(this.project.settings.versionHistoryLimit)
+      : DEFAULT_VERSION_HISTORY_LIMIT;
+    const backupContents = this.project?.settings?.backupContents || 'current';
     return `
       <div class="settings-section" id="section-history">
         <div class="settings-group">
@@ -323,7 +334,14 @@ export class SettingsPanel {
         </div>
         <div class="settings-group">
           <h3 class="settings-group__title">Backups</h3>
-          <p class="settings-desc">Save portable JSON files outside browser storage. Workspace backups restore the whole project; snippet backups restore just the snippet library.</p>
+          <p class="settings-desc">Save portable JSON files outside browser storage. Workspace backups restore the project; snippet backups restore just the snippet library.</p>
+          <div class="settings-row">
+            <label class="settings-label">Contents</label>
+            <select class="settings-select" id="backup-contents" aria-label="Workspace backup contents">
+              ${BACKUP_CONTENT_OPTIONS.map(option => `<option value="${option.id}" ${backupContents === option.id ? 'selected' : ''}>${option.label}</option>`).join('')}
+            </select>
+          </div>
+          <p class="settings-desc" id="backup-contents-desc">${this._backupContentsDescription(backupContents)}</p>
           <div class="settings-row">
             <label class="settings-label">Workspace</label>
             <button class="btn btn--ghost" id="backup-workspace-save" style="font-size:0.75rem;min-height:30px;padding:2px 10px;">Save Backup</button>
@@ -355,13 +373,25 @@ export class SettingsPanel {
         </div>
         <div class="settings-group">
           <h3 class="settings-group__title">Version History</h3>
-          <p class="settings-desc">Restore to a previous save (up to 5 versions kept).</p>
+          <p class="settings-desc">Restore to a previous save. Higher limits use more local browser storage.</p>
+          <div class="settings-row">
+            <label class="settings-label">Keep</label>
+            <select class="settings-select" id="version-history-limit" aria-label="Version history depth">
+              ${VERSION_HISTORY_LIMITS.map(limit => `<option value="${limit}" ${historyLimit === limit ? 'selected' : ''}>${limit} versions</option>`).join('')}
+            </select>
+          </div>
           <div id="version-list" class="version-list">
             <div class="version-list__loading">Loading versions...</div>
           </div>
         </div>
       </div>
     `;
+  }
+
+  _backupContentsDescription(contents = 'current') {
+    if (contents === 'archive') return 'Full archive includes the current workspace, milestones, and version history. This is the biggest file and the safest handoff.';
+    if (contents === 'milestones') return 'Includes the current workspace and named milestones, but leaves auto-save history out.';
+    return 'Includes the current workspace only. This is the smallest normal project backup.';
   }
 
   _bindEvents() {
@@ -764,9 +794,31 @@ export class SettingsPanel {
   }
 
   _estimateWorkspaceBackupBytes(audioBytes = 0) {
-    const structuralBytes = byteLength(JSON.stringify(workspaceBackup(this.project)));
-    const base64AudioBytes = Math.ceil(audioBytes * 1.37);
-    return structuralBytes + base64AudioBytes;
+    const contents = this.project?.settings?.backupContents || 'current';
+    const projectBytes = byteLength(JSON.stringify(workspaceBackup(this.project, { contents })));
+    const multiplier = contents === 'archive' ? 2.5 : contents === 'milestones' ? 1.6 : 1;
+    const base64AudioBytes = Math.ceil(audioBytes * 1.37 * multiplier);
+    return Math.ceil(projectBytes * multiplier + base64AudioBytes);
+  }
+
+  async _workspaceBackupPayload(contents = 'current') {
+    const portableProject = await this.store.embedAudioForBackup(this.project);
+    const options = { contents };
+    if (contents === 'milestones' || contents === 'archive') {
+      const milestones = await this.store.getMilestoneSnapshots(this.project.id);
+      options.milestones = await Promise.all(milestones.map(async snapshot => ({
+        ...snapshot,
+        data: await this.store.embedAudioForBackup(snapshot.data),
+      })));
+    }
+    if (contents === 'archive') {
+      const versions = await this.store.getVersionSnapshots(this.project.id);
+      options.versions = await Promise.all(versions.map(async snapshot => ({
+        ...snapshot,
+        data: await this.store.embedAudioForBackup(snapshot.data),
+      })));
+    }
+    return workspaceBackup(portableProject, options);
   }
 
   _bindExportEvents() {
@@ -834,13 +886,35 @@ export class SettingsPanel {
   _bindBackupEvents() {
     const body = this.el.querySelector('#settings-body');
 
+    body.querySelector('#backup-contents')?.addEventListener('change', (e) => {
+      if (!this.project) return;
+      this.project.settings ||= {};
+      this.project.settings.backupContents = e.target.value;
+      const desc = body.querySelector('#backup-contents-desc');
+      if (desc) desc.textContent = this._backupContentsDescription(e.target.value);
+      this.store?.scheduleAutoSave(this.project);
+      this._loadStorageStatus();
+    });
+
+    body.querySelector('#version-history-limit')?.addEventListener('change', (e) => {
+      if (!this.project) return;
+      const limit = parseInt(e.target.value, 10);
+      if (!VERSION_HISTORY_LIMITS.includes(limit)) return;
+      this.project.settings ||= {};
+      this.project.settings.versionHistoryLimit = limit;
+      this.store?.scheduleAutoSave(this.project);
+      showToast(`Keeping up to ${limit} versions`);
+    });
+
     body.querySelector('#backup-workspace-save')?.addEventListener('pointerdown', async (e) => {
       e.preventDefault();
       if (!this.project) return;
       await this.store?.save(this.project);
       try {
-        const portableProject = await this.store.embedAudioForBackup(this.project);
-        await saveJsonFile(workspaceBackup(portableProject), backupFilename(this.project, 'workspace'));
+        const contents = this.project?.settings?.backupContents || 'current';
+        const backup = await this._workspaceBackupPayload(contents);
+        const suffix = contents === 'archive' ? 'archive' : contents === 'milestones' ? 'workspace-milestones' : 'workspace';
+        await saveJsonFile(backup, backupFilename(this.project, suffix));
         showToast('Workspace backup saved');
       } catch (err) {
         if (err?.name !== 'AbortError') {
@@ -882,8 +956,10 @@ export class SettingsPanel {
         const type = validateBackup(backup);
 
         if (type === 'workspace') {
-          await this.store.migrateProjectAudioAssets(backup.project);
-          await this.store.save(backup.project);
+          await this.store.replaceProjectArchive(backup.project, {
+            milestones: backup.milestones,
+            versions: backup.versions,
+          });
           showToast('Workspace restored. Reloading...');
           setTimeout(() => window.location.reload(), 500);
           return;

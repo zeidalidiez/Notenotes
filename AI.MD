@@ -867,7 +867,7 @@ On import/migration, embedded `audioDataUrl` should always be converted into a f
 
 ## App Versioning
 
-Current App Version: `0.0.4`
+Current App Version: `0.0.6`
 
 The visible app version is displayed in Settings. Bump it for meaningful user-facing changes or architecture/storage changes, especially when AI.MD is updated for completed work.
 
@@ -891,3 +891,16 @@ Canvas MIDI export should mirror Canvas playback expectations where standard MID
 - count rendered note/hit events and refuse tempo-only downloads when there is nothing musical to export
 
 Snippet MIDI export should also refuse tempo-only downloads when the selected snippet has no notes or drum hits.
+
+---
+
+## Tone Preset Management
+
+Tone presets live in `project.settings.tonePresets` and are shared between the synth Tone popover, kit Tone popover, and Canvas clip Tone picker.
+
+Rules:
+
+- Saving a preset with the same name updates that preset.
+- Deleting a preset asks for confirmation, then removes it from the shared preset list and dispatches `project-tone-presets-changed`.
+- Canvas listens for `project-tone-presets-changed` and refreshes the clip Tone picker.
+- Deleting a preset does not remove Tone already saved on snippets, notes, hits, or Canvas clips.

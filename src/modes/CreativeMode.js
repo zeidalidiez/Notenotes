@@ -540,6 +540,16 @@ export class CreativeMode {
       showToast(`Tone preset applied: ${preset.name}`);
     });
 
+    popover.querySelector('#tone-preset-delete')?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const preset = this._selectedTonePreset(popover);
+      if (!preset) return showToast('Choose a Tone preset first');
+      if (!confirm(`Delete Tone preset "${preset.name}"?`)) return;
+      this._deleteTonePreset(preset.id);
+      this._refreshTonePresetControls();
+      showToast(`Tone preset deleted: ${preset.name}`);
+    });
+
     popover.querySelector('#tone-preset-save')?.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       const input = popover.querySelector('#tone-preset-name');
@@ -556,12 +566,13 @@ export class CreativeMode {
     const presets = this._tonePresets();
     return `
       <div class="tone-preset">
-        <div class="tone-preset__row">
+        <div class="tone-preset__row tone-preset__row--manage">
           <select class="tone-preset__select" id="tone-preset-select" aria-label="Tone preset">
             <option value="">Preset...</option>
             ${presets.map(preset => `<option value="${preset.id}">${preset.name}</option>`).join('')}
           </select>
           <button class="btn btn--ghost" id="tone-preset-apply" type="button">Apply</button>
+          <button class="btn btn--ghost" id="tone-preset-delete" type="button">Delete</button>
         </div>
         <div class="tone-preset__row">
           <input class="tone-preset__input" id="tone-preset-name" type="text" placeholder="Preset name" aria-label="Tone preset name">
@@ -594,6 +605,13 @@ export class CreativeMode {
     if (existing) Object.assign(existing, preset);
     else presets.push(preset);
     presets.sort((a, b) => a.name.localeCompare(b.name));
+    this.store?.scheduleAutoSave(this.project);
+    window.dispatchEvent(new CustomEvent('project-tone-presets-changed'));
+  }
+
+  _deleteTonePreset(id) {
+    if (!this.project?.settings || !id) return;
+    this.project.settings.tonePresets = this._tonePresets().filter(preset => preset.id !== id);
     this.store?.scheduleAutoSave(this.project);
     window.dispatchEvent(new CustomEvent('project-tone-presets-changed'));
   }

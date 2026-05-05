@@ -2,11 +2,11 @@
 
 # Notenotes
 
-**A free, open-source musical sketchpad — for anyone who's ever wanted to make music but didn't know where to start.**
+**A free, open-source musical sketchpad - for anyone who's ever wanted to make music but didn't know where to start.**
 
-[**▶ Try it now**](https://zeidalidiez.github.io/Notenotes/) · [Report an idea](https://github.com/zeidalidiez/Notenotes/issues/new) · [Contribute](#-contributing)
+[**Try it now**](https://zeidalidiez.github.io/Notenotes/) | [Report an idea](https://github.com/zeidalidiez/Notenotes/issues/new) | [Contribute](#-contributing)
 
-![Notenotes — Scale Board view](labels.png)
+![Notenotes - Scale Board view](labels.png)
 
 </div>
 
@@ -21,7 +21,7 @@ I built this app primarily to experiment with music myself, and to understand wa
 
 **Color over notation** Beats can be colors. Pads can be colors (this is in progress). I want people to read songs in different ways.
 
-**Unconventional instruments** Plug in a controller — the buttons become your scale. Extremely intuitive, easy to pick up.
+**Unconventional instruments** Plug in a controller - the buttons become your scale. Extremely intuitive, easy to pick up.
 
 **Always in scale** Lock the pads to a key to narrow your options to the notes you need to see. 
 
@@ -34,7 +34,7 @@ I built this app primarily to experiment with music myself, and to understand wa
 
 ##  Try it in 10 seconds
 
-> 🌐 **Live app:** [zeidalidiez.github.io/Notenotes](https://zeidalidiez.github.io/Notenotes/)
+> **Live app:** [zeidalidiez.github.io/Notenotes](https://zeidalidiez.github.io/Notenotes/)
 
 No install. Click a pad. You're making music.
 
@@ -44,31 +44,31 @@ It's a Progressive Web App. In Chrome, use the three-dot menu, then Cast, save, 
 
 ##  A quick tour
 
-### Create — the jam space
+### Create - the jam space
 
-![Create mode — Scale Board with numbered, scale-locked pads](scale.gif)
+![Create mode - Scale Board with numbered, scale-locked pads](scale.gif)
 
-Pick a scale. Mash the pads. Switch instruments mid-loop. Press record, jam, press stop — your loop becomes a snippet.
+Pick a scale. Mash the pads. Switch instruments mid-loop. Press record, jam, press stop - your loop becomes a snippet.
 
-### Controller — your gamepad is an instrument
+### Controller - your gamepad is an instrument
 
-![Controller mode — gamepad as a scale-locked instrument](controller.gif)
+![Controller mode - gamepad as a scale-locked instrument](controller.gif)
 
-<sub>Controller artwork by [nicefrog](https://opengameart.org/users/nicefrog) — [Generic Gamepad Template](https://opengameart.org/content/generic-gamepad-template), released under [CC0](https://creativecommons.org/publicdomain/zero/1.0/). Thank you, nicefrog. 🐸</sub>
+<sub>Controller artwork by [nicefrog](https://opengameart.org/users/nicefrog) - [Generic Gamepad Template](https://opengameart.org/content/generic-gamepad-template), released under [CC0](https://creativecommons.org/publicdomain/zero/1.0/). Thank you, nicefrog.</sub>
 
-Plug in any USB or Bluetooth controller. D-pad and face buttons map to the scale. Analog sticks bend pitch and add modulation. Triggers can punch in Tone effects, or turn the next note into a 7th, 9th, octave jump, and other related-note choices. Pass the controller to a friend who's never touched a keyboard — watch what happens.
+Plug in any USB or Bluetooth controller. D-pad and face buttons map to the scale. Analog sticks bend pitch and add modulation. Triggers can punch in Tone effects, or turn the next note into a 7th, 9th, octave jump, and other related-note choices. Pass the controller to a friend who's never touched a keyboard - watch what happens.
 
-### Canvas — composition as collage
+### Canvas - composition as collage
 
-![Canvas mode — dragging snippets onto a multi-track timeline](canvas.gif)
+![Canvas mode - dragging snippets onto a multi-track timeline](canvas.gif)
 
 Drag your captured snippets onto typed tracks. MIDI goes on MIDI tracks, drums go on drum tracks, and audio goes on audio tracks. Stretch them, mute them, layer them. Hit play and listen to the song you didn't know you were writing.
 
-### Inspect — when you're ready for detail
+### Inspect - when you're ready for detail
 
-![Inspect mode — piano roll editor for refining notes](inspect.gif)
+![Inspect mode - piano roll editor for refining notes](inspect.gif)
 
-Open any snippet in a piano roll for fine edits. Click to add notes, drag to move them. Or skip this entirely — Notenotes works without it.
+Open any snippet in a piano roll for fine edits. Click to add notes, drag to move them. Or skip this entirely - Notenotes works without it.
 
 ---
 
@@ -88,14 +88,14 @@ Plus: **12 synth presets** (Chip Lead, Chip Bass, Cyber Secks, Heartbound, Trifo
 
 ### For someone who wants a different perspective into the world of music.
 
-- **Scale-locked pads** — every press is in key. You can't pick a wrong note.
-- **Beat colors** — set a different color for each beat. The background pulses in time so you can *see* the meter.
-- **Hold & arpeggio modes** — latch notes, auto-arpeggiate chords across **10 chord types**, **4 patterns**, and **4 rates**. Or sustain a drone while you explore.
+- **Scale-locked pads** - every press is in key. You can't pick a wrong note.
+- **Beat colors** - set a different color for each beat. The background pulses in time so you can *see* the meter.
+- **Hold & arpeggio modes** - latch notes, auto-arpeggiate chords across **10 chord types**, **4 patterns**, and **4 rates**. Or sustain a drone while you explore.
 - **Tone** - simple sliders for Crush, Echo, Space, Wobble, Drive, and Noise. They work on synths and the drum kit, can be saved as presets, and are meant to be fast and playful rather than a wall of studio knobs.
 - **Controller triggers as sound switches or note switches** - assign LT and RT to Tone, or use them to reach related notes like 7ths and 9ths by holding the trigger before you strike the pad.
-- **Keyboard shortcuts as instrument** — number row triggers pads, letter row triggers piano keys, `ArrowUp`/`ArrowDown` shift octave.
-- **Pitch & mod via QWERTY** — Korg K25-style mod (1/4/7) and pitch (3/6/9) when keys aren't in use.
-- **Mobile and desktop focus, including iOS Safari** — touch drag-and-drop everywhere, transport collapses on narrow screens, audio-gesture quirks worked out.
+- **Keyboard shortcuts as instrument** - number row triggers pads, letter row triggers piano keys, `ArrowUp`/`ArrowDown` shift octave.
+- **Pitch & mod via QWERTY** - Korg K25-style mod (1/4/7) and pitch (3/6/9) when keys aren't in use.
+- **Mobile and desktop focus, including iOS Safari** - touch drag-and-drop everywhere, transport collapses on narrow screens, audio-gesture quirks worked out.
 
 ### Three modes
 
@@ -112,7 +112,7 @@ You never have to leave Create to make a song. The other modes are there when yo
 - **Auto-save history is adjustable** - keep 5, 10, 25, or 50 versions and restore from history when you need to.
 - **Milestones and backups.** Save named checkpoints in the app, export a full workspace JSON backup, or export just your snippet library so browser storage is not the only copy. Backup files include the app version that created them. Older backups can move forward into newer Notenotes versions, but newer backups are blocked from importing into older builds.
 - **Customizable everywhere.** 2/4, 3/4, 4/4, and 5/4 time signatures. Custom beat colors for the background visualizer. Configurable pad, piano-key, and drum counts.
-- **Snippets are nameable** — and auto-named ones update themselves as you edit.
+- **Snippets are nameable** - and auto-named ones update themselves as you edit.
 - **Exports.** Sheet music as **SVG** or **ABC**, with a **percussion clef** for drum snippets. Export the whole Canvas or individual snippets as **MIDI** or **WAV**. WAV export renders Tone; MIDI export keeps the notes and timing but not the Notenotes-specific sound shaping. Empty or unavailable exports now fail clearly instead of handing you a misleading silent or tempo-only file. MP3 is still on the [roadmap](#-where-its-going).
 
 ---
@@ -132,7 +132,7 @@ npm install --legacy-peer-deps
 npm run dev
 ```
 
-The app opens at [http://localhost:5173/](http://localhost:5173/). Click any pad to wake the audio engine — browsers require a user gesture before they'll make sound.
+The app opens at [http://localhost:5173/](http://localhost:5173/). Click any pad to wake the audio engine - browsers require a user gesture before they'll make sound.
 
 ### Build for production
 
@@ -144,30 +144,30 @@ npm run preview    # serve the production build locally
 ---
 
 ## Future vision
-These are the ideas that drive the project. Some are coded, some are sketches, some are wild — **all of them are conversations open for contribution.** If something here sparks you, [open an issue](https://github.com/zeidalidiez/Notenotes/issues/new) or [a discussion](https://github.com/zeidalidiez/Notenotes/discussions). Help wanted.
+These are the ideas that drive the project. Some are coded, some are sketches, some are wild - **all of them are conversations open for contribution.** If something here sparks you, [open an issue](https://github.com/zeidalidiez/Notenotes/issues/new) or [a discussion](https://github.com/zeidalidiez/Notenotes/discussions). Help wanted.
 
 ### More ways to create
-- [ ] **Mic-to-midi** — Sound into the mic, the app transcribes it as MIDI you can edit.
-- [ ] **Tap-to-rhythm** — clap or tap to set tempo and seed a beat.
-- [ ] **MIDI device support** — bring your own keyboard, pad controller, or wind instrument.
-- [ ] **Webcam/Wiimote motion controls** — Movement to modulate, other potential uses.
-- [ ] **Touch + accelerometer** — on mobile, tilt for modulation, tap velocity for dynamics.
-- [ ] **Foot pedals & accessibility switches** — every input becomes an instrument.
-- [ ] **Lyric notepad** — write words next to the notes they fit.
+- [ ] **Mic-to-midi** - Sound into the mic, the app transcribes it as MIDI you can edit.
+- [ ] **Tap-to-rhythm** - clap or tap to set tempo and seed a beat.
+- [ ] **MIDI device support** - bring your own keyboard, pad controller, or wind instrument.
+- [ ] **Webcam/Wiimote motion controls** - Movement to modulate, other potential uses.
+- [ ] **Touch + accelerometer** - on mobile, tilt for modulation, tap velocity for dynamics.
+- [ ] **Foot pedals & accessibility switches** - every input becomes an instrument.
+- [ ] **Lyric notepad** - write words next to the notes they fit.
 
 
 ###  Sound and color
 - [x] **Per-beat colors** in the background visualizer.
-- [ ] **Per-pad colors** — paint the Scale Board however helps you remember.
+- [ ] **Per-pad colors** - paint the Scale Board however helps you remember.
 - [ ] **Color-blind safe palettes** as a first-class option.
-- [ ] **Synesthesia mode** — clips on the Canvas glow their note color as they play.
+- [ ] **Synesthesia mode** - clips on the Canvas glow their note color as they play.
 - [ ] **Color-strip notation** as an alternative to the piano roll.
 
 ### Safety nets for those who need them
 - [x] **Scale lock** on the pads.
-- [ ] **Chord lock** — only chords that fit the song's key are reachable.
-- [ ] **Drone mode** — sustain the root of your key in the background as a tonal anchor.
-- [ ] **Suggest-next-chord** — gentle prompts when you want them, invisible when you don't.
+- [ ] **Chord lock** - only chords that fit the song's key are reachable.
+- [ ] **Drone mode** - sustain the root of your key in the background as a tonal anchor.
+- [ ] **Suggest-next-chord** - gentle prompts when you want them, invisible when you don't.
 
 ### Sharing
 - [x] **MIDI and WAV export** alongside ABC and sheet music.
@@ -176,10 +176,10 @@ These are the ideas that drive the project. Some are coded, some are sketches, s
 
 
 ### Expanding sound
-- [ ] **Found-sound recorder** — sample your environment, drop it into the kit.
-- [ ] **Body percussion** — claps and snaps recognized via mic become a drum lane.
-- [ ] **User samples** — drag-and-drop your own audio as instruments.
-- [ ] **More synth presets and kits** — community-contributed.
+- [ ] **Found-sound recorder** - sample your environment, drop it into the kit.
+- [ ] **Body percussion** - claps and snaps recognized via mic become a drum lane.
+- [ ] **User samples** - drag-and-drop your own audio as instruments.
+- [ ] **More synth presets and kits** - community-contributed.
 
 If your idea isn't here, **add it.** This list is the project.
 
@@ -219,11 +219,11 @@ export class MyInstrument {
 5. Add it to the `views` array in `render()`
 6. Add a tab to the instrument switcher
 
-For a deeper reference — including a synthesized drum sound built from oscillators and noise — read [`src/instruments/SketchKit.js`](src/instruments/SketchKit.js). It's heavily commented and uses every Web Audio primitive worth knowing. Architectural context, audio-scheduling rules, and the data model live in [`AI.MD`](./AI.MD).
+For a deeper reference - including a synthesized drum sound built from oscillators and noise - read [`src/instruments/SketchKit.js`](src/instruments/SketchKit.js). It's heavily commented and uses every Web Audio primitive worth knowing. Architectural context, audio-scheduling rules, and the data model live in [`AI.MD`](./AI.MD).
 
 ---
 
-## ⌨️ Keyboard shortcuts
+## Keyboard shortcuts
 
 | Key | Action |
 |---|---|
@@ -249,7 +249,7 @@ For a deeper reference — including a synthesized drum sound built from oscilla
 | Layer | Technology |
 |---|---|
 | **Build** | [Vite](https://vitejs.dev/) 8.x |
-| **Audio** | Web Audio API — AudioContext, OscillatorNode, BiquadFilterNode |
+| **Audio** | Web Audio API - AudioContext, OscillatorNode, BiquadFilterNode |
 | **Persistence** | IndexedDB via [idb](https://github.com/jakearchibald/idb) |
 | **Sheet music** | [abcjs](https://paulrosen.github.io/abcjs/) |
 | **PWA** | [vite-plugin-pwa](https://vite-pwa-org.netlify.app/) |
@@ -257,7 +257,7 @@ For a deeper reference — including a synthesized drum sound built from oscilla
 
 ### Why no framework?
 
-Web Audio is allergic to surprise. A virtual DOM diff at the wrong moment is a click in your loop. Every DOM update in Notenotes is intentional and audio-aware — and the codebase stays small enough to read in an afternoon.
+Web Audio is allergic to surprise. A virtual DOM diff at the wrong moment is a click in your loop. Every DOM update in Notenotes is intentional and audio-aware - and the codebase stays small enough to read in an afternoon.
 
 ---
 
@@ -290,7 +290,7 @@ The clips above were captured by hand and they're meant to evolve. If you want t
 3. **Export:** GIF or short MP4. Keep clips **5–10 seconds**, **under 5MB**.
 4. **Replace** `scale.gif`, `controller.gif`, `canvas.gif`, or `inspect.gif` in the repo root with your new capture.
 
->  The most compelling clips show **a real interaction**: pressing pads, dragging clips, switching instruments. Avoid showing menus — show *making music*.
+>  The most compelling clips show **a real interaction**: pressing pads, dragging clips, switching instruments. Avoid showing menus - show *making music*.
 
 ---
 
@@ -298,7 +298,7 @@ The clips above were captured by hand and they're meant to evolve. If you want t
 
 Notenotes is built in the open and grows with its community. Whether you're filing a bug, sketching a feature, or adding an instrument:
 
-1. **[Browse open issues](https://github.com/zeidalidiez/Notenotes/issues)** — `good first issue` is a real label here.
+1. **[Browse open issues](https://github.com/zeidalidiez/Notenotes/issues)** - `good first issue` is a real label here.
 2. **[Open a discussion](https://github.com/zeidalidiez/Notenotes/discussions)** for ideas that don't fit a single ticket.
 3. **Fork → branch → PR.** Keep PRs small and focused; describe the user-facing change.
 4. **Music tests welcome.** A 10-second clip of "this used to break and now it doesn't" is a perfectly good test.
@@ -313,21 +313,21 @@ If you're an AI agent assisting with this project, **read [`AI.MD`](./AI.MD) fir
 
 Notenotes stands on the shoulders of generous people who share their work freely.
 
-- **Controller artwork** — [Generic Gamepad Template](https://opengameart.org/content/generic-gamepad-template) by [**nicefrog**](https://opengameart.org/users/nicefrog), released as **CC0 (public domain)** via [OpenGameArt.org](https://opengameart.org). Attribution wasn't required, but nicefrog made this app nicer and froggier.
-- **[abcjs](https://paulrosen.github.io/abcjs/)** — ABC notation rendering for the sheet music export.
-- **[idb](https://github.com/jakearchibald/idb)** — the friendliest possible wrapper around IndexedDB.
-- **[vite-plugin-pwa](https://vite-pwa-org.netlify.app/)** — making Notenotes installable and offline-ready with one config block.
+- **Controller artwork** - [Generic Gamepad Template](https://opengameart.org/content/generic-gamepad-template) by [**nicefrog**](https://opengameart.org/users/nicefrog), released as **CC0 (public domain)** via [OpenGameArt.org](https://opengameart.org). Attribution wasn't required, but nicefrog made this app nicer and froggier.
+- **[abcjs](https://paulrosen.github.io/abcjs/)** - ABC notation rendering for the sheet music export.
+- **[idb](https://github.com/jakearchibald/idb)** - the friendliest possible wrapper around IndexedDB.
+- **[vite-plugin-pwa](https://vite-pwa-org.netlify.app/)** - making Notenotes installable and offline-ready with one config block.
 
-If you spot anything in this repo that's missing a credit it deserves, please [open an issue](https://github.com/zeidalidiez/Notenotes/issues/new) — we'll fix it fast.
+If you spot anything in this repo that's missing a credit it deserves, please [open an issue](https://github.com/zeidalidiez/Notenotes/issues/new) - we'll fix it fast.
 
 ---
 
-## 📄 License
+## License
 
-[MIT](./LICENSE) — Do what you wish to do with this, I suggest we improve it for the sake of anyone it might help.
+[MIT](./LICENSE) - Do what you wish to do with this, I suggest we improve it for the sake of anyone it might help.
 
 ---
 
 <div align="center">
-[▶ Open Notenotes](https://zeidalidiez.github.io/Notenotes/) · [⭐ Star on GitHub](https://github.com/zeidalidiez/Notenotes)
+[Open Notenotes](https://zeidalidiez.github.io/Notenotes/) | [Star on GitHub](https://github.com/zeidalidiez/Notenotes)
 </div>

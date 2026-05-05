@@ -435,12 +435,13 @@ export class SketchKit {
     const presets = this._tonePresets();
     return `
       <div class="tone-preset">
-        <div class="tone-preset__row">
+        <div class="tone-preset__row tone-preset__row--manage">
           <select class="tone-preset__select" id="sk-tone-preset-select" aria-label="Tone preset">
             <option value="">Preset...</option>
             ${presets.map(preset => `<option value="${preset.id}">${preset.name}</option>`).join('')}
           </select>
           <button class="btn btn--ghost" id="sk-tone-preset-apply" type="button">Apply</button>
+          <button class="btn btn--ghost" id="sk-tone-preset-delete" type="button">Delete</button>
         </div>
         <div class="tone-preset__row">
           <input class="tone-preset__input" id="sk-tone-preset-name" type="text" placeholder="Preset name" aria-label="Tone preset name">
@@ -459,6 +460,16 @@ export class SketchKit {
       this.setSoundTraits(preset.soundTraits);
       if (this.onSoundTraitsChanged) this.onSoundTraitsChanged(this.soundTraits);
       showToast(`Tone preset applied: ${preset.name}`);
+    });
+
+    popover.querySelector('#sk-tone-preset-delete')?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const preset = this._selectedTonePreset(popover);
+      if (!preset) return showToast('Choose a Tone preset first');
+      if (!confirm(`Delete Tone preset "${preset.name}"?`)) return;
+      this._deleteTonePreset(preset.id);
+      this._refreshTonePresetControls();
+      showToast(`Tone preset deleted: ${preset.name}`);
     });
 
     popover.querySelector('#sk-tone-preset-save')?.addEventListener('pointerdown', (e) => {
@@ -496,6 +507,13 @@ export class SketchKit {
     if (existing) Object.assign(existing, preset);
     else presets.push(preset);
     presets.sort((a, b) => a.name.localeCompare(b.name));
+    window.dispatchEvent(new CustomEvent('project-tone-presets-changed'));
+    if (this.onSoundTraitsChanged) this.onSoundTraitsChanged(this.soundTraits);
+  }
+
+  _deleteTonePreset(id) {
+    if (!this.project?.settings || !id) return;
+    this.project.settings.tonePresets = this._tonePresets().filter(preset => preset.id !== id);
     window.dispatchEvent(new CustomEvent('project-tone-presets-changed'));
     if (this.onSoundTraitsChanged) this.onSoundTraitsChanged(this.soundTraits);
   }

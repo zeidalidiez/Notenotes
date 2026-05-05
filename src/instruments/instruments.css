@@ -165,6 +165,10 @@
   align-items: center;
 }
 
+.tone-preset__row--manage {
+  grid-template-columns: 1fr auto auto;
+}
+
 .tone-preset__select,
 .tone-preset__input {
   min-width: 0;

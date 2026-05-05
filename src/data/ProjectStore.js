@@ -229,7 +229,7 @@ export class ProjectStore {
     for (const snippet of snippets) {
       if (snippet?.type !== 'audio') continue;
 
-      if (!snippet.audioAssetId && isDataUrl(snippet.audioDataUrl)) {
+      if (isDataUrl(snippet.audioDataUrl)) {
         const blob = await dataUrlToBlob(snippet.audioDataUrl);
         const record = await this.saveAudioAsset(blob, {
           mimeType: snippet.audioMimeType || blob.type,

@@ -25,6 +25,8 @@ Current status:
 - Canvas WAV export uses the project tempo for Canvas timing, matching playback.
 - Track mute/solo and track volume are honored in Canvas WAV export.
 - Mismatched clips and unavailable audio are skipped defensively and summarized to the user.
+- Canvas WAV export no longer downloads a silent file when there are no audible/renderable Canvas clips.
+- Snippet WAV export now fails clearly if the selected Audio In recording is unavailable instead of downloading silence.
 
 Needs testing or follow-up:
 
@@ -54,6 +56,7 @@ Current status:
 - Workspace backups can be saved as current workspace only, workspace plus milestones, or full archive with milestones plus version history.
 - Workspace backup import restores included milestones and version history when the backup file contains them.
 - Backup size estimate now reacts to the selected backup contents.
+- Embedded audio in imported backups is re-saved as fresh local audio assets, so workspace/snippet backup files remain portable across browsers and devices.
 
 Recommended settings:
 

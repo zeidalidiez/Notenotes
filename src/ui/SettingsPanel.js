@@ -839,6 +839,10 @@ export class SettingsPanel {
       try {
         const stats = { skippedAudio: 0, skippedMismatchedClips: 0, renderedClips: 0 };
         const blob = await projectToWavBlob(this.project, { store: this.store, stats });
+        if (!stats.renderedClips) {
+          showToast('No audible Canvas clips to export');
+          return;
+        }
         downloadBlob(blob, safeFilename(`${this.project.name || 'notenotes'}-canvas`, 'wav'));
         const skipped = [];
         if (stats.skippedAudio) skipped.push(`${stats.skippedAudio} unavailable audio clip${stats.skippedAudio === 1 ? '' : 's'}`);
@@ -876,7 +880,7 @@ export class SettingsPanel {
         showToast(stats.skippedAudio ? 'Snippet WAV exported without unavailable audio' : 'Snippet WAV exported');
       } catch (err) {
         console.error('[Settings] Snippet WAV export failed:', err);
-        showToast('Snippet WAV export failed');
+        showToast(err?.message || 'Snippet WAV export failed');
       } finally {
         btn.disabled = false;
       }

@@ -330,6 +330,7 @@ export async function snippetToWavBlob(snippet, project = {}, options = {}) {
   let decoded = null;
   if (snippet?.type === 'audio') {
     decoded = await decodeAudioSnippet(snippet, options);
+    if (!decoded) throw new Error('Audio recording is unavailable');
     durationSec = Math.max(durationSec, decoded?.duration || 0);
   }
   const samples = ensureLength(null, durationSec);

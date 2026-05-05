@@ -846,3 +846,19 @@ note.soundTraits || hit.soundTraits || snippet.soundTraits || project.settings.s
 WAV export mirrors this logic in `src/export/WavExporter.js`.
 
 MIDI export cannot carry Notenotes Tone in a reliable standard way. MIDI export should preserve notes, hits, and timing only. If Tone data matters, the project/snippet JSON backup is the canonical format.
+
+---
+
+## Backup Audio Portability
+
+Workspace and snippet JSON backups are meant to be portable across browsers/devices. When an audio snippet in a backup includes `audioDataUrl`, `ProjectStore.migrateSnippetsAudioAssets()` must treat that embedded data as authoritative and save it as a local IndexedDB audio asset, even if the snippet also has an old `audioAssetId`.
+
+Reason:
+
+- `audioAssetId` only points to the original browser's IndexedDB audio asset store.
+- A different browser/device will not have that asset id.
+- If import kept the old id and later sanitized `audioDataUrl`, the recording could become unavailable.
+
+Rule:
+
+On import/migration, embedded `audioDataUrl` should always be converted into a fresh local audio asset before storage. Temporary `blob:` URLs are still unrecoverable after reload and should be marked unavailable.

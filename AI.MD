@@ -984,7 +984,7 @@ On import/migration, embedded `audioDataUrl` should always be converted into a f
 
 ## App Versioning
 
-Current App Version: `0.0.14`
+Current App Version: `0.0.15`
 
 The visible app version is displayed in Settings. Bump it for meaningful user-facing changes or architecture/storage changes, especially when AI.MD is updated for completed work.
 
@@ -1081,6 +1081,7 @@ Current behavior:
 - Create mode has a `Create Instrument` flow near the Patch selector.
 - Users can name an instrument, choose Patch or Kit, choose an Audio In snippet or audio file, adjust basic controls, save it, and delete custom melodic patches.
 - When a custom Patch is selected, the flow changes to `Edit Instrument` and updates the saved instrument instead of creating a duplicate.
+- The Kit screen also exposes Create/Edit/Delete instrument controls and lists saved custom Kit instruments in the Kit dropdown.
 - Root note is required for melodic sample patches because it defines the unshifted pitch of the original sample; other keys calculate playback-rate shift relative to that MIDI note.
 - Custom melodic Patch instruments are immediately playable live from Scale, Piano, and Controller through `WebAudioSynth` sample playback.
 - Canvas MIDI track instrument dropdowns include custom Patch instruments.
@@ -1090,7 +1091,7 @@ Current behavior:
 - Deleting a custom instrument is blocked while Canvas tracks, clips, or snippets reference it. Users should switch those references before deleting so old projects do not silently lose an instrument.
 - Changing an existing custom instrument from Patch to Kit, or Kit to Patch, is blocked while it is referenced. Type changes alter how the saved sample is interpreted, so references need to be moved first.
 - `WebAudioSynth` supports sample patches by decoding the stored audio asset into an `AudioBuffer` and using `playbackRate = 2 ** ((targetMidi - rootMidi) / 12)`.
-- Kit-type custom instruments can be saved as metadata, but live Kit playback generation from one sample source still needs its own wiring.
+- Kit-type custom instruments can be selected and managed from the Kit screen, but live Kit playback generation from one sample source still needs its own wiring.
 
 Storage and backup:
 

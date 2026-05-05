@@ -49,6 +49,9 @@ export class CreativeMode {
     this.microPiano = new MicroPiano(this.synth, this.project);
     this.sketchKit = new SketchKit(this.project);
     this.sketchKit.onSoundTraitsChanged = (traits) => this._applyProjectSoundTraits(traits);
+    this.sketchKit.onCreateInstrument = (anchor) => this._toggleCreateInstrumentPopover(anchor);
+    this.sketchKit.onDeleteInstrument = () => this._deleteSelectedCustomInstrument();
+    this.sketchKit.onKitChanged = () => this.store?.scheduleAutoSave(this.project);
     this.micRecorder = new MicRecorder();
     this.controllerMode = new ControllerMode(this.synth, this.project, modManager);
     this.controllerMode.onToneAssignmentChanged = () => this.store?.scheduleAutoSave(this.project);
@@ -417,6 +420,7 @@ export class CreativeMode {
     }
 
     const editingInstrument = this._selectedCustomInstrument();
+    const defaultType = editingInstrument?.type || (this.activeInstrument === INSTRUMENTS.KIT ? 'kit' : 'patch');
     const audioSnippets = (this.project?.snippets || []).filter(snippet => snippet.type === 'audio' && snippet.audioAssetId);
     const popover = document.createElement('div');
     popover.className = 'tone-popover custom-instrument-popover';
@@ -434,8 +438,8 @@ export class CreativeMode {
         <label class="custom-instrument-field">
           <span>Type</span>
           <select id="ci-type" aria-label="Instrument type">
-            <option value="patch" ${editingInstrument?.type !== 'kit' ? 'selected' : ''}>Patch</option>
-            <option value="kit" ${editingInstrument?.type === 'kit' ? 'selected' : ''}>Kit</option>
+            <option value="patch" ${defaultType !== 'kit' ? 'selected' : ''}>Patch</option>
+            <option value="kit" ${defaultType === 'kit' ? 'selected' : ''}>Kit</option>
           </select>
         </label>
         <label class="custom-instrument-field">
@@ -585,6 +589,7 @@ export class CreativeMode {
     window.dispatchEvent(new CustomEvent('project-custom-instruments-changed', {
       detail: { instrumentId: instrument.id, action: editingInstrument ? 'updated' : 'created' },
     }));
+    this.sketchKit?.refreshKitSelector?.();
     this._refreshPatchSelector();
     if (type === 'patch') {
       await this._selectPatch(`custom:${instrument.id}`);
@@ -592,13 +597,17 @@ export class CreativeMode {
     } else if (this._activePatchId === `custom:${instrument.id}`) {
       await this._selectPatch('chip_lead');
       this._refreshPatchSelector();
+    } else if (type === 'kit') {
+      this.sketchKit?.loadKit?.(`custom:${instrument.id}`);
     }
     this._closeCreateInstrumentPopover();
     showToast(`${editingInstrument ? 'Instrument updated' : 'Instrument saved'}: ${name}`);
   }
 
   _selectedCustomInstrument() {
-    const selected = this._activePatchId || this.el?.querySelector('#patch-select')?.value || '';
+    const selected = this.activeInstrument === INSTRUMENTS.KIT
+      ? (this.sketchKit?.selectedKitId || '')
+      : (this._activePatchId || this.el?.querySelector('#patch-select')?.value || '');
     if (!selected.startsWith('custom:')) return null;
     return this._customInstruments().find(item => item.id === selected.slice(7)) || null;
   }
@@ -612,7 +621,9 @@ export class CreativeMode {
   }
 
   _deleteSelectedCustomInstrument() {
-    const selected = this.el?.querySelector('#patch-select')?.value || '';
+    const selected = this.activeInstrument === INSTRUMENTS.KIT
+      ? (this.sketchKit?.selectedKitId || '')
+      : (this.el?.querySelector('#patch-select')?.value || '');
     if (!selected.startsWith('custom:')) {
       showToast('Choose a custom instrument to delete');
       return;
@@ -627,12 +638,18 @@ export class CreativeMode {
     }
     if (!confirm(`Delete custom instrument "${instrument.name}"?`)) return;
     this.project.settings.customInstruments = this._customInstruments().filter(item => item.id !== id);
-    this._activePatchId = 'chip_lead';
-    this.synth.loadPatch(PRESETS.chip_lead);
+    if (instrument.type === 'kit') {
+      this.sketchKit?.loadKit?.('classic');
+      this.sketchKit?.refreshKitSelector?.();
+    } else {
+      this._activePatchId = 'chip_lead';
+      this.synth.loadPatch(PRESETS.chip_lead);
+    }
     this.store?.scheduleAutoSave(this.project);
     window.dispatchEvent(new CustomEvent('project-custom-instruments-changed', {
       detail: { instrumentId: id, action: 'deleted' },
     }));
+    this.sketchKit?.refreshKitSelector?.();
     this._refreshPatchSelector();
     showToast(`Instrument deleted: ${instrument.name}`);
   }

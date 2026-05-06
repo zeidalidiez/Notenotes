@@ -2,7 +2,7 @@
 
 # Notenotes
 
-**A free, open-source musical sketchpad - for anyone who's ever wanted to make music but didn't know where to start.**
+**A free, open-source pre-DAW. A way into music for people who have never found a way in, and a way out of your usual patterns for musicians.**
 
 [**Try it now**](https://zeidalidiez.github.io/Notenotes/) | [Report an idea](https://github.com/zeidalidiez/Notenotes/issues/new) | [Contribute](#-contributing)
 
@@ -14,7 +14,7 @@
 
 ## What is it and why does it exist?
 
-Notenotes is a tiny, browser-based musical 'post it note' for capturing the idea of music with unconventional instruments and visual aids.
+Notenotes is a pre-DAW. Think of it as the napkin sketch before you sit down at a recording studio. It uses unconventional inputs (a gamepad, a microphone to make instruments, scale-locked pads, color-coded beats) to make music feel like something you can just do, not a language you have to learn first. Capture an idea here, then take it to whatever you normally use to finish songs.
 
 I built this app primarily to experiment with music myself, and to understand ways to think about music outside of the constraints of what I've learned in music theory. I am a long time musician who has trouble putting ideas into a DAW, so I needed a noodling board of sorts. This is not ever meant to replace a DAW, and as such I don't want to focus on production and effects. In my head you come up with a hook on Notenotes and then you build it into a song elsewhere. 
 

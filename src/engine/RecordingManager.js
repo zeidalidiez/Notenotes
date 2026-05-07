@@ -36,6 +36,7 @@ export class RecordingManager {
     this._toneProvider = null;
     this._baseToneProvider = null;
     this._capturedToneSnapshot = null;
+    this._recordStartTick = 0;
 
     /** Loop subscription cleanup */
     this._unsubLoop = null;
@@ -109,6 +110,14 @@ export class RecordingManager {
    * Arm/disarm recording.
    */
   setArmed(armed) {
+    if (armed && !this.armed) {
+      this._capturedNotes = [];
+      this._capturedHits = [];
+      this._capturedMod = [];
+      this._heldNotes.clear();
+      this._lastModTick = -480;
+      this._recordStartTick = this._absoluteRecordingTick();
+    }
     this.armed = armed;
     if (armed) {
       this._captureBaseToneSnapshot();
@@ -190,17 +199,20 @@ export class RecordingManager {
    * @returns {number}
    */
   _getRelativeTick(currentTick = null) {
-    const current = currentTick ?? this.transport.currentRawTick ?? this.transport.currentTick;
-    const loopStart = this.transport.loopStartTick;
-    return current - loopStart;
+    const current = currentTick ?? this._absoluteRecordingTick();
+    return Math.max(0, current - this._recordStartTick);
+  }
+
+  _absoluteRecordingTick() {
+    return this.transport.currentRawTick ?? this.transport.currentTick ?? 0;
   }
 
   /**
    * Finalize captured notes into a Snippet.
    */
   _finalizeSnippet() {
-    const loopLengthTicks = this.transport.loopEndTick - this.transport.loopStartTick;
     const noteCount = this._capturedNotes.length + this._capturedHits.length;
+    this._trimLeadingEmptyTicks();
 
     let maxEndTick = 480;
     for (const n of this._capturedNotes) {
@@ -235,12 +247,34 @@ export class RecordingManager {
     this._capturedHits = [];
     this._capturedMod = [];
     this._capturedToneSnapshot = null;
+    this._recordStartTick = 0;
 
     console.log('[RecordingManager] Snippet created:', snippet.id,
       `${snippet.notes.length} notes, ${snippet.hits.length} hits`);
 
     if (this._onSnippetCreated) {
       this._onSnippetCreated(snippet);
+    }
+  }
+
+  _trimLeadingEmptyTicks() {
+    const starts = [
+      ...this._capturedNotes.map(note => note.startTick),
+      ...this._capturedHits.map(hit => hit.startTick),
+    ].filter(tick => Number.isFinite(tick) && tick > 0);
+    if (starts.length === 0) return;
+
+    const firstTick = Math.min(...starts);
+    if (firstTick <= 0) return;
+
+    for (const note of this._capturedNotes) {
+      note.startTick = Math.max(0, note.startTick - firstTick);
+    }
+    for (const hit of this._capturedHits) {
+      hit.startTick = Math.max(0, hit.startTick - firstTick);
+    }
+    for (const mod of this._capturedMod) {
+      mod.tick = Math.max(0, mod.tick - firstTick);
     }
   }
 

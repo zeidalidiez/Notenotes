@@ -984,7 +984,7 @@ On import/migration, embedded `audioDataUrl` should always be converted into a f
 
 ## App Versioning
 
-Current App Version: `0.0.18`
+Current App Version: `0.0.19`
 
 The visible app version is displayed in Settings. Bump it for meaningful user-facing changes or architecture/storage changes, especially when AI.MD is updated for completed work.
 
@@ -1058,6 +1058,15 @@ Rules:
 - When on, Canvas sets `transport.loopEnabled = true` and sets the loop range from bar 0 to the latest clip end across all tracks.
 - Moving, resizing, adding, deleting, quantizing, trimming, undoing, or re-rendering tracks should call `_autoSetLoopFromClips()` / `_syncCanvasLoopRegion()` so the loop endpoint follows the arrangement.
 - If there are no clips, Canvas loop is turned off and the user is prompted to add a clip before enabling it.
+
+---
+
+## Live Recording Timing
+
+- MIDI/drum recording must use a recording-pass origin, not the absolute transport position. `RecordingManager.setArmed(true)` resets captured events and stores `_recordStartTick`.
+- Captured notes, drum hits, and modulation are stored relative to `_recordStartTick`.
+- Finalizing a snippet trims leading empty ticks so the snippet begins at the first captured note or hit. Users can add intentional space later by placing the snippet on Canvas.
+- This protects live recording from creating snippets with unexpected leading blank space when the transport was paused at a later position, when recording starts from a non-zero playhead, or when the user waits briefly after pressing record.
 
 ---
 

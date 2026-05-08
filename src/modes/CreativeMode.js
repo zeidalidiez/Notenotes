@@ -11,6 +11,8 @@ import { MicroPiano } from '../instruments/MicroPiano.js';
 import { SketchKit } from '../instruments/SketchKit.js';
 import { MicRecorder } from '../instruments/MicRecorder.js';
 import { ControllerMode } from '../instruments/ControllerMode.js';
+import { VoiceEngine } from '../instruments/voice/VoiceEngine.js';
+import englishBaseVoice from '../instruments/voice/voices/english-base.json';
 import { RecordingManager } from '../engine/RecordingManager.js';
 import { SnippetTray } from '../ui/SnippetTray.js';
 import { LoopProgress } from '../ui/LoopProgress.js';
@@ -44,8 +46,14 @@ export class CreativeMode {
     // Synth (shared between Scale Board and Micro Piano)
     this.synth = new WebAudioSynth();
 
+    // Voice engine — formant-synthesized vocal instrument used by
+    // Scale Board's "Voices" pad mode. Routes through the synth's tone
+    // input so it inherits the same Tone Traits chain.
+    this.voiceEngine = new VoiceEngine(engine);
+    this.voiceEngine.loadVoice(englishBaseVoice);
+
     // Instruments
-    this.scaleBoard = new ScaleBoard(this.synth, this.project);
+    this.scaleBoard = new ScaleBoard(this.synth, this.project, this.voiceEngine);
     this.microPiano = new MicroPiano(this.synth, this.project);
     this.sketchKit = new SketchKit(this.project);
     this.sketchKit.onSoundTraitsChanged = (traits) => this._applyProjectSoundTraits(traits);
@@ -105,6 +113,11 @@ export class CreativeMode {
 
     this.synth.init();
     this.synth.loadPatch(PRESETS.chip_lead);
+    // Connect the voice engine to the synth's tone input so voices route
+    // through the same Tone Traits chain as the rest of the synth output.
+    if (this.voiceEngine) {
+      this.voiceEngine.setDestination(this.synth.getSynthInput());
+    }
     this._applyProjectSoundTraits(this._ensureSoundTraits(), { save: false, notify: false });
     this.sketchKit.init();
     this.sketchKit.setSoundTraits(this._currentToneTraits || this._ensureSoundTraits());

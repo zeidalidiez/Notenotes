@@ -60,6 +60,8 @@ export function createProject(name = 'Untitled Sketch') {
       backupContents: 'current',
       debugLogging: false,
       canvasLoopEnabled: false,
+      voicePhrase: '',
+      voiceId: 'english-base',
     }
   };
 }

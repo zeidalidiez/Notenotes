@@ -1126,3 +1126,77 @@ Storage and backup:
 Known next steps:
 
 - Wire Kit-type custom instruments so one source sample can generate percussive pad variations.
+
+
+## Voice Synth (Scale Board "Voices" Mode)
+
+The Scale Board exposes a fourth Pad Mode called **Voices** alongside Single, Chords, and Custom. In Voices mode, each pad sings a syllable from a typed phrase at the pad's scale-locked pitch. Pure formant synthesis using Web Audio. No samples, no ML, no external dependencies.
+
+The architecture is deliberately data-driven. Voices live in `src/instruments/voice/voices/*.json`. The engine reads those JSON files; nobody has to touch engine code to add a new voice, language, or register. Contribution surface is documented in `src/instruments/voice/README.md`.
+
+### Files
+
+- `src/instruments/voice/VoiceEngine.js` — Web Audio formant-synth engine. Drives a sawtooth oscillator (voiced source) plus pink-ish noise (unvoiced source) through three peaking biquad filters in series. Uses `AudioParam.linearRampToValueAtTime` to interpolate between syllable keyframes.
+- `src/instruments/voice/voices/english-base.json` — v1 syllable bank: `ah eh ee oh oo ai oi au ei h n m l s t`.
+- `src/instruments/voice/syllabify.js` — Greedy bank-based splitter. No npm dependency. As voices add syllables, the splitter recognizes them automatically.
+- `src/instruments/voice/README.md` — Schema documentation and contribution guide.
+
+### Syllable JSON schema (v1)
+
+```json
+{
+  "id": "han",
+  "duration": 0.6,
+  "frames": [
+    { "t": 0.00, "voicing": "off",    "amp": 0.0 },
+    { "t": 0.05, "voicing": "noise",  "amp": 0.5 },
+    { "t": 0.15, "voicing": "voiced", "amp": 1.0,
+      "formants": [{ "hz": 730, "q": 8, "gain": 14 }, ...] },
+    { "t": 1.00, "voicing": "off",    "amp": 0.0 }
+  ]
+}
+```
+
+Frames are keyframes in normalized time `0..1`. `voicing` switches discretely at each frame. `amp` and `formants` interpolate linearly between frames. Three formant slots per syllable (`F1`, `F2`, `F3`).
+
+### Wiring
+
+- `CreativeMode` instantiates `VoiceEngine` alongside `WebAudioSynth` and loads `english-base.json`.
+- After `synth.init()`, CreativeMode calls `voiceEngine.setDestination(synth.getSynthInput())`. Voice output flows through the synth's tone input, so Crush/Echo/Wobble/Drive/Space/Noise apply to voices the same way they apply to other instruments.
+- `ScaleBoard` accepts an optional `voiceEngine` constructor argument. When present, the Pad Mode dropdown shows the Voices option. When absent, Voices is hidden and existing modes work unchanged.
+- `WebAudioSynth.getSynthInput()` is the public accessor for the tone input. The `_toneInput` GainNode is created during `synth.init()`. Always-routed; safe to share across instruments.
+
+### Pitch + formant separation
+
+The voiced source's frequency = `midiToFreq(midi)`. Formant frequencies stay where the JSON says, regardless of pitch. This is why a low and a high voice singing "ah" both still sound like "ah," instead of pitch-shifting like a chipmunk. Octave shifts on the Scale Board work in voice mode without retuning the syllable bank.
+
+### Phrase persistence
+
+The user's typed phrase persists in `project.settings.voicePhrase`. Empty phrase = pads sing `"ah"` by default (so users get sound immediately without needing to type first). The phrase pointer (next-syllable index) is in-memory only; resets to 0 on app load.
+
+### Phrase input UX
+
+- Regular `<input type="text">` with debounced (60 ms) syllabification.
+- Display row below the input shows tokens. Valid tokens have accent border. Invalid tokens have red strikethrough. The current pointer position highlights with a filled background.
+- Input validation rejects non-ASCII characters at the keystroke level via `sanitizePhraseInput`. Non-Latin scripts and emoji are silently stripped on paste.
+- A `↻` rewind button resets the phrase pointer to the start.
+
+The display sits below the input rather than inline-tokenizing the input itself. Inline-tokenized contenteditable was considered but rejected for v1 — cross-browser cursor behavior is too fragile for the value it adds. Display-below ships in 1-2 days; inline tokenization could be a polish pass later.
+
+### v1 scaffold limitations (intentional)
+
+- Voice mode uses live synthesis only. The `RecordingManager` callbacks fire so MIDI snippets capture the timing, but the recorded notes do not yet carry voice metadata (`note.voice = { voiceId, syllable }`). When played back via `PlaybackEngine` (Canvas / Inspect), voice notes play through the standard synth, not the voice engine. Adding `note.voice` and routing it through PlaybackEngine + WavExporter is a follow-up.
+- Custom mode does not yet allow per-pad selection of "voice" (alongside "single" / "chord"). The mode dropdown's Voices entry is the only entry point. A Custom-mode extension would let users mix voice with note/chord pads on the same layout.
+- One voice ships in v1 (`english-base.json`). Multiple voices, registers, and languages are added by adding JSON files; the picker UI for choosing among voices is not yet built (the active voice is hard-loaded in `CreativeMode`).
+- No saved phrase library. Phrases are project-scoped only; no global library.
+- `english-base.json` formant values are textbook approximations. They will sound plausibly robotic but probably need ear-tuning to feel right. Adjustments are JSON-only — see `voices/README.md`.
+
+### How to add a new voice
+
+1. Author a JSON file in `src/instruments/voice/voices/`.
+2. Match the schema in `voices/README.md`.
+3. Manually update the `import` in `CreativeMode.js` to load it (until the picker UI is built).
+
+### How to extend an existing voice
+
+Edit the JSON. Add or modify entries in the `syllables` array. Reload the page. Done. No code path changes.

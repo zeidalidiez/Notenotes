@@ -984,7 +984,7 @@ On import/migration, embedded `audioDataUrl` should always be converted into a f
 
 ## App Versioning
 
-Current App Version: `0.0.19`
+Current App Version: `0.0.21`
 
 The visible app version is displayed in Settings. Bump it for meaningful user-facing changes or architecture/storage changes, especially when AI.MD is updated for completed work.
 
@@ -1128,9 +1128,9 @@ Known next steps:
 - Wire Kit-type custom instruments so one source sample can generate percussive pad variations.
 
 
-## Voice Synth (Scale Board "Voices" Mode)
+## Voice Sketch (Scale Board Experimental Voice Mode)
 
-The Scale Board exposes a fourth Pad Mode called **Voices** alongside Single, Chords, and Custom. In Voices mode, each pad sings a syllable from a typed phrase at the pad's scale-locked pitch. Pure formant synthesis using Web Audio. No samples, no ML, no external dependencies.
+The Scale Board exposes a fourth Pad Mode called **Voice Sketch** alongside Single, Chords, and Custom. Voice Sketch is an experimental robot-voice mode: each pad triggers a supported voice token from a typed phrase at the pad's scale-locked pitch. Pure formant synthesis using Web Audio. No samples, no ML, no external dependencies. Do not describe this as Vocaloid-quality until recording, playback, export, multiple voices, and intelligible voice banks are real.
 
 The architecture is deliberately data-driven. Voices live in `src/instruments/voice/voices/*.json`. The engine reads those JSON files; nobody has to touch engine code to add a new voice, language, or register. Contribution surface is documented in `src/instruments/voice/README.md`.
 
@@ -1172,7 +1172,7 @@ The voiced source's frequency = `midiToFreq(midi)`. Formant frequencies stay whe
 
 ### Phrase persistence
 
-The user's typed phrase persists in `project.settings.voicePhrase`. Empty phrase = pads sing `"ah"` by default (so users get sound immediately without needing to type first). The phrase pointer (next-syllable index) is in-memory only; resets to 0 on app load.
+The user's typed phrase persists in `project.settings.voicePhrase`. `ScaleBoard.onVoicePhraseChanged` lets CreativeMode schedule autosave when the phrase changes. Empty phrase = pads sing `"ah"` by default (so users get sound immediately without needing to type first). The phrase pointer (next-token index) is in-memory only; resets to 0 on app load.
 
 ### Phrase input UX
 

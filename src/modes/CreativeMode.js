@@ -54,6 +54,7 @@ export class CreativeMode {
 
     // Instruments
     this.scaleBoard = new ScaleBoard(this.synth, this.project, this.voiceEngine);
+    this.scaleBoard.onVoicePhraseChanged = () => this.store?.scheduleAutoSave(this.project);
     this.microPiano = new MicroPiano(this.synth, this.project);
     this.sketchKit = new SketchKit(this.project);
     this.sketchKit.onSoundTraitsChanged = (traits) => this._applyProjectSoundTraits(traits);

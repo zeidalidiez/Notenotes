@@ -44,6 +44,7 @@ export class ScaleBoard {
     this._phrasePointer = 0;       // next syllable index to sing on pressPad
     this._voiceInputDebounce = null;
     this._lastVoiceMidiByPad = new Map(); // padIndex -> last midi sung (for release)
+    this.onVoicePhraseChanged = null;
 
     this._notes = [];
     this._fullScaleNotes = [];
@@ -110,6 +111,7 @@ export class ScaleBoard {
     if (!this._project) return;
     if (!this._project.settings) this._project.settings = {};
     this._project.settings.voicePhrase = this._voicePhrase;
+    if (this.onVoicePhraseChanged) this.onVoicePhraseChanged(this._voicePhrase);
   }
 
   _recomputeVoiceTokens() {
@@ -186,7 +188,7 @@ export class ScaleBoard {
           <select class="scaleboard__select" id="sb-pad-mode" aria-label="Pad mode">
             <option value="single" ${this.padMode === 'single' ? 'selected' : ''}>Single</option>
             <option value="chords" ${this.padMode === 'chords' ? 'selected' : ''}>Chords</option>
-            ${this.voiceEngine ? `<option value="voices" ${this.padMode === 'voices' ? 'selected' : ''}>Voices</option>` : ''}
+            ${this.voiceEngine ? `<option value="voices" ${this.padMode === 'voices' ? 'selected' : ''}>Voice Sketch</option>` : ''}
             <option value="custom" ${this.padMode === 'custom' ? 'selected' : ''}>Custom</option>
           </select>
         </div>
@@ -250,8 +252,8 @@ export class ScaleBoard {
   _renderVoiceRow() {
     if (this.padMode !== 'voices' || !this.voiceEngine) return '';
     const pointerHint = this._playableSyllables.length === 0
-      ? 'Type a phrase below. Empty phrase = pads sing "ah" by default.'
-      : `Pads advance through ${this._playableSyllables.length} syllable${this._playableSyllables.length === 1 ? '' : 's'}.`;
+      ? 'Experimental robot voice. Type supported sounds below. Empty phrase = pads sing "ah".'
+      : `Experimental robot voice: pads advance through ${this._playableSyllables.length} token${this._playableSyllables.length === 1 ? '' : 's'}.`;
     const tokensHtml = this._renderVoiceTokens();
     return `
       <div class="scaleboard__voice-row" id="sb-voice-row">
@@ -264,7 +266,7 @@ export class ScaleBoard {
             spellcheck="false"
             autocomplete="off"
             autocapitalize="off"
-            placeholder="e.g. ah ee oh, or h eh l oh"
+            placeholder="supported sounds: ah eh ee oh oo ai oi au ei h n m l s t"
             value="${this._escapeAttr(this._voicePhrase || '')}"
             aria-label="Voice phrase"
           />
@@ -280,7 +282,7 @@ export class ScaleBoard {
     if (!this._voiceTokens || this._voiceTokens.length === 0) {
       if (!this.voiceEngine) return '';
       // Show a default-cycle hint when phrase is empty.
-      return '<span class="voice-token voice-token--hint">(empty phrase — pads sing "ah")</span>';
+      return '<span class="voice-token voice-token--hint">(experimental robot voice — empty phrase sings "ah")</span>';
     }
     let validIndex = 0;
     const parts = this._voiceTokens.map((tok) => {
@@ -320,8 +322,8 @@ export class ScaleBoard {
       const hint = row.querySelector('.scaleboard__voice-hint');
       if (hint) {
         hint.textContent = this._playableSyllables.length === 0
-          ? 'Type a phrase below. Empty phrase = pads sing "ah" by default.'
-          : `Pads advance through ${this._playableSyllables.length} syllable${this._playableSyllables.length === 1 ? '' : 's'}.`;
+          ? 'Experimental robot voice. Type supported sounds below. Empty phrase = pads sing "ah".'
+          : `Experimental robot voice: pads advance through ${this._playableSyllables.length} token${this._playableSyllables.length === 1 ? '' : 's'}.`;
       }
     } else if (row) {
       row.remove();
@@ -393,7 +395,7 @@ export class ScaleBoard {
       if (this.padMode === 'custom') {
         showToast('Tap "Edit Layout" to set each pad to Note or Chord');
       } else if (this.padMode === 'voices') {
-        showToast('Voice mode: each pad sings the next syllable in your phrase');
+        showToast('Voice Sketch: experimental robot voice tokens');
       }
     });
 

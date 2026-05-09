@@ -570,10 +570,18 @@ export class ScaleBoard {
     if (syllable) {
       this.voiceEngine.singSyllable(syllable, midi, 0.85);
       this._lastVoiceMidiByPad.set(index, midi);
-      // Fire note-on so recording captures timing. v1 scaffold limitation:
-      // the recorded note plays back as the standard synth, not as voice.
-      // PlaybackEngine integration for voice notes is a follow-up.
-      if (this._onNoteOn) this._onNoteOn(midi, 0.85);
+      // Preserve voice intent for recorded snippets; playback/export routing is
+      // a follow-up so old synth playback still has a clean data path.
+      const voiceInfo = this.voiceEngine.getVoiceInfo?.();
+      if (this._onNoteOn) {
+        this._onNoteOn(midi, 0.85, {
+          voice: {
+            mode: 'voice-sketch',
+            voiceId: voiceInfo?.id || this.project?.settings?.voiceId || 'english-base',
+            syllableId: syllable,
+          },
+        });
+      }
     }
     // Update token highlight + pad preview.
     this._refreshVoiceUi();

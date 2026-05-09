@@ -140,7 +140,7 @@ export class CreativeMode {
     this.arpManager.wrapSynth(this.synth);
 
     // Wire up note callbacks for recording
-    const noteOn = (midi, vel) => this.recordingManager.noteOn(midi, vel);
+    const noteOn = (midi, vel, meta) => this.recordingManager.noteOn(midi, vel, meta);
     const noteOff = (midi) => this.recordingManager.noteOff(midi);
     this.scaleBoard.setNoteCallbacks(noteOn, noteOff);
     this.microPiano.setNoteCallbacks(noteOn, noteOff);

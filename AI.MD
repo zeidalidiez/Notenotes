@@ -984,7 +984,7 @@ On import/migration, embedded `audioDataUrl` should always be converted into a f
 
 ## App Versioning
 
-Current App Version: `0.0.21`
+Current App Version: `0.0.22`
 
 The visible app version is displayed in Settings. Bump it for meaningful user-facing changes or architecture/storage changes, especially when AI.MD is updated for completed work.
 
@@ -1185,7 +1185,8 @@ The display sits below the input rather than inline-tokenizing the input itself.
 
 ### v1 scaffold limitations (intentional)
 
-- Voice mode uses live synthesis only. The `RecordingManager` callbacks fire so MIDI snippets capture the timing, but the recorded notes do not yet carry voice metadata (`note.voice = { voiceId, syllable }`). When played back via `PlaybackEngine` (Canvas / Inspect), voice notes play through the standard synth, not the voice engine. Adding `note.voice` and routing it through PlaybackEngine + WavExporter is a follow-up.
+- Voice mode uses live synthesis during Create mode. Recorded Voice Sketch notes now carry `note.voice = { mode: "voice-sketch", voiceId, syllableId }` so the performance intent is not thrown away when a snippet is captured.
+- `PlaybackEngine`, Canvas, Inspect, and WAV export do not yet render `note.voice` through `VoiceEngine`; they still play standard synth until the voice playback/export router is added.
 - Custom mode does not yet allow per-pad selection of "voice" (alongside "single" / "chord"). The mode dropdown's Voices entry is the only entry point. A Custom-mode extension would let users mix voice with note/chord pads on the same layout.
 - One voice ships in v1 (`english-base.json`). Multiple voices, registers, and languages are added by adding JSON files; the picker UI for choosing among voices is not yet built (the active voice is hard-loaded in `CreativeMode`).
 - No saved phrase library. Phrases are project-scoped only; no global library.

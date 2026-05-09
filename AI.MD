@@ -984,7 +984,7 @@ On import/migration, embedded `audioDataUrl` should always be converted into a f
 
 ## App Versioning
 
-Current App Version: `0.0.22`
+Current App Version: `0.0.23`
 
 The visible app version is displayed in Settings. Bump it for meaningful user-facing changes or architecture/storage changes, especially when AI.MD is updated for completed work.
 
@@ -1137,7 +1137,7 @@ The architecture is deliberately data-driven. Voices live in `src/instruments/vo
 ### Files
 
 - `src/instruments/voice/VoiceEngine.js` — Web Audio formant-synth engine. Drives a sawtooth oscillator (voiced source) plus pink-ish noise (unvoiced source) through three peaking biquad filters in series. Uses `AudioParam.linearRampToValueAtTime` to interpolate between syllable keyframes.
-- `src/instruments/voice/voices/english-base.json` — v1 syllable bank: `ah eh ee oh oo ai oi au ei h n m l s t`.
+- `src/instruments/voice/voices/english-base.json` — v1 syllable bank: `ah eh ee oh oo ai oi au ei h n m l s t la lee lo ma mee mo na no ha sa ta`.
 - `src/instruments/voice/syllabify.js` — Greedy bank-based splitter. No npm dependency. As voices add syllables, the splitter recognizes them automatically.
 - `src/instruments/voice/README.md` — Schema documentation and contribution guide.
 
@@ -1188,7 +1188,7 @@ The display sits below the input rather than inline-tokenizing the input itself.
 - Voice mode uses live synthesis during Create mode. Recorded Voice Sketch notes now carry `note.voice = { mode: "voice-sketch", voiceId, syllableId }` so the performance intent is not thrown away when a snippet is captured.
 - `PlaybackEngine`, Canvas, Inspect, and WAV export do not yet render `note.voice` through `VoiceEngine`; they still play standard synth until the voice playback/export router is added.
 - Custom mode does not yet allow per-pad selection of "voice" (alongside "single" / "chord"). The mode dropdown's Voices entry is the only entry point. A Custom-mode extension would let users mix voice with note/chord pads on the same layout.
-- One voice ships in v1 (`english-base.json`). Multiple voices, registers, and languages are added by adding JSON files; the picker UI for choosing among voices is not yet built (the active voice is hard-loaded in `CreativeMode`).
+- One voice ships in v1 (`english-base.json`), now with a small starter set of consonant-vowel test syllables for phrases. Multiple voices, registers, and languages are added by adding JSON files; the picker UI for choosing among voices is not yet built (the active voice is hard-loaded in `CreativeMode`).
 - No saved phrase library. Phrases are project-scoped only; no global library.
 - `english-base.json` formant values are textbook approximations. They will sound plausibly robotic but probably need ear-tuning to feel right. Adjustments are JSON-only — see `voices/README.md`.
 

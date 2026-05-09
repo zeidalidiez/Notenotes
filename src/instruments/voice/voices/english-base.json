@@ -208,6 +208,172 @@
           "formants": [{ "hz": 4000, "q": 2, "gain": 6 }, { "hz": 5500, "q": 2, "gain": 4 }, { "hz": 7500, "q": 2, "gain": 2 }] },
         { "t": 1.00, "voicing": "off",   "amp": 0.0 }
       ]
+    },
+
+    {
+      "id": "la",
+      "label": "la",
+      "duration": 0.58,
+      "frames": [
+        { "t": 0.00, "voicing": "off",    "amp": 0.0 },
+        { "t": 0.05, "voicing": "voiced", "amp": 0.75,
+          "formants": [{ "hz": 360, "q": 10, "gain": 12 }, { "hz": 1300, "q": 8, "gain": 10 }, { "hz": 2700, "q": 6, "gain": 6 }] },
+        { "t": 0.22, "voicing": "voiced", "amp": 1.0,
+          "formants": [{ "hz": 730, "q": 8, "gain": 14 }, { "hz": 1090, "q": 7, "gain": 12 }, { "hz": 2440, "q": 6, "gain": 10 }] },
+        { "t": 0.88, "voicing": "voiced", "amp": 0.75,
+          "formants": [{ "hz": 730, "q": 8, "gain": 14 }, { "hz": 1090, "q": 7, "gain": 12 }, { "hz": 2440, "q": 6, "gain": 10 }] },
+        { "t": 1.00, "voicing": "off",    "amp": 0.0 }
+      ]
+    },
+    {
+      "id": "lee",
+      "label": "lee",
+      "duration": 0.58,
+      "frames": [
+        { "t": 0.00, "voicing": "off",    "amp": 0.0 },
+        { "t": 0.05, "voicing": "voiced", "amp": 0.75,
+          "formants": [{ "hz": 360, "q": 10, "gain": 12 }, { "hz": 1300, "q": 8, "gain": 10 }, { "hz": 2700, "q": 6, "gain": 6 }] },
+        { "t": 0.22, "voicing": "voiced", "amp": 1.0,
+          "formants": [{ "hz": 280, "q": 12, "gain": 14 }, { "hz": 2300, "q": 8, "gain": 13 }, { "hz": 3000, "q": 6, "gain": 9 }] },
+        { "t": 0.88, "voicing": "voiced", "amp": 0.75,
+          "formants": [{ "hz": 280, "q": 12, "gain": 14 }, { "hz": 2300, "q": 8, "gain": 13 }, { "hz": 3000, "q": 6, "gain": 9 }] },
+        { "t": 1.00, "voicing": "off",    "amp": 0.0 }
+      ]
+    },
+    {
+      "id": "lo",
+      "label": "lo",
+      "duration": 0.58,
+      "frames": [
+        { "t": 0.00, "voicing": "off",    "amp": 0.0 },
+        { "t": 0.05, "voicing": "voiced", "amp": 0.75,
+          "formants": [{ "hz": 360, "q": 10, "gain": 12 }, { "hz": 1300, "q": 8, "gain": 10 }, { "hz": 2700, "q": 6, "gain": 6 }] },
+        { "t": 0.22, "voicing": "voiced", "amp": 1.0,
+          "formants": [{ "hz": 570, "q": 9, "gain": 13 }, { "hz": 840, "q": 8, "gain": 11 }, { "hz": 2410, "q": 6, "gain": 9 }] },
+        { "t": 0.88, "voicing": "voiced", "amp": 0.75,
+          "formants": [{ "hz": 570, "q": 9, "gain": 13 }, { "hz": 840, "q": 8, "gain": 11 }, { "hz": 2410, "q": 6, "gain": 9 }] },
+        { "t": 1.00, "voicing": "off",    "amp": 0.0 }
+      ]
+    },
+    {
+      "id": "ma",
+      "label": "ma",
+      "duration": 0.60,
+      "frames": [
+        { "t": 0.00, "voicing": "off",    "amp": 0.0 },
+        { "t": 0.04, "voicing": "voiced", "amp": 0.75,
+          "formants": [{ "hz": 280, "q": 14, "gain": 15 }, { "hz": 1100, "q": 12, "gain": 8 }, { "hz": 2200, "q": 6, "gain": 3 }] },
+        { "t": 0.24, "voicing": "voiced", "amp": 1.0,
+          "formants": [{ "hz": 730, "q": 8, "gain": 14 }, { "hz": 1090, "q": 7, "gain": 12 }, { "hz": 2440, "q": 6, "gain": 10 }] },
+        { "t": 0.88, "voicing": "voiced", "amp": 0.75,
+          "formants": [{ "hz": 730, "q": 8, "gain": 14 }, { "hz": 1090, "q": 7, "gain": 12 }, { "hz": 2440, "q": 6, "gain": 10 }] },
+        { "t": 1.00, "voicing": "off",    "amp": 0.0 }
+      ]
+    },
+    {
+      "id": "mee",
+      "label": "mee",
+      "duration": 0.60,
+      "frames": [
+        { "t": 0.00, "voicing": "off",    "amp": 0.0 },
+        { "t": 0.04, "voicing": "voiced", "amp": 0.75,
+          "formants": [{ "hz": 280, "q": 14, "gain": 15 }, { "hz": 1100, "q": 12, "gain": 8 }, { "hz": 2200, "q": 6, "gain": 3 }] },
+        { "t": 0.24, "voicing": "voiced", "amp": 1.0,
+          "formants": [{ "hz": 280, "q": 12, "gain": 14 }, { "hz": 2300, "q": 8, "gain": 13 }, { "hz": 3000, "q": 6, "gain": 9 }] },
+        { "t": 0.88, "voicing": "voiced", "amp": 0.75,
+          "formants": [{ "hz": 280, "q": 12, "gain": 14 }, { "hz": 2300, "q": 8, "gain": 13 }, { "hz": 3000, "q": 6, "gain": 9 }] },
+        { "t": 1.00, "voicing": "off",    "amp": 0.0 }
+      ]
+    },
+    {
+      "id": "mo",
+      "label": "mo",
+      "duration": 0.60,
+      "frames": [
+        { "t": 0.00, "voicing": "off",    "amp": 0.0 },
+        { "t": 0.04, "voicing": "voiced", "amp": 0.75,
+          "formants": [{ "hz": 280, "q": 14, "gain": 15 }, { "hz": 1100, "q": 12, "gain": 8 }, { "hz": 2200, "q": 6, "gain": 3 }] },
+        { "t": 0.24, "voicing": "voiced", "amp": 1.0,
+          "formants": [{ "hz": 570, "q": 9, "gain": 13 }, { "hz": 840, "q": 8, "gain": 11 }, { "hz": 2410, "q": 6, "gain": 9 }] },
+        { "t": 0.88, "voicing": "voiced", "amp": 0.75,
+          "formants": [{ "hz": 570, "q": 9, "gain": 13 }, { "hz": 840, "q": 8, "gain": 11 }, { "hz": 2410, "q": 6, "gain": 9 }] },
+        { "t": 1.00, "voicing": "off",    "amp": 0.0 }
+      ]
+    },
+    {
+      "id": "na",
+      "label": "na",
+      "duration": 0.60,
+      "frames": [
+        { "t": 0.00, "voicing": "off",    "amp": 0.0 },
+        { "t": 0.04, "voicing": "voiced", "amp": 0.78,
+          "formants": [{ "hz": 280, "q": 14, "gain": 15 }, { "hz": 1340, "q": 12, "gain": 8 }, { "hz": 2440, "q": 6, "gain": 4 }] },
+        { "t": 0.22, "voicing": "voiced", "amp": 1.0,
+          "formants": [{ "hz": 730, "q": 8, "gain": 14 }, { "hz": 1090, "q": 7, "gain": 12 }, { "hz": 2440, "q": 6, "gain": 10 }] },
+        { "t": 0.88, "voicing": "voiced", "amp": 0.75,
+          "formants": [{ "hz": 730, "q": 8, "gain": 14 }, { "hz": 1090, "q": 7, "gain": 12 }, { "hz": 2440, "q": 6, "gain": 10 }] },
+        { "t": 1.00, "voicing": "off",    "amp": 0.0 }
+      ]
+    },
+    {
+      "id": "no",
+      "label": "no",
+      "duration": 0.60,
+      "frames": [
+        { "t": 0.00, "voicing": "off",    "amp": 0.0 },
+        { "t": 0.04, "voicing": "voiced", "amp": 0.78,
+          "formants": [{ "hz": 280, "q": 14, "gain": 15 }, { "hz": 1340, "q": 12, "gain": 8 }, { "hz": 2440, "q": 6, "gain": 4 }] },
+        { "t": 0.22, "voicing": "voiced", "amp": 1.0,
+          "formants": [{ "hz": 570, "q": 9, "gain": 13 }, { "hz": 840, "q": 8, "gain": 11 }, { "hz": 2410, "q": 6, "gain": 9 }] },
+        { "t": 0.88, "voicing": "voiced", "amp": 0.75,
+          "formants": [{ "hz": 570, "q": 9, "gain": 13 }, { "hz": 840, "q": 8, "gain": 11 }, { "hz": 2410, "q": 6, "gain": 9 }] },
+        { "t": 1.00, "voicing": "off",    "amp": 0.0 }
+      ]
+    },
+    {
+      "id": "ha",
+      "label": "ha",
+      "duration": 0.56,
+      "frames": [
+        { "t": 0.00, "voicing": "off",   "amp": 0.0 },
+        { "t": 0.06, "voicing": "noise", "amp": 0.50,
+          "formants": [{ "hz": 1500, "q": 3, "gain": 6 }, { "hz": 2500, "q": 3, "gain": 4 }, { "hz": 4000, "q": 2, "gain": 2 }] },
+        { "t": 0.18, "voicing": "voiced", "amp": 1.0,
+          "formants": [{ "hz": 730, "q": 8, "gain": 14 }, { "hz": 1090, "q": 7, "gain": 12 }, { "hz": 2440, "q": 6, "gain": 10 }] },
+        { "t": 0.88, "voicing": "voiced", "amp": 0.75,
+          "formants": [{ "hz": 730, "q": 8, "gain": 14 }, { "hz": 1090, "q": 7, "gain": 12 }, { "hz": 2440, "q": 6, "gain": 10 }] },
+        { "t": 1.00, "voicing": "off",   "amp": 0.0 }
+      ]
+    },
+    {
+      "id": "sa",
+      "label": "sa",
+      "duration": 0.56,
+      "frames": [
+        { "t": 0.00, "voicing": "off",   "amp": 0.0 },
+        { "t": 0.06, "voicing": "noise", "amp": 0.68,
+          "formants": [{ "hz": 4500, "q": 4, "gain": 8 }, { "hz": 6500, "q": 5, "gain": 9 }, { "hz": 8000, "q": 3, "gain": 4 }] },
+        { "t": 0.20, "voicing": "voiced", "amp": 1.0,
+          "formants": [{ "hz": 730, "q": 8, "gain": 14 }, { "hz": 1090, "q": 7, "gain": 12 }, { "hz": 2440, "q": 6, "gain": 10 }] },
+        { "t": 0.88, "voicing": "voiced", "amp": 0.75,
+          "formants": [{ "hz": 730, "q": 8, "gain": 14 }, { "hz": 1090, "q": 7, "gain": 12 }, { "hz": 2440, "q": 6, "gain": 10 }] },
+        { "t": 1.00, "voicing": "off",   "amp": 0.0 }
+      ]
+    },
+    {
+      "id": "ta",
+      "label": "ta",
+      "duration": 0.50,
+      "frames": [
+        { "t": 0.00, "voicing": "off",   "amp": 0.0 },
+        { "t": 0.05, "voicing": "noise", "amp": 0.85,
+          "formants": [{ "hz": 4000, "q": 2, "gain": 6 }, { "hz": 5500, "q": 2, "gain": 4 }, { "hz": 7500, "q": 2, "gain": 2 }] },
+        { "t": 0.14, "voicing": "voiced", "amp": 1.0,
+          "formants": [{ "hz": 730, "q": 8, "gain": 14 }, { "hz": 1090, "q": 7, "gain": 12 }, { "hz": 2440, "q": 6, "gain": 10 }] },
+        { "t": 0.88, "voicing": "voiced", "amp": 0.75,
+          "formants": [{ "hz": 730, "q": 8, "gain": 14 }, { "hz": 1090, "q": 7, "gain": 12 }, { "hz": 2440, "q": 6, "gain": 10 }] },
+        { "t": 1.00, "voicing": "off",   "amp": 0.0 }
+      ]
     }
   ]
 }

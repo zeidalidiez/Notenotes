@@ -266,7 +266,7 @@ export class ScaleBoard {
             spellcheck="false"
             autocomplete="off"
             autocapitalize="off"
-            placeholder="supported sounds: ah eh ee oh oo ai oi au ei h n m l s t"
+            placeholder="supported sounds: ah eh ee oh oo ai oi au ei h n m l s t la lee lo ma mee mo na no ha sa ta"
             value="${this._escapeAttr(this._voicePhrase || '')}"
             aria-label="Voice phrase"
           />

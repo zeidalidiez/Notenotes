@@ -201,6 +201,34 @@ function adaptSchemaForGemini(schema) {
     delete out.description;
   }
 
+  // Gemini's constrained-decoder rejects schemas whose state space is too
+  // large. Two of our primitives explode it:
+  //
+  //   - Numeric `minimum`/`maximum` bounds on integer/number properties.
+  //     Each constrained numeric multiplies the decoder's state count.
+  //   - Long `maxItems` on arrays of objects with constrained properties.
+  //     A 256-event array × 5 bounded numerics per event explodes badly.
+  //
+  // The SequenceValidator enforces these constraints on the response side,
+  // so dropping them from the wire schema is safe — the LLM may emit
+  // out-of-range values, but they get rejected before reaching the user.
+  const NUMERIC_BOUNDS = ['minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'multipleOf'];
+  if (out.type === 'integer' || out.type === 'number') {
+    for (const key of NUMERIC_BOUNDS) {
+      if (key in out) delete out[key];
+    }
+  }
+  if (out.type === 'array') {
+    // Cap maxItems aggressively. 64 events is plenty for any reasonable
+    // 1-8 bar musical sequence.
+    if (typeof out.maxItems === 'number' && out.maxItems > 64) {
+      out.maxItems = 64;
+    }
+    // minItems is harmless on its own, but the validator catches empty
+    // arrays anyway. Drop it to keep the schema lean.
+    if ('minItems' in out) delete out.minItems;
+  }
+
   return out;
 }
 

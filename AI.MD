@@ -984,7 +984,7 @@ On import/migration, embedded `audioDataUrl` should always be converted into a f
 
 ## App Versioning
 
-Current App Version: `0.0.19`
+Current App Version: `0.0.28`
 
 The visible app version is displayed in Settings. Bump it for meaningful user-facing changes or architecture/storage changes, especially when AI.MD is updated for completed work.
 
@@ -1126,3 +1126,201 @@ Storage and backup:
 Known next steps:
 
 - Wire Kit-type custom instruments so one source sample can generate percussive pad variations.
+
+
+## Voice Sketch (Scale Board Experimental Voice Mode)
+
+The Scale Board exposes a fourth Pad Mode called **Voice Sketch** alongside Single, Chords, and Custom. Voice Sketch is an experimental robot-voice mode: each pad triggers a supported voice token from a typed phrase at the pad's scale-locked pitch. Pure formant synthesis using Web Audio. No samples, no ML, no external dependencies. Do not describe this as Vocaloid-quality until recording, playback, export, multiple voices, and intelligible voice banks are real.
+
+The architecture is deliberately data-driven. Voices live in `src/instruments/voice/voices/*.json`. The engine reads those JSON files; nobody has to touch engine code to add a new voice, language, or register. Contribution surface is documented in `src/instruments/voice/README.md`.
+
+### Files
+
+- `src/instruments/voice/VoiceEngine.js` — Web Audio formant-synth engine. Drives a sawtooth oscillator (voiced source) plus pink-ish noise (unvoiced source) through three peaking biquad filters in series. Uses `AudioParam.linearRampToValueAtTime` to interpolate between syllable keyframes.
+- `src/instruments/voice/voices/english-base.json` — v1 syllable bank: `ah eh ee oh oo ai oi au ei h n m l s t la lee lo ma mee mo na no ha sa ta`.
+- `src/instruments/voice/syllabify.js` — Greedy bank-based splitter. No npm dependency. As voices add syllables, the splitter recognizes them automatically.
+- `src/instruments/voice/README.md` — Schema documentation and contribution guide.
+
+### Syllable JSON schema (v1)
+
+```json
+{
+  "id": "han",
+  "duration": 0.6,
+  "frames": [
+    { "t": 0.00, "voicing": "off",    "amp": 0.0 },
+    { "t": 0.05, "voicing": "noise",  "amp": 0.5 },
+    { "t": 0.15, "voicing": "voiced", "amp": 1.0,
+      "formants": [{ "hz": 730, "q": 8, "gain": 14 }, ...] },
+    { "t": 1.00, "voicing": "off",    "amp": 0.0 }
+  ]
+}
+```
+
+Frames are keyframes in normalized time `0..1`. `voicing` switches discretely at each frame. `amp` and `formants` interpolate linearly between frames. Three formant slots per syllable (`F1`, `F2`, `F3`).
+
+### Wiring
+
+- `CreativeMode` instantiates `VoiceEngine` alongside `WebAudioSynth` and loads `english-base.json`.
+- After `synth.init()`, CreativeMode calls `voiceEngine.setDestination(synth.getSynthInput())`. Voice output flows through the synth's tone input, so Crush/Echo/Wobble/Drive/Space/Noise apply to voices the same way they apply to other instruments.
+- `ScaleBoard` accepts an optional `voiceEngine` constructor argument. When present, the Pad Mode dropdown shows the Voices option. When absent, Voices is hidden and existing modes work unchanged.
+- `WebAudioSynth.getSynthInput()` is the public accessor for the tone input. The `_toneInput` GainNode is created during `synth.init()`. Always-routed; safe to share across instruments.
+
+### Pitch + formant separation
+
+The voiced source's frequency = `midiToFreq(midi)`. Formant frequencies stay where the JSON says, regardless of pitch. This is why a low and a high voice singing "ah" both still sound like "ah," instead of pitch-shifting like a chipmunk. Octave shifts on the Scale Board work in voice mode without retuning the syllable bank.
+
+### Phrase persistence
+
+The user's typed phrase persists in `project.settings.voicePhrase`. `ScaleBoard.onVoicePhraseChanged` lets CreativeMode schedule autosave when the phrase changes. Empty phrase = pads sing `"ah"` by default (so users get sound immediately without needing to type first). The phrase pointer (next-token index) is in-memory only; resets to 0 on app load.
+
+### Phrase input UX
+
+- Regular `<input type="text">` with debounced (60 ms) syllabification.
+- Display row below the input shows tokens. Valid tokens have accent border. Invalid tokens have red strikethrough. The current pointer position highlights with a filled background.
+- Input validation rejects non-ASCII characters at the keystroke level via `sanitizePhraseInput`. Non-Latin scripts and emoji are silently stripped on paste.
+- A `↻` rewind button resets the phrase pointer to the start.
+
+The display sits below the input rather than inline-tokenizing the input itself. Inline-tokenized contenteditable was considered but rejected for v1 — cross-browser cursor behavior is too fragile for the value it adds. Display-below ships in 1-2 days; inline tokenization could be a polish pass later.
+
+### v1 scaffold limitations (intentional)
+
+- Voice mode uses live synthesis during Create mode. Recorded Voice Sketch notes now carry `note.voice = { mode: "voice-sketch", voiceId, syllableId }` so the performance intent is not thrown away when a snippet is captured.
+- `PlaybackEngine`, Canvas, Inspect, and WAV export do not yet render `note.voice` through `VoiceEngine`; they still play standard synth until the voice playback/export router is added.
+- Custom mode does not yet allow per-pad selection of "voice" (alongside "single" / "chord"). The mode dropdown's Voices entry is the only entry point. A Custom-mode extension would let users mix voice with note/chord pads on the same layout.
+- One voice ships in v1 (`english-base.json`), now with a small starter set of consonant-vowel test syllables for phrases. Multiple voices, registers, and languages are added by adding JSON files; the picker UI for choosing among voices is not yet built (the active voice is hard-loaded in `CreativeMode`).
+- No saved phrase library. Phrases are project-scoped only; no global library.
+- `english-base.json` formant values are textbook approximations. They will sound plausibly robotic but probably need ear-tuning to feel right. Adjustments are JSON-only — see `voices/README.md`.
+
+### How to add a new voice
+
+1. Author a JSON file in `src/instruments/voice/voices/`.
+2. Match the schema in `voices/README.md`.
+3. Manually update the `import` in `CreativeMode.js` to load it (until the picker UI is built).
+
+### How to extend an existing voice
+
+Edit the JSON. Add or modify entries in the `syllables` array. Reload the page. Done. No code path changes.
+
+## AI Seed Snippets
+
+A new "AI Seed" panel above the snippet tray lets the user ask an LLM (or a local Mock provider) to generate a snippet. The AI is treated as one of the user's instruments — it produces raw musical material the user keeps, refines, or discards. The user remains the composer.
+
+The feature is BYO-key: the user pastes their own provider API key, the request goes directly from the browser to the provider, and Notenotes never sees, logs, or relays the prompt or the output.
+
+### Files
+
+- `src/ai/sequence-schema.js` — Single source of truth for the shape an AI emits. Exports `AI_INSTRUMENTS`, `KIT_DRUMS`, `getSequenceSchemaForInstrument(id)`, and `getSubmitSequenceTool(id)`. Used by validator, executor, prompt builder, and the LLM tool surface.
+- `src/ai/SequenceValidator.js` — Pure `validateSequence(sequence, context)` that rejects malformed AI output before it touches the project.
+- `src/ai/SequenceExecutor.js` — `buildSnippetFromSequence(sequence, context)` constructs a snippet directly compatible with `project.snippets[]` from a validated sequence. No transport coordination, no real-time playback.
+- `src/ai/PromptBuilder.js` — Builds the system prompt, tool definition, and user prompt. Also has token/cost estimation helpers.
+- `src/ai/AIProvider.js` — Base interface for LLM providers.
+- `src/ai/MockProvider.js` — Canned-pattern provider for offline testing without a key.
+- `src/ai/OpenAIProvider.js` — OpenAI Chat Completions with tool calling. Reused for Ollama by passing a custom `baseUrl`.
+- `src/ai/AnthropicProvider.js` — Anthropic Messages API with tool use.
+- `src/ai/AIController.js` — Top-level facade that orchestrates resolve-provider → build-prompt → call → validate → build-snippet.
+- `src/ai/aiSettings.js` — Helpers for reading/writing AI config. API keys live in localStorage; non-secret config (provider id, model, ollama URL, disclaimer accepted) lives in `project.settings.aiSettings`.
+- `src/ui/AISeedPanel.js` + `.css` — Collapsible inline panel above the snippet tray.
+- `docs/AI_INTERFACE.md` — Human-readable description of the AI's contract; companion to the runtime tool schema.
+
+### Architecture
+
+The AI emits a *sequence* — a flat list of events with positions in beats. Notenotes never plays the sequence in real time. The pipeline is:
+
+```
+prompt
+  → AIController.seed()
+  → PromptBuilder.buildSystemPrompt + buildToolDefinition
+  → provider.generate()                       // LLM call
+  → SequenceValidator.validateSequence()      // rejects garbage
+  → SequenceExecutor.buildSnippetFromSequence()  // builds snippet object
+  → CreativeMode._onAISnippetCreated()        // adds to tray + project
+```
+
+Building a snippet directly (rather than driving the transport) means generation is instant and atomic. The user previews the result by tapping the new snippet in the tray.
+
+### Sequence shape
+
+A sequence is `{ instrument, lengthBars, events[] }`. Three event shapes by instrument:
+
+- `scaleboard`: `{ beat, type: "padPress", padIndex, durationBeats?, velocity? }` — `padIndex` indexes the current scale, not raw MIDI. Scale-locked.
+- `piano`: `{ beat, type: "noteOn", midi, durationBeats?, velocity? }` — chromatic.
+- `kit`: `{ beat, type: "drumHit", drum, velocity? }` — drum name from a fixed enum.
+
+Beats are floats from 0. The executor multiplies by 480 (TICKS_PER_BEAT) when constructing snippet notes/hits. The user's tempo and meter (in `transport.timeSignature.beats`) define how many beats per bar.
+
+### What the AI is and isn't allowed to do
+
+The action surface is one tool: `submitSequence`. The provider is told (in the system prompt and via tool_choice) to call it exactly once and not produce free-text commentary.
+
+Things the AI CANNOT do, by construction:
+
+- Set or change BPM, time signature, scale, root, octave, master volume, Tone Traits, or any project setting.
+- Touch the canvas, mute/solo tracks, edit existing snippets, export, save milestones, etc.
+- Refuse the tool call — that's a generation failure surfaced to the user.
+
+These constraints are enforced at the tool surface; there is no other tool surface to expand.
+
+### Snippet shape additions
+
+AI-seeded snippets are normal MIDI/drum snippets with extra metadata fields:
+
+```js
+{
+  ...standardSnippetFields,
+  aiSeeded: true,
+  aiPrompt: "first 240 chars of user prompt",
+  aiProvider: "openai" | "anthropic" | "ollama" | "mock",
+  aiInstrument: "scaleboard" | "piano" | "kit",
+  aiLengthBars: 1 | 2 | 4 | 8,
+  name: "🤖 N notes" | "🤖 N hits",
+}
+```
+
+`SnippetTray` looks for `aiSeeded` and renders a `🤖 AI` badge with the original prompt as the hover title.
+
+The AI metadata travels with the snippet through workspace backups and is preserved across export/import.
+
+### Settings storage
+
+**API keys are session-only.** `aiSettings.js` holds them in a module-scoped Map; nothing ever writes them to localStorage, IndexedDB, cookies, or the project JSON. On page reload, the Map is empty and the user re-enters their key. This is intentional — the project does not want to be in the business of storing user credentials.
+
+Non-secret config (provider id, model id, Ollama base URL, disclaimer-accepted flag, default length-bars) lives in `project.settings.aiSettings`. That makes the picked model and provider part of the project — useful for "what model was I using when I made this?" reproducibility — and travels with workspace backups. No credentials are ever included in those backups.
+
+`hasApiKey(providerId)` is the safe way to check whether a key is staged for the current session without leaking the value. The Settings panel uses it to show "Key staged for this session" vs "No key staged" without rendering the key text.
+
+### UI placement
+
+The AI Seed feature is a popover anchored to a small toolbar row above the snippet tray. The row (and the button it contains) is **only visible on Scale Board, Piano, and Sketch Kit** — the three instruments whose primitives the AI can write events for. Mic (audio recording) and Controller (deliberately scoped out per user) hide the row entirely. Switching instruments while the popover is open closes it.
+
+The popover renders the `AISeedPanel` component on demand (constructed when the user clicks the button, destroyed when the popover closes). All event handlers bind at construction time, so there is no "click around to wake it up" state — the popover is fully interactive the moment it appears. Click-outside closes it; Escape closes it; the X in the header closes it.
+
+### Cost transparency
+
+`AIController.estimateGenerationCost({ prompt })` returns an approximate USD cost based on per-million-token pricing tables in each provider class. The AI Seed Panel surfaces this estimate ("~$0.02") below the prompt textarea before the user clicks Generate.
+
+Mock and Ollama report "$0".
+
+### Provider quirks
+
+- **OpenAI**: standard Chat Completions with `tools` + `tool_choice: { type: 'function', function: { name } }`. Force-pinning the tool stops the model from refusing or talking back.
+- **Anthropic**: Messages API with `system` as a top-level field (not a message), `tools` with `input_schema`, and `tool_choice: { type: 'tool', name }`. Requires `anthropic-dangerous-direct-browser-access: true` for in-browser usage.
+- **Ollama**: served via the OpenAIProvider with a custom `baseUrl` (default `http://localhost:11434/v1`). Model ids are user-installed (`llama3.1:8b`, `qwen2.5:7b`, etc.). Tool calling support varies by model — Llama 3.1, Qwen 2.5, and Mistral generally work; older models may not respect the schema.
+- **Mock**: returns canned-but-musical patterns for 1/2/4/8 bars, on each instrument. No network. Default provider on first run so the user can validate the pipeline before committing to a key.
+
+### v1 limitations (intentional, not bugs)
+
+- **No reference snippet picker.** The pipeline supports a `referencedSnippet` context field, but the UI does not yet expose a way to attach one. Add a "+ Reference snippet" picker in a follow-up.
+- **No running cost counter.** The per-generation estimate is shown; cumulative session/project totals are not tracked.
+- **No rate limiting / per-session budget cap.** A user could spam Generate. Acceptable for v1; surfaced as a future "max $X per session" setting.
+- **Prompt is single-shot.** No retry on validator failure with a self-correction message. If the LLM returns garbage, the user sees the error and can refine their prompt.
+- **No streaming.** Sequences come back atomically. With small JSON outputs this isn't a UX problem.
+- **No multi-tool conversations.** One tool, one call, one snippet.
+
+### Adding a new provider
+
+1. Subclass `AIProvider`. Implement `generate({systemPrompt, userPrompt, tool, model, signal})`.
+2. Add the provider to `AIController._resolveProvider`.
+3. Add an option to the Settings AI section's provider dropdown (in `SettingsPanel._renderAISection`) and a `case` in `providerModelsForUi`.
+4. If the provider has its own pricing, override `getPricing(modelId)`.
+5. If credentials are required, read them via `readApiKey('<providerId>')`. Keys live in the in-memory Map only — do not write a custom credential store, and do not persist them.

@@ -1,0 +1,247 @@
+/* ============================================================
+   AI Seed — popover anchored to the AI Seed button.
+   The button itself piggybacks on .tone-button styling so it
+   matches the Tone button (same row, same shape, same fonts).
+   ============================================================ */
+
+/* The AI Seed button is a .tone-button-classed element with a small
+   accent so it's recognizable but not louder than the Tone button. */
+.ai-seed-button {
+  /* Inherit base style from .tone-button via CSS class composition;
+     these rules only add accents specific to the AI button. */
+}
+
+.ai-seed-button[aria-expanded="true"] {
+  border-color: var(--accent-dim);
+  color: var(--accent-light);
+  background: var(--surface-4);
+}
+
+.ai-seed-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: var(--space-md);
+  z-index: 30;
+  width: min(420px, calc(100vw - 32px));
+  background: var(--surface-1);
+  border: 1px solid var(--surface-4);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.ai-seed-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+}
+
+.ai-seed-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: calc(var(--space-sm) * -1) calc(var(--space-md) * -1) 0;
+  padding: var(--space-xs) var(--space-md);
+  background: var(--surface-2);
+  border-bottom: var(--border-subtle);
+}
+
+.ai-seed-panel__icon {
+  font-size: 14px;
+}
+
+.ai-seed-panel__title {
+  flex: 1;
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+}
+
+.ai-seed-panel__close {
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 14px;
+  font-family: var(--font-family);
+  cursor: pointer;
+  padding: 0 6px;
+  min-height: 24px;
+  border-radius: var(--radius-sm);
+}
+
+.ai-seed-panel__close:hover {
+  color: var(--text-primary);
+  background: var(--surface-3);
+}
+
+.ai-seed-panel__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.ai-seed-panel__row--meta {
+  justify-content: flex-start;
+}
+
+.ai-seed-panel__chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  background: var(--surface-3);
+  color: var(--text-secondary);
+  border: 1px solid var(--surface-4);
+}
+
+.ai-seed-panel__chip--readonly {
+  cursor: default;
+}
+
+.ai-seed-panel__lengths {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.ai-seed-panel__length {
+  background: var(--surface-3);
+  border: 1px solid var(--surface-4);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-xs);
+  padding: 4px 10px;
+  cursor: pointer;
+  min-height: 28px;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.ai-seed-panel__length:hover {
+  border-color: var(--accent-dim);
+  color: var(--text-primary);
+}
+
+.ai-seed-panel__length.is-active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.ai-seed-panel__row--prompt {
+  align-items: stretch;
+}
+
+.ai-seed-panel__prompt {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-3);
+  border: 1px solid var(--surface-4);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-md);
+  padding: var(--space-xs) var(--space-sm);
+  resize: vertical;
+  min-height: 56px;
+}
+
+.ai-seed-panel__prompt:focus {
+  outline: none;
+  border-color: var(--accent-dim);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.ai-seed-panel__suggestions {
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ai-seed-panel__suggestion {
+  background: var(--surface-2);
+  border: 1px solid var(--surface-4);
+  border-radius: 999px;
+  color: var(--text-tertiary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-xs);
+  padding: 4px 10px;
+  cursor: pointer;
+  min-height: 24px;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.ai-seed-panel__suggestion:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+  border-color: var(--accent-dim);
+}
+
+.ai-seed-panel__footer {
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.ai-seed-panel__cost {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.ai-seed-panel__status {
+  flex: 1;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  text-align: right;
+  min-height: 1em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ai-seed-panel__status--info { color: var(--text-secondary); }
+.ai-seed-panel__status--success { color: #6dd28d; }
+.ai-seed-panel__status--error { color: #ff8787; }
+
+.ai-seed-panel__generate,
+.ai-seed-panel__cancel {
+  flex: 0 0 auto;
+  min-height: 32px;
+}
+
+.ai-seed-panel__note {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-align: right;
+  font-style: italic;
+}
+
+.ai-seed-panel__unavailable {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--space-md) var(--space-md) var(--space-lg);
+  text-align: center;
+}
+
+.ai-seed-panel__unavailable-headline {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--accent-light);
+  letter-spacing: 0.01em;
+}
+
+.ai-seed-panel__unavailable-detail {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  color: var(--text-tertiary);
+}

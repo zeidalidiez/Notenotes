@@ -13,6 +13,11 @@ import { MicRecorder } from '../instruments/MicRecorder.js';
 import { ControllerMode } from '../instruments/ControllerMode.js';
 import { RecordingManager } from '../engine/RecordingManager.js';
 import { SnippetTray } from '../ui/SnippetTray.js';
+import { AISeedPanel } from '../ui/AISeedPanel.js';
+import '../ui/AISeedPanel.css';
+import { AIController } from '../ai/AIController.js';
+import { VoiceEngine } from '../instruments/voice/VoiceEngine.js';
+import englishBaseVoice from '../instruments/voice/voices/english-base.json';
 import { LoopProgress } from '../ui/LoopProgress.js';
 import { TransportState } from '../engine/Transport.js';
 import { ArpeggioManager, ARP_MODES } from '../engine/ArpeggioManager.js';
@@ -44,14 +49,31 @@ export class CreativeMode {
     // Synth (shared between Scale Board and Micro Piano)
     this.synth = new WebAudioSynth();
 
+    // Voice engine — formant-synthesized vocal instrument used by Scale
+    // Board's "Voice Sketch" pad mode. Routes through the synth's tone
+    // input so it inherits the same Tone Traits chain. MUST be instantiated
+    // BEFORE ScaleBoard, because ScaleBoard's renderer reads `this.voiceEngine`
+    // to decide whether to surface the Voice Sketch option in the Pad Mode
+    // dropdown.
+    this.voiceEngine = new VoiceEngine(engine);
+    this.voiceEngine.loadVoice(englishBaseVoice);
+
     // Instruments
-    this.scaleBoard = new ScaleBoard(this.synth, this.project);
+    this.scaleBoard = new ScaleBoard(this.synth, this.project, this.voiceEngine);
+    this.scaleBoard.onVoicePhraseChanged = () => this.store?.scheduleAutoSave(this.project);
+    // When Scale Board switches into/out of Voice Sketch mode, refresh any
+    // open AI Seed popover. AI can't generate voice phrases, so the panel
+    // disables itself with "Unavailable in Voice Sketch mode" instead of
+    // hiding the button entirely (the user might want to see the AI button
+    // is there, just not usable right now).
+    this.scaleBoard.onPadModeChange = () => this._aiSeedPanelInstance?.refresh();
     this.microPiano = new MicroPiano(this.synth, this.project);
     this.sketchKit = new SketchKit(this.project);
     this.sketchKit.onSoundTraitsChanged = (traits) => this._applyProjectSoundTraits(traits);
     this.sketchKit.onCreateInstrument = (anchor) => this._toggleCreateInstrumentPopover(anchor);
     this.sketchKit.onDeleteInstrument = () => this._deleteSelectedCustomInstrument();
     this.sketchKit.onKitChanged = () => this.store?.scheduleAutoSave(this.project);
+    this.sketchKit.onAISeedClick = (anchor, buttonEl) => this._toggleAISeedPopover(anchor, buttonEl);
     this.micRecorder = new MicRecorder();
     this.controllerMode = new ControllerMode(this.synth, this.project, modManager);
     this.controllerMode.onToneAssignmentChanged = () => this.store?.scheduleAutoSave(this.project);
@@ -70,6 +92,23 @@ export class CreativeMode {
     this.snippetTray = new SnippetTray();
     this.snippetTray.setSnippetUsageProvider((snippetId) => this._snippetInstrumentUsage(snippetId));
     this.loopProgress = new LoopProgress(transport, project);
+
+    // AI Seed: gives the user a way to ask an LLM (or local Mock) to seed a
+    // snippet. Scope is constrained: AI can only build a snippet via the
+    // submitSequence tool. It can't change tempo, meter, instrument, or
+    // anything structural. The user is the composer; AI is an instrument.
+    //
+    // The controller is always live; the panel is rendered on demand inside
+    // a popover triggered by the AI Seed button. The button itself is only
+    // visible when the active instrument is something the AI can play
+    // (Scale Board / Piano / Sketch Kit).
+    this.aiController = new AIController({
+      transport,
+      getProject: () => this.project,
+      getActiveInstrumentInfo: () => this._buildAIInstrumentInfo(),
+    });
+    this._aiSeedPopover = null;
+    this._aiSeedPanelInstance = null;
 
     this._initialized = false;
     this._heldScaleKeyPads = new Map();
@@ -105,6 +144,11 @@ export class CreativeMode {
 
     this.synth.init();
     this.synth.loadPatch(PRESETS.chip_lead);
+    // Connect the voice engine to the synth's tone input so voices route
+    // through the same Tone Traits chain as the rest of the synth output.
+    if (this.voiceEngine) {
+      this.voiceEngine.setDestination(this.synth.getSynthInput());
+    }
     this._applyProjectSoundTraits(this._ensureSoundTraits(), { save: false, notify: false });
     this.sketchKit.init();
     this.sketchKit.setSoundTraits(this._currentToneTraits || this._ensureSoundTraits());
@@ -126,7 +170,7 @@ export class CreativeMode {
     this.arpManager.wrapSynth(this.synth);
 
     // Wire up note callbacks for recording
-    const noteOn = (midi, vel) => this.recordingManager.noteOn(midi, vel);
+    const noteOn = (midi, vel, meta) => this.recordingManager.noteOn(midi, vel, meta);
     const noteOff = (midi) => this.recordingManager.noteOff(midi);
     this.scaleBoard.setNoteCallbacks(noteOn, noteOff);
     this.microPiano.setNoteCallbacks(noteOn, noteOff);
@@ -269,6 +313,7 @@ export class CreativeMode {
       <button class="tone-button" id="create-instrument-button" type="button">${this._activePatchId.startsWith('custom:') ? 'Edit Instrument' : 'Create Instrument'}</button>
       <button class="tone-button" id="delete-instrument-button" type="button">Delete</button>
       <button class="tone-button" id="tone-button" type="button" aria-expanded="false" aria-controls="tone-popover">Tone</button>
+      <button class="tone-button ai-seed-button" id="ai-seed-button" type="button" aria-expanded="false" aria-controls="ai-seed-popover" title="Seed a snippet with AI">🤖 AI</button>
       <span class="tone-trigger-indicator" id="tone-trigger-indicator" aria-live="polite"></span>
     `;
     patchSel.querySelector('#patch-select').addEventListener('change', async (e) => {
@@ -286,6 +331,10 @@ export class CreativeMode {
     patchSel.querySelector('#tone-button').addEventListener('pointerdown', (e) => {
       e.preventDefault();
       this._toggleTonePopover(patchSel);
+    });
+    patchSel.querySelector('#ai-seed-button').addEventListener('click', (e) => {
+      e.preventDefault();
+      this._toggleAISeedPopover(patchSel, patchSel.querySelector('#ai-seed-button'));
     });
     this.el.appendChild(patchSel);
     this._syncInstrumentButtons();
@@ -314,6 +363,9 @@ export class CreativeMode {
 
     // Snippet tray (bottom)
     this.el.appendChild(this.snippetTray.render());
+
+    // Sync AI Seed button visibility now that everything is mounted.
+    this._syncAISeedButtonVisibility();
     this._bindKeyboardPerformance();
 
     return this.el;
@@ -694,6 +746,62 @@ export class CreativeMode {
     await this.store.saveVersion?.(this.project);
   }
 
+  /**
+   * Map CreativeMode's instrument enum to the AI's smaller surface.
+   * Controller is treated as scaleboard for AI purposes — it uses the same
+   * scale-locked pad primitive. Mic returns null because the AI does not
+   * generate audio (intentional scope limit).
+   */
+  _mapInstrumentToAi(creativeInstrumentId) {
+    switch (creativeInstrumentId) {
+      case 'scaleboard':
+      case 'controller':
+        return 'scaleboard';
+      case 'piano':
+        return 'piano';
+      case 'kit':
+        return 'kit';
+      case 'mic':
+      default:
+        return 'scaleboard';
+    }
+  }
+
+  /**
+   * Tell the AIController what instrument it should write events for, plus
+   * the runtime context the prompt needs (scale, root, pad count for scale-
+   * locked, etc.).
+   */
+  _buildAIInstrumentInfo() {
+    const aiInstrument = this._mapInstrumentToAi(this.activeInstrument);
+    const info = {
+      instrument: aiInstrument,
+      scaleName: this.scaleBoard?.scaleName || 'major',
+      rootNote: this.scaleBoard?.rootNote || 'C',
+      octave: this.scaleBoard?.octave || 4,
+    };
+    if (aiInstrument === 'scaleboard') {
+      info.padCount = this.scaleBoard?._notes?.length || 7;
+    }
+    return info;
+  }
+
+  /**
+   * Handle an AI-seeded snippet. Mirrors the post-recording flow but tags
+   * the snippet for the tray badge and uses an AI-flavored toast.
+   */
+  _onAISnippetCreated(snippet) {
+    if (!snippet) return;
+    this.snippetTray.addSnippet(snippet);
+    if (this.project) {
+      if (!Array.isArray(this.project.snippets)) this.project.snippets = [];
+      this.project.snippets.push(snippet);
+      this.store?.scheduleAutoSave(this.project);
+    }
+    const eventCount = (snippet.notes?.length || 0) + (snippet.hits?.length || 0);
+    showToast(`🤖 Snippet seeded (${eventCount} event${eventCount === 1 ? '' : 's'})`);
+  }
+
   _customInstrumentUsage(id) {
     const ref = `custom:${id}`;
     const trackNames = [];
@@ -849,6 +957,138 @@ export class CreativeMode {
     const isSynth = id === INSTRUMENTS.SCALEBOARD || id === INSTRUMENTS.PIANO || id === INSTRUMENTS.CONTROLLER;
     patchSel.style.display = isSynth ? 'flex' : 'none';
     if (!isSynth) this._closeTonePopover();
+
+    // AI Seed: visible only on Scale Board / Piano / Sketch Kit. Close the
+    // popover when leaving a supported instrument so it doesn't linger over
+    // a context the AI can't write for. If the popover is open and the new
+    // instrument is supported, refresh it so the suggestion chips and the
+    // active-instrument label update.
+    this._syncAISeedButtonVisibility();
+    if (!this._aiCanGenerateForInstrument(id)) {
+      this._closeAISeedPopover();
+    } else {
+      // The popover is anchored to whichever button was clicked. When the
+      // user switches to a different instrument while it's open, close it —
+      // the previous anchor may not be visible anymore. Re-opening the
+      // popover from the new instrument's button gives a fresh, correctly-
+      // positioned popover.
+      this._closeAISeedPopover();
+    }
+  }
+
+  /**
+   * Show the AI Seed button only on instruments the AI can play.
+   * - Scale Board / Piano: button lives in the patch-selector next to Tone.
+   * - Sketch Kit: button lives in the Kit's own toolbar (next to its Tone
+   *   button), surfaced by SketchKit. We only need to control the
+   *   patch-selector copy here.
+   * - Controller: AI scope explicitly excludes it (per user). Hide the
+   *   patch-selector AI button when Controller is active.
+   * - Mic: patch-selector is hidden anyway, so nothing to do.
+   */
+  _syncAISeedButtonVisibility() {
+    const btn = this.el?.querySelector('#ai-seed-button');
+    if (!btn) return;
+    const id = this.activeInstrument;
+    // AI Seed is hidden on Controller (deliberately scoped out per user)
+    // and Mic (AI doesn't generate audio recordings). It IS shown in Scale
+    // Board's Voice Sketch mode — but the panel renders a disabled state
+    // explaining "Unavailable in Voice Sketch mode" so the user can see
+    // the option exists without being able to misuse it.
+    const showInPatchSelector =
+      id === INSTRUMENTS.SCALEBOARD || id === INSTRUMENTS.PIANO;
+    btn.style.display = showInPatchSelector ? '' : 'none';
+  }
+
+  /**
+   * Whether AI generation is currently available, given the active
+   * instrument and (for Scale Board) its pad mode. The AI Seed Panel
+   * uses this to decide between the normal generation UI and a disabled
+   * "Unavailable in Voice Sketch mode" state.
+   */
+  _isAISeedAvailable() {
+    const id = this.activeInstrument;
+    if (id === INSTRUMENTS.SCALEBOARD && this.scaleBoard?.padMode === 'voices') {
+      return { available: false, reason: 'voices-mode' };
+    }
+    if (!this._aiCanGenerateForInstrument(id)) {
+      return { available: false, reason: 'unsupported-instrument' };
+    }
+    return { available: true };
+  }
+
+  _aiCanGenerateForInstrument(creativeInstrumentId) {
+    return creativeInstrumentId === INSTRUMENTS.SCALEBOARD
+      || creativeInstrumentId === INSTRUMENTS.PIANO
+      || creativeInstrumentId === INSTRUMENTS.KIT;
+  }
+
+  /**
+   * Open or close the AI seed popover.
+   *
+   * @param {HTMLElement} anchor      - Container element for the popover.
+   *   Patch-selector for Scale/Piano, sk-kit-selector for Kit.
+   * @param {HTMLElement} [buttonEl]  - The button element that opens the
+   *   popover. Used for aria-expanded and to suppress the click-outside
+   *   handler when re-clicking the button itself.
+   */
+  _toggleAISeedPopover(anchor, buttonEl = null) {
+    if (this._aiSeedPopover) {
+      this._closeAISeedPopover();
+      return;
+    }
+
+    const popover = document.createElement('div');
+    popover.className = 'ai-seed-popover';
+    popover.id = 'ai-seed-popover';
+
+    this._aiSeedPanelInstance = new AISeedPanel({
+      controller: this.aiController,
+      getProject: () => this.project,
+      getActiveInstrumentId: () => this._mapInstrumentToAi(this.activeInstrument),
+      getAvailability: () => this._isAISeedAvailable(),
+      onSnippetCreated: (snippet) => this._onAISnippetCreated(snippet),
+      onClose: () => this._closeAISeedPopover(),
+    });
+    popover.appendChild(this._aiSeedPanelInstance.render());
+
+    anchor.appendChild(popover);
+    if (buttonEl) buttonEl.setAttribute('aria-expanded', 'true');
+    this._aiSeedPopover = popover;
+    this._aiSeedAnchorButton = buttonEl;
+
+    // Click-outside to close. Listen on capture so we beat the popover's
+    // own click handlers. Bound on next microtask so the click that opened
+    // the popover doesn't immediately close it.
+    const handlePointer = (e) => {
+      if (!this._aiSeedPopover) return;
+      if (this._aiSeedPopover.contains(e.target)) return;
+      if (buttonEl && buttonEl.contains(e.target)) return;
+      this._closeAISeedPopover();
+    };
+    queueMicrotask(() => {
+      document.addEventListener('pointerdown', handlePointer, true);
+    });
+    this._aiSeedClickOutsideHandler = handlePointer;
+  }
+
+  _closeAISeedPopover() {
+    if (this._aiSeedClickOutsideHandler) {
+      document.removeEventListener('pointerdown', this._aiSeedClickOutsideHandler, true);
+      this._aiSeedClickOutsideHandler = null;
+    }
+    if (this._aiSeedPanelInstance) {
+      this._aiSeedPanelInstance.destroy();
+      this._aiSeedPanelInstance = null;
+    }
+    if (this._aiSeedPopover) {
+      this._aiSeedPopover.remove();
+      this._aiSeedPopover = null;
+    }
+    if (this._aiSeedAnchorButton) {
+      this._aiSeedAnchorButton.setAttribute('aria-expanded', 'false');
+      this._aiSeedAnchorButton = null;
+    }
   }
 
   _releaseKeyboardPerformance() {

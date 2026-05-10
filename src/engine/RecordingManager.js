@@ -51,13 +51,14 @@ export class RecordingManager {
       if (state === 'stopped' && this.armed) {
         const endTick = this._getRelativeTick(meta.rawTick);
         for (const [midi, noteData] of this._heldNotes.entries()) {
-        this._capturedNotes.push({
-          pitch: midi,
-          startTick: noteData.startTick,
-          durationTick: Math.max(1, endTick - noteData.startTick),
-          velocity: noteData.velocity,
-          soundTraits: noteData.soundTraits,
-        });
+          this._capturedNotes.push({
+            pitch: midi,
+            startTick: noteData.startTick,
+            durationTick: Math.max(1, endTick - noteData.startTick),
+            velocity: noteData.velocity,
+            soundTraits: noteData.soundTraits,
+            ...(noteData.voice ? { voice: { ...noteData.voice } } : {}),
+          });
         }
         this._heldNotes.clear();
         if (this._capturedNotes.length + this._capturedHits.length > 0) {
@@ -131,6 +132,7 @@ export class RecordingManager {
           durationTick: Math.max(1, endTick - noteData.startTick),
           velocity: noteData.velocity,
           soundTraits: noteData.soundTraits,
+          ...(noteData.voice ? { voice: { ...noteData.voice } } : {}),
         });
       }
       this._heldNotes.clear();
@@ -140,15 +142,17 @@ export class RecordingManager {
   /**
    * Called when a note starts playing (note on).
    * @param {number} midi - MIDI note number
-   * @param {number} velocity - 0–1
+   * @param {number} velocity - 0-1
+   * @param {Object} meta - optional per-note metadata
    */
-  noteOn(midi, velocity = 0.8) {
+  noteOn(midi, velocity = 0.8, meta = {}) {
     if (!this.armed) return;
     const tick = this._getRelativeTick();
     this._heldNotes.set(midi, {
       startTick: tick,
       velocity,
       soundTraits: this._currentToneSnapshot(),
+      voice: meta.voice ? { ...meta.voice } : null,
     });
   }
 
@@ -168,6 +172,7 @@ export class RecordingManager {
       durationTick: Math.max(1, endTick - noteData.startTick),
       velocity: noteData.velocity,
       soundTraits: noteData.soundTraits,
+      ...(noteData.voice ? { voice: { ...noteData.voice } } : {}),
     };
 
     // Apply quantization if enabled

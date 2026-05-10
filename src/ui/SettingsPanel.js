@@ -297,6 +297,7 @@ export class SettingsPanel {
     const showOllamaUrl = provider === AI_PROVIDER_IDS.ollama;
     const showApiKey = provider === AI_PROVIDER_IDS.openai || provider === AI_PROVIDER_IDS.anthropic;
     const apiKey = showApiKey ? aiReadApiKey(provider) : '';
+    const keyStaged = showApiKey && !!apiKey;
     const models = providerModelsForUi(provider);
     return `
       <div class="settings-group">
@@ -304,7 +305,7 @@ export class SettingsPanel {
         <div class="settings-row" style="display: block;">
           <p class="settings-help" style="margin: 0 0 var(--space-sm) 0; color: var(--text-tertiary); font-size: var(--font-size-xs); line-height: 1.45;">
             Lets you ask an LLM to seed a snippet you'll then play with or refine. The AI is one of your instruments — the user is still the composer.
-            Notenotes is BYO-key. Costs go to your provider, not us. We never see, log, or relay your prompts.
+            Notenotes is BYO-key. <strong>Keys live in memory only and are forgotten when you reload — you'll re-enter them each session.</strong> Costs go to your provider, not us. We never see, log, or relay your prompts.
           </p>
         </div>
         <div class="settings-row">
@@ -330,7 +331,7 @@ export class SettingsPanel {
         ` : ''}
         ${showApiKey ? `
         <div class="settings-row">
-          <label class="settings-label" for="setting-ai-api-key">API key</label>
+          <label class="settings-label" for="setting-ai-api-key">API key (this session)</label>
           <input class="settings-input" id="setting-ai-api-key" type="password" value="${escapeAttr(apiKey)}" placeholder="sk-... or sk-ant-..." autocomplete="off" />
         </div>
         <div class="settings-row" style="display: block;">
@@ -341,10 +342,13 @@ export class SettingsPanel {
             <input type="checkbox" id="setting-ai-disclaimer" ${aiSettings.disclaimerAccepted ? 'checked' : ''} />
             <span class="settings-label" style="white-space: normal;">I understand and accept these terms.</span>
           </label>
+          <p class="settings-help" style="margin: var(--space-xs) 0 0 0; color: var(--text-tertiary); font-size: 11px;">
+            ${keyStaged ? 'Key staged for this session. Reload the app to forget it.' : 'No key staged.'}
+          </p>
         </div>
         ` : ''}
         <div class="settings-row" style="justify-content: flex-start; gap: 8px;">
-          <button class="btn btn--ghost btn--sm" id="setting-ai-clear-keys" type="button">Clear all stored API keys</button>
+          <button class="btn btn--ghost btn--sm" id="setting-ai-clear-keys" type="button">Forget AI key for this session</button>
         </div>
       </div>
     `;
@@ -763,7 +767,7 @@ export class SettingsPanel {
     body.querySelector('#setting-ai-clear-keys')?.addEventListener('click', (e) => {
       e.preventDefault();
       aiClearAllApiKeys();
-      showToast('All AI API keys cleared from this browser');
+      showToast('AI keys forgotten');
       refreshSection();
     });
   }

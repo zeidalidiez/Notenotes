@@ -1,21 +1,20 @@
 /**
- * AISeedPanel — Inline UI for seeding a snippet via AI.
+ * AISeedPanel — Inline body of the AI seed popover.
  *
- * Renders as a collapsible panel (closed by default). When open, shows:
- *   - Read-only active instrument label.
+ * This component renders the AI prompt UI. It does NOT manage its own
+ * visibility — CreativeMode owns the popover container, opens it via the
+ * AI Seed button, and tears it down on close or instrument change.
+ *
+ * Contents:
+ *   - Read-only chips: provider label, active instrument label.
  *   - Bar-length picker (1 / 2 / 4 / 8).
  *   - Free-text prompt textarea with per-instrument suggestion chips.
  *   - Cost estimate (refreshed when prompt or settings change).
  *   - Generate button (or Cancel while in flight).
  *   - Status line with success/error feedback.
  *
- * Owned by CreativeMode. Talks to AIController for generation. On success,
- * fires `onSnippetCreated(snippet)` so CreativeMode can add it to the
- * project + snippet tray.
- *
- * No-go-zone: this component never makes a network call. Everything goes
- * through AIController so the project tenets (BYO-key, no telemetry,
- * AI-as-instrument framing) are enforced in one place.
+ * On success, fires `onSnippetCreated(snippet)` so CreativeMode can add it
+ * to the project + snippet tray.
  */
 
 import { ALLOWED_LENGTHS_BARS } from '../ai/PromptBuilder.js';
@@ -53,19 +52,20 @@ export class AISeedPanel {
    * @param {() => object} deps.getProject
    * @param {(snippet: object) => void} deps.onSnippetCreated
    * @param {() => string} deps.getActiveInstrumentId
+   * @param {() => void} [deps.onClose]  Called when the user wants to close the popover (e.g., Escape).
    */
-  constructor({ controller, getProject, onSnippetCreated, getActiveInstrumentId }) {
+  constructor({ controller, getProject, onSnippetCreated, getActiveInstrumentId, onClose }) {
     this.controller = controller;
     this._getProject = getProject;
     this._onSnippetCreated = onSnippetCreated;
     this._getActiveInstrumentId = getActiveInstrumentId;
+    this._onClose = onClose;
 
     this.el = null;
-    this._open = false;
     this._lengthBars = 4;
     this._promptText = '';
     this._statusText = '';
-    this._statusKind = ''; // '' | 'info' | 'success' | 'error'
+    this._statusKind = '';
     this._costEstimate = null;
     this._unsubscribeStatus = null;
   }
@@ -76,37 +76,48 @@ export class AISeedPanel {
 
     this.el = document.createElement('section');
     this.el.className = 'ai-seed-panel';
-    this.el.setAttribute('aria-label', 'AI seed panel');
-    this.el.innerHTML = this._renderShell();
+    this.el.setAttribute('aria-label', 'AI seed');
+    this.el.innerHTML = this._renderBody();
     this._bindEvents();
 
     if (this.controller) {
       this._unsubscribeStatus = this.controller.onStatus(({ state, error, costUsd }) => {
         if (state === 'generating') this._setStatus('Generating…', 'info');
-        if (state === 'success') this._setStatus(`Snippet added · ${formatCost(costUsd)}`, 'success');
-        if (state === 'error') this._setStatus(error || 'Generation failed', 'error');
+        else if (state === 'success') this._setStatus(`Snippet added · ${formatCost(costUsd)}`, 'success');
+        else if (state === 'error') this._setStatus(error || 'Generation failed', 'error');
         this._updateGenerateButtonState();
       });
     }
+
+    // Initialize the cost preview now that everything is wired up.
+    this._updateCost();
+
+    // Focus the prompt textarea so the user can start typing immediately.
+    queueMicrotask(() => {
+      const ta = this.el?.querySelector('#ai-prompt');
+      if (ta) {
+        try { ta.focus(); } catch (_) {}
+      }
+    });
 
     return this.el;
   }
 
   destroy() {
-    if (this._unsubscribeStatus) this._unsubscribeStatus();
+    if (this._unsubscribeStatus) {
+      this._unsubscribeStatus();
+      this._unsubscribeStatus = null;
+    }
+    this.el = null;
   }
 
-  _renderShell() {
-    return `
-      <button class="ai-seed-panel__toggle" id="ai-toggle" aria-expanded="${this._open ? 'true' : 'false'}">
-        <span class="ai-seed-panel__icon" aria-hidden="true">🤖</span>
-        <span class="ai-seed-panel__toggle-label">AI seed</span>
-        <span class="ai-seed-panel__chev" aria-hidden="true">${this._open ? '▾' : '▸'}</span>
-      </button>
-      <div class="ai-seed-panel__body" id="ai-body" ${this._open ? '' : 'hidden'}>
-        ${this._renderBody()}
-      </div>
-    `;
+  /** External signal that the active instrument changed — re-render. */
+  refresh() {
+    if (!this.el) return;
+    this.el.innerHTML = this._renderBody();
+    this._bindEvents();
+    this._updateCost();
+    this._updateGenerateButtonState();
   }
 
   _renderBody() {
@@ -116,12 +127,17 @@ export class AISeedPanel {
     const settings = readAiSettings(this._getProject());
     const providerLabel = providerLabelFor(settings.provider);
     return `
+      <header class="ai-seed-panel__header">
+        <span class="ai-seed-panel__icon" aria-hidden="true">🤖</span>
+        <h3 class="ai-seed-panel__title">AI seed</h3>
+        <button class="ai-seed-panel__close" id="ai-close" type="button" aria-label="Close AI seed">x</button>
+      </header>
       <div class="ai-seed-panel__row ai-seed-panel__row--meta">
-        <span class="ai-seed-panel__chip ai-seed-panel__chip--readonly" title="Set in Settings → AI">${providerLabel}</span>
-        <span class="ai-seed-panel__chip ai-seed-panel__chip--readonly" title="Switch instruments above to retarget">${escapeHtml(instrumentLabel)}</span>
+        <span class="ai-seed-panel__chip ai-seed-panel__chip--readonly" title="Set in Settings → AI Seed">${escapeHtml(providerLabel)}</span>
+        <span class="ai-seed-panel__chip ai-seed-panel__chip--readonly" title="Switch instruments below to retarget">${escapeHtml(instrumentLabel)}</span>
         <div class="ai-seed-panel__lengths" role="radiogroup" aria-label="Sequence length in bars">
           ${ALLOWED_LENGTHS_BARS.map(n => `
-            <button class="ai-seed-panel__length ${n === this._lengthBars ? 'is-active' : ''}" data-length="${n}" role="radio" aria-checked="${n === this._lengthBars ? 'true' : 'false'}">${n} bar${n === 1 ? '' : 's'}</button>
+            <button class="ai-seed-panel__length ${n === this._lengthBars ? 'is-active' : ''}" data-length="${n}" type="button" role="radio" aria-checked="${n === this._lengthBars ? 'true' : 'false'}">${n} bar${n === 1 ? '' : 's'}</button>
           `).join('')}
         </div>
       </div>
@@ -135,25 +151,24 @@ export class AISeedPanel {
         >${escapeHtml(this._promptText)}</textarea>
       </div>
       <div class="ai-seed-panel__row ai-seed-panel__suggestions" id="ai-suggestions">
-        ${suggestions.map(s => `<button class="ai-seed-panel__suggestion" data-suggestion="${escapeAttr(s)}">${escapeHtml(s)}</button>`).join('')}
+        ${suggestions.map(s => `<button class="ai-seed-panel__suggestion" data-suggestion="${escapeAttr(s)}" type="button">${escapeHtml(s)}</button>`).join('')}
       </div>
       <div class="ai-seed-panel__row ai-seed-panel__footer">
         <span class="ai-seed-panel__cost" id="ai-cost">${this._renderCostText()}</span>
         <span class="ai-seed-panel__status ${this._statusKind ? 'ai-seed-panel__status--' + this._statusKind : ''}" id="ai-status" aria-live="polite">${escapeHtml(this._statusText)}</span>
-        <button class="btn btn--primary ai-seed-panel__generate" id="ai-generate">Generate</button>
-        <button class="btn btn--ghost ai-seed-panel__cancel" id="ai-cancel" hidden>Cancel</button>
+        <button class="btn btn--primary ai-seed-panel__generate" id="ai-generate" type="button">Generate</button>
+        <button class="btn btn--ghost ai-seed-panel__cancel" id="ai-cancel" type="button" hidden>Cancel</button>
       </div>
       <p class="ai-seed-panel__note">AI is one of your instruments. The user is the composer.</p>
     `;
   }
 
   _bindEvents() {
-    this.el.querySelector('#ai-toggle').addEventListener('click', (e) => {
+    if (!this.el) return;
+    this.el.querySelector('#ai-close')?.addEventListener('click', (e) => {
       e.preventDefault();
-      this._open = !this._open;
-      this._refresh();
+      this._onClose?.();
     });
-    if (!this._open) return;
 
     this.el.querySelectorAll('.ai-seed-panel__length').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -163,18 +178,20 @@ export class AISeedPanel {
         this._lengthBars = n;
         const project = this._getProject();
         if (project?.settings?.aiSettings) project.settings.aiSettings.defaultLengthBars = n;
-        this._refresh();
+        this.refresh();
       });
     });
+
     this.el.querySelectorAll('.ai-seed-panel__suggestion').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
         this._promptText = btn.dataset.suggestion || '';
-        this._refresh();
-        const ta = this.el.querySelector('#ai-prompt');
-        if (ta) ta.focus();
+        this.refresh();
+        const ta = this.el?.querySelector('#ai-prompt');
+        if (ta) try { ta.focus(); } catch (_) {}
       });
     });
+
     const ta = this.el.querySelector('#ai-prompt');
     if (ta) {
       ta.addEventListener('input', () => {
@@ -185,25 +202,21 @@ export class AISeedPanel {
         if ((e.key === 'Enter') && (e.ctrlKey || e.metaKey)) {
           e.preventDefault();
           this._generate();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          this._onClose?.();
         }
       });
     }
-    this.el.querySelector('#ai-generate').addEventListener('click', (e) => {
+
+    this.el.querySelector('#ai-generate')?.addEventListener('click', (e) => {
       e.preventDefault();
       this._generate();
     });
-    this.el.querySelector('#ai-cancel').addEventListener('click', (e) => {
+    this.el.querySelector('#ai-cancel')?.addEventListener('click', (e) => {
       e.preventDefault();
       this.controller?.abort();
     });
-  }
-
-  _refresh() {
-    if (!this.el) return;
-    this.el.innerHTML = this._renderShell();
-    this._bindEvents();
-    this._updateCost();
-    this._updateGenerateButtonState();
   }
 
   _setStatus(text, kind = 'info') {
@@ -288,7 +301,7 @@ function formatCost(usd) {
 }
 
 function escapeHtml(s) {
-  return String(s || '').replace(/[&<>"']/g, c => ({
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   }[c]));
 }

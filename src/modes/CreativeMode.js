@@ -78,17 +78,18 @@ export class CreativeMode {
     // snippet. Scope is constrained: AI can only build a snippet via the
     // submitSequence tool. It can't change tempo, meter, instrument, or
     // anything structural. The user is the composer; AI is an instrument.
+    //
+    // The controller is always live; the panel is rendered on demand inside
+    // a popover triggered by the AI Seed button. The button itself is only
+    // visible when the active instrument is something the AI can play
+    // (Scale Board / Piano / Sketch Kit).
     this.aiController = new AIController({
       transport,
       getProject: () => this.project,
       getActiveInstrumentInfo: () => this._buildAIInstrumentInfo(),
     });
-    this.aiSeedPanel = new AISeedPanel({
-      controller: this.aiController,
-      getProject: () => this.project,
-      getActiveInstrumentId: () => this._mapInstrumentToAi(this.activeInstrument),
-      onSnippetCreated: (snippet) => this._onAISnippetCreated(snippet),
-    });
+    this._aiSeedPopover = null;
+    this._aiSeedPanelInstance = null;
 
     this._initialized = false;
     this._heldScaleKeyPads = new Map();
@@ -331,9 +332,24 @@ export class CreativeMode {
 
     this.el.appendChild(container);
 
-    // AI Seed panel sits above the snippet tray so generated snippets land
-    // directly in the user's eye line.
-    this.el.appendChild(this.aiSeedPanel.render());
+    // AI Seed toolbar row sits above the snippet tray. Hidden when the
+    // active instrument is one the AI can't play (Mic / Controller).
+    const aiRow = document.createElement('div');
+    aiRow.className = 'ai-seed-row';
+    aiRow.id = 'ai-seed-row';
+    aiRow.innerHTML = `
+      <button class="ai-seed-button" id="ai-seed-button" type="button" aria-expanded="false" aria-controls="ai-seed-popover">
+        <span aria-hidden="true">🤖</span>
+        <span>AI seed</span>
+      </button>
+    `;
+    aiRow.querySelector('#ai-seed-button').addEventListener('click', (e) => {
+      e.preventDefault();
+      this._toggleAISeedPopover(aiRow);
+    });
+    this.el.appendChild(aiRow);
+    // Hidden by default until we know which instrument is active.
+    this._syncAISeedRowVisibility();
 
     // Snippet tray (bottom)
     this.el.appendChild(this.snippetTray.render());
@@ -928,6 +944,96 @@ export class CreativeMode {
     const isSynth = id === INSTRUMENTS.SCALEBOARD || id === INSTRUMENTS.PIANO || id === INSTRUMENTS.CONTROLLER;
     patchSel.style.display = isSynth ? 'flex' : 'none';
     if (!isSynth) this._closeTonePopover();
+
+    // AI Seed: visible only on Scale Board / Piano / Sketch Kit. Close the
+    // popover when leaving a supported instrument so it doesn't linger over
+    // a context the AI can't write for. If the popover is open and the new
+    // instrument is supported, refresh it so the suggestion chips and the
+    // active-instrument label update.
+    this._syncAISeedRowVisibility();
+    if (!this._aiCanGenerateForInstrument(id)) {
+      this._closeAISeedPopover();
+    } else {
+      this._aiSeedPanelInstance?.refresh();
+    }
+  }
+
+  /**
+   * Show the AI Seed toolbar row only on instruments the AI can play.
+   * Controller and Mic don't qualify — Controller because it duplicates
+   * Scale Board's primitives and the user wanted it scoped out, Mic
+   * because the AI doesn't generate audio.
+   */
+  _syncAISeedRowVisibility() {
+    const row = this.el?.querySelector('#ai-seed-row');
+    if (!row) return;
+    row.style.display = this._aiCanGenerateForInstrument(this.activeInstrument) ? 'flex' : 'none';
+  }
+
+  _aiCanGenerateForInstrument(creativeInstrumentId) {
+    return creativeInstrumentId === INSTRUMENTS.SCALEBOARD
+      || creativeInstrumentId === INSTRUMENTS.PIANO
+      || creativeInstrumentId === INSTRUMENTS.KIT;
+  }
+
+  /**
+   * Open or close the AI seed popover. Anchors the popover to the toolbar
+   * row so it floats above the row (using bottom-anchoring CSS) without
+   * being clipped by the snippet tray.
+   */
+  _toggleAISeedPopover(anchor) {
+    if (this._aiSeedPopover) {
+      this._closeAISeedPopover();
+      return;
+    }
+
+    const popover = document.createElement('div');
+    popover.className = 'ai-seed-popover';
+    popover.id = 'ai-seed-popover';
+
+    this._aiSeedPanelInstance = new AISeedPanel({
+      controller: this.aiController,
+      getProject: () => this.project,
+      getActiveInstrumentId: () => this._mapInstrumentToAi(this.activeInstrument),
+      onSnippetCreated: (snippet) => this._onAISnippetCreated(snippet),
+      onClose: () => this._closeAISeedPopover(),
+    });
+    popover.appendChild(this._aiSeedPanelInstance.render());
+
+    anchor.appendChild(popover);
+    anchor.querySelector('#ai-seed-button')?.setAttribute('aria-expanded', 'true');
+    this._aiSeedPopover = popover;
+
+    // Click-outside to close. Listen on capture so we beat the popover's
+    // own click handlers. Bound on next microtask so the click that opened
+    // the popover doesn't immediately close it.
+    const handlePointer = (e) => {
+      if (!this._aiSeedPopover) return;
+      const aiBtn = anchor.querySelector('#ai-seed-button');
+      if (this._aiSeedPopover.contains(e.target)) return;
+      if (aiBtn && aiBtn.contains(e.target)) return;
+      this._closeAISeedPopover();
+    };
+    queueMicrotask(() => {
+      document.addEventListener('pointerdown', handlePointer, true);
+    });
+    this._aiSeedClickOutsideHandler = handlePointer;
+  }
+
+  _closeAISeedPopover() {
+    if (this._aiSeedClickOutsideHandler) {
+      document.removeEventListener('pointerdown', this._aiSeedClickOutsideHandler, true);
+      this._aiSeedClickOutsideHandler = null;
+    }
+    if (this._aiSeedPanelInstance) {
+      this._aiSeedPanelInstance.destroy();
+      this._aiSeedPanelInstance = null;
+    }
+    if (this._aiSeedPopover) {
+      this._aiSeedPopover.remove();
+      this._aiSeedPopover = null;
+    }
+    this.el?.querySelector('#ai-seed-button')?.setAttribute('aria-expanded', 'false');
   }
 
   _releaseKeyboardPerformance() {

@@ -1209,9 +1209,17 @@ The AI metadata travels with the snippet through workspace backups and is preser
 
 ### Settings storage
 
-API keys are stored in `localStorage` under `notenotes.ai.<provider>.apiKey`. They are NEVER stored in the project JSON, so workspace backups are never carrying credentials.
+**API keys are session-only.** `aiSettings.js` holds them in a module-scoped Map; nothing ever writes them to localStorage, IndexedDB, cookies, or the project JSON. On page reload, the Map is empty and the user re-enters their key. This is intentional — the project does not want to be in the business of storing user credentials.
 
-Non-secret config (provider id, model id, Ollama base URL, disclaimer-accepted flag, default length-bars) lives in `project.settings.aiSettings`. That makes the picked model and provider part of the project — useful for "what model was I using when I made this?" reproducibility.
+Non-secret config (provider id, model id, Ollama base URL, disclaimer-accepted flag, default length-bars) lives in `project.settings.aiSettings`. That makes the picked model and provider part of the project — useful for "what model was I using when I made this?" reproducibility — and travels with workspace backups. No credentials are ever included in those backups.
+
+`hasApiKey(providerId)` is the safe way to check whether a key is staged for the current session without leaking the value. The Settings panel uses it to show "Key staged for this session" vs "No key staged" without rendering the key text.
+
+### UI placement
+
+The AI Seed feature is a popover anchored to a small toolbar row above the snippet tray. The row (and the button it contains) is **only visible on Scale Board, Piano, and Sketch Kit** — the three instruments whose primitives the AI can write events for. Mic (audio recording) and Controller (deliberately scoped out per user) hide the row entirely. Switching instruments while the popover is open closes it.
+
+The popover renders the `AISeedPanel` component on demand (constructed when the user clicks the button, destroyed when the popover closes). All event handlers bind at construction time, so there is no "click around to wake it up" state — the popover is fully interactive the moment it appears. Click-outside closes it; Escape closes it; the X in the header closes it.
 
 ### Cost transparency
 
@@ -1241,4 +1249,4 @@ Mock and Ollama report "$0".
 2. Add the provider to `AIController._resolveProvider`.
 3. Add an option to the Settings AI section's provider dropdown (in `SettingsPanel._renderAISection`) and a `case` in `providerModelsForUi`.
 4. If the provider has its own pricing, override `getPricing(modelId)`.
-5. If credentials are required, read them via `readApiKey('<providerId>')` to use the existing localStorage flow — do not invent a new credential store.
+5. If credentials are required, read them via `readApiKey('<providerId>')`. Keys live in the in-memory Map only — do not write a custom credential store, and do not persist them.

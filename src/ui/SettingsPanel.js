@@ -77,6 +77,19 @@ function apiKeyPlaceholderFor(providerId) {
   }
 }
 
+function modelDisplayLabel(providerId, modelId) {
+  // Surface tier hints inline so users don't have to read the docs to know
+  // which model their free key actually works with.
+  if (providerId === 'gemini') {
+    if (modelId === 'gemini-2.5-flash')      return `${modelId}  (best free)`;
+    if (modelId === 'gemini-2.5-flash-lite') return `${modelId}  (free, lighter)`;
+    if (modelId === 'gemini-1.5-flash')      return `${modelId}  (free tier · older)`;
+    if (modelId === 'gemini-2.5-pro')        return `${modelId}  (paid, best quality)`;
+    if (modelId === 'gemini-1.5-pro')        return `${modelId}  (paid, older)`;
+  }
+  return modelId;
+}
+
 function providerModelsForUi(providerId) {
   switch (providerId) {
     case 'openai':
@@ -335,7 +348,7 @@ export class SettingsPanel {
         <div class="settings-row">
           <label class="settings-label" for="setting-ai-model">Model</label>
           <select class="settings-select" id="setting-ai-model">
-            ${models.map(m => `<option value="${escapeAttr(m)}" ${aiSettings.model === m ? 'selected' : ''}>${escapeHtml(m)}</option>`).join('')}
+            ${models.map(m => `<option value="${escapeAttr(m)}" ${aiSettings.model === m ? 'selected' : ''}>${escapeHtml(modelDisplayLabel(provider, m))}</option>`).join('')}
           </select>
         </div>
         ${showOllamaUrl ? `

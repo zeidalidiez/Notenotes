@@ -58,27 +58,31 @@ export class GeminiProvider extends AIProvider {
     }
     const modelId = model || DEFAULT_MODEL;
 
+    // Gemini's REST API accepts either snake_case or camelCase for top-level
+    // request fields, but the docs canonicalize on camelCase. We use camelCase
+    // throughout to match the published examples and avoid any edge-case
+    // parsing differences.
     const body = {
       contents: [
         { role: 'user', parts: [{ text: userPrompt }] },
       ],
-      system_instruction: {
+      systemInstruction: {
         parts: [{ text: systemPrompt }],
       },
       tools: [{
-        function_declarations: [{
+        functionDeclarations: [{
           name: tool.name,
           description: tool.description,
           parameters: adaptSchemaForGemini(tool.input_schema),
         }],
       }],
-      tool_config: {
-        function_calling_config: {
+      toolConfig: {
+        functionCallingConfig: {
           mode: 'ANY',
-          allowed_function_names: [tool.name],
+          allowedFunctionNames: [tool.name],
         },
       },
-      generation_config: {
+      generationConfig: {
         temperature: 0.6,
       },
     };
@@ -94,9 +98,8 @@ export class GeminiProvider extends AIProvider {
     }, signal);
 
     if (!res.ok) {
-      let errText = '';
-      try { errText = (await res.json()).error?.message || ''; } catch (_) { errText = await res.text().catch(() => ''); }
-      throw new Error(`Gemini ${res.status}: ${errText.slice(0, 240) || res.statusText}`);
+      const friendly = await formatGeminiError(res, body, modelId);
+      throw new Error(friendly);
     }
 
     const data = await res.json();
@@ -132,11 +135,17 @@ export class GeminiProvider extends AIProvider {
  * dialect.
  *
  * Adaptations:
- *   - `const: X` → `enum: [X]` and drop `const` (Gemini rejects `const`)
- *   - drop `additionalProperties` (Gemini rejects it on some shapes)
- *   - drop `$schema` and other meta keys
- *   - leave everything else (type, properties, required, enum, items,
- *     minItems, maxItems, minimum, maximum, description) untouched
+ *   - `const: X` → `enum: [X]` and drop `const` (Gemini rejects `const`).
+ *   - Drop `additionalProperties` (Gemini rejects it on some shapes).
+ *   - Drop `$schema` / `$id` / `$ref`.
+ *   - Drop `description` on schema nodes that are JUST a fixed enum (single
+ *     allowed value). Gemini sometimes 400s on a description sitting next
+ *     to a one-element enum because the description duplicates the
+ *     constant. Safe to drop; the parent `description` carries the
+ *     necessary context.
+ *   - Leave everything else (type, properties, required, items, minItems,
+ *     maxItems, minimum, maximum, multi-value enum, descriptions on
+ *     non-enum-only nodes) untouched.
  */
 function adaptSchemaForGemini(schema) {
   if (Array.isArray(schema)) return schema.map(adaptSchemaForGemini);
@@ -145,7 +154,6 @@ function adaptSchemaForGemini(schema) {
   const out = {};
   for (const [key, value] of Object.entries(schema)) {
     if (key === 'const') {
-      // Gemini handles fixed values via single-element enum.
       out.enum = Array.isArray(out.enum) ? out.enum.concat([value]) : [value];
       continue;
     }
@@ -165,5 +173,62 @@ function adaptSchemaForGemini(schema) {
     }
     out[key] = value;
   }
+
+  // Strip description on single-value-enum nodes. (After the const→enum
+  // conversion above, an instrument-fixing node like
+  // { const: "scaleboard", description: "..." } becomes
+  // { enum: ["scaleboard"], description: "..." }. Gemini has been observed
+  // to 400 on this combination.)
+  if (Array.isArray(out.enum) && out.enum.length === 1 && 'description' in out) {
+    delete out.description;
+  }
+
   return out;
+}
+
+/**
+ * Compose a friendly error message from a Gemini 4xx/5xx response. Logs the
+ * full response body and our request body to console.error so the user can
+ * paste them into a bug report; the toast shows a tighter summary.
+ */
+async function formatGeminiError(res, requestBody, modelId) {
+  let raw = null;
+  let parsed = null;
+  try {
+    raw = await res.text();
+    parsed = JSON.parse(raw);
+  } catch (_) { /* leave parsed null; raw may still be useful */ }
+
+  const errBlock = parsed?.error || {};
+  const status = errBlock.status || res.statusText || `HTTP ${res.status}`;
+  const message = errBlock.message || raw || res.statusText || '';
+
+  // Pull the FieldViolation reasons out of details when present. Google's
+  // API surfaces them under either error.details[*].fieldViolations[] or
+  // error.details[*].reason.
+  let detailLines = [];
+  if (Array.isArray(errBlock.details)) {
+    for (const d of errBlock.details) {
+      if (Array.isArray(d.fieldViolations)) {
+        for (const fv of d.fieldViolations) {
+          detailLines.push(`${fv.field || '?'}: ${fv.description || fv.reason || ''}`);
+        }
+      } else if (d.reason) {
+        detailLines.push(d.reason);
+      } else if (d.message) {
+        detailLines.push(d.message);
+      }
+    }
+  }
+
+  const detailsStr = detailLines.length > 0 ? `\n${detailLines.join('\n')}` : '';
+
+  // Console-level diagnostics for the developer / power user.
+  try {
+    console.error('[Gemini] request failed', { model: modelId, status: res.status, body: parsed || raw });
+    console.error('[Gemini] request body was', requestBody);
+  } catch (_) { /* console may not exist */ }
+
+  const summary = `Gemini ${res.status} ${status}: ${message}${detailsStr}`;
+  return summary.slice(0, 480);
 }

@@ -186,6 +186,15 @@ function adaptSchemaForGemini(schema) {
     out.description = out.description ? `${out.description} ${note}` : note;
   }
 
+  // Gemini requires `type: "string"` to be explicitly declared on any node
+  // that has an enum. Our `const: "X"` conversion produces a bare
+  // `{ enum: ["X"] }` with no type field; Gemini's validator rejects that
+  // with "only allowed for STRING type." Backfill the type for any
+  // surviving (necessarily-string-only) enum.
+  if (Array.isArray(out.enum) && out.enum.length > 0 && !('type' in out)) {
+    out.type = 'string';
+  }
+
   // Drop description on single-value-enum nodes — Gemini has been observed
   // to 400 on a one-element enum sitting next to a description.
   if (Array.isArray(out.enum) && out.enum.length === 1 && 'description' in out) {

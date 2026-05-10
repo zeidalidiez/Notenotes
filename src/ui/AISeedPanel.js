@@ -52,13 +52,18 @@ export class AISeedPanel {
    * @param {() => object} deps.getProject
    * @param {(snippet: object) => void} deps.onSnippetCreated
    * @param {() => string} deps.getActiveInstrumentId
+   * @param {() => { available: boolean, reason?: string }} [deps.getAvailability]
+   *   Returns whether AI generation is currently usable. When `available`
+   *   is false, the panel renders a disabled state with a message keyed
+   *   off `reason`. Defaults to always-available.
    * @param {() => void} [deps.onClose]  Called when the user wants to close the popover (e.g., Escape).
    */
-  constructor({ controller, getProject, onSnippetCreated, getActiveInstrumentId, onClose }) {
+  constructor({ controller, getProject, onSnippetCreated, getActiveInstrumentId, getAvailability, onClose }) {
     this.controller = controller;
     this._getProject = getProject;
     this._onSnippetCreated = onSnippetCreated;
     this._getActiveInstrumentId = getActiveInstrumentId;
+    this._getAvailability = getAvailability || (() => ({ available: true }));
     this._onClose = onClose;
 
     this.el = null;
@@ -120,7 +125,43 @@ export class AISeedPanel {
     this._updateGenerateButtonState();
   }
 
+  /**
+   * Render the disabled state shown when AI seed isn't available in the
+   * current context (e.g. Scale Board's Voice Sketch mode). The panel
+   * still has a header + close button, but the inputs are gone.
+   */
+  _renderUnavailableBody(availability) {
+    const { reason } = availability || {};
+    let message;
+    let detail;
+    if (reason === 'voices-mode') {
+      message = 'Unavailable in Voice Sketch mode';
+      detail = 'AI generates standard MIDI/drum snippets — not vocal phrases. Switch the Scale Board\'s Pad Mode dropdown to Single, Chords, or Custom to use AI seed here.';
+    } else if (reason === 'unsupported-instrument') {
+      message = 'Unavailable on this instrument';
+      detail = 'AI seed works on Scale Board, Micro Piano, and Sketch Kit. Pick one of those to generate a snippet.';
+    } else {
+      message = 'AI seed is currently unavailable';
+      detail = 'Check the active instrument and try again.';
+    }
+    return `
+      <header class="ai-seed-panel__header">
+        <span class="ai-seed-panel__icon" aria-hidden="true">🤖</span>
+        <h3 class="ai-seed-panel__title">AI seed</h3>
+        <button class="ai-seed-panel__close" id="ai-close" type="button" aria-label="Close AI seed">x</button>
+      </header>
+      <div class="ai-seed-panel__unavailable">
+        <p class="ai-seed-panel__unavailable-headline">${escapeHtml(message)}</p>
+        <p class="ai-seed-panel__unavailable-detail">${escapeHtml(detail)}</p>
+      </div>
+    `;
+  }
+
   _renderBody() {
+    const availability = this._getAvailability() || { available: true };
+    if (!availability.available) {
+      return this._renderUnavailableBody(availability);
+    }
     const instrumentId = this._getActiveInstrumentId() || 'scaleboard';
     const instrumentLabel = AI_INSTRUMENTS[instrumentId]?.label || instrumentId;
     const suggestions = SUGGESTIONS_BY_INSTRUMENT[instrumentId] || SUGGESTIONS_BY_INSTRUMENT.scaleboard;

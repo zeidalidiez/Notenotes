@@ -49,12 +49,24 @@ export class CreativeMode {
     // Synth (shared between Scale Board and Micro Piano)
     this.synth = new WebAudioSynth();
 
+    // Voice engine — formant-synthesized vocal instrument used by Scale
+    // Board's "Voice Sketch" pad mode. Routes through the synth's tone
+    // input so it inherits the same Tone Traits chain. MUST be instantiated
+    // BEFORE ScaleBoard, because ScaleBoard's renderer reads `this.voiceEngine`
+    // to decide whether to surface the Voice Sketch option in the Pad Mode
+    // dropdown.
+    this.voiceEngine = new VoiceEngine(engine);
+    this.voiceEngine.loadVoice(englishBaseVoice);
+
     // Instruments
     this.scaleBoard = new ScaleBoard(this.synth, this.project, this.voiceEngine);
     this.scaleBoard.onVoicePhraseChanged = () => this.store?.scheduleAutoSave(this.project);
-    // Hide AI Seed button when Scale Board switches to Voices mode — AI
-    // only generates standard MIDI/drum snippets, not vocal phrases.
-    this.scaleBoard.onPadModeChange = () => this._syncAISeedButtonVisibility();
+    // When Scale Board switches into/out of Voice Sketch mode, refresh any
+    // open AI Seed popover. AI can't generate voice phrases, so the panel
+    // disables itself with "Unavailable in Voice Sketch mode" instead of
+    // hiding the button entirely (the user might want to see the AI button
+    // is there, just not usable right now).
+    this.scaleBoard.onPadModeChange = () => this._aiSeedPanelInstance?.refresh();
     this.microPiano = new MicroPiano(this.synth, this.project);
     this.sketchKit = new SketchKit(this.project);
     this.sketchKit.onSoundTraitsChanged = (traits) => this._applyProjectSoundTraits(traits);
@@ -80,22 +92,6 @@ export class CreativeMode {
     this.snippetTray = new SnippetTray();
     this.snippetTray.setSnippetUsageProvider((snippetId) => this._snippetInstrumentUsage(snippetId));
     this.loopProgress = new LoopProgress(transport, project);
-
-    // Voice engine — formant-synthesized vocal instrument used by
-
-
-    // Scale Board's "Voices" pad mode. Routes through the synth's tone
-
-
-    // input so it inherits the same Tone Traits chain.
-
-
-    this.voiceEngine = new VoiceEngine(engine);
-
-
-    this.voiceEngine.loadVoice(englishBaseVoice);
-
-
 
     // AI Seed: gives the user a way to ask an LLM (or local Mock) to seed a
     // snippet. Scope is constrained: AI can only build a snippet via the
@@ -994,18 +990,31 @@ export class CreativeMode {
     const btn = this.el?.querySelector('#ai-seed-button');
     if (!btn) return;
     const id = this.activeInstrument;
-    // AI Seed is hidden on Controller (deliberately scoped out), Mic
-    // (no audio generation), and Scale Board's Voices pad mode (the AI
-    // only emits standard MIDI/drum events, not vocal-phrase events).
-    const inVoicesMode = id === INSTRUMENTS.SCALEBOARD && this.scaleBoard?.padMode === 'voices';
+    // AI Seed is hidden on Controller (deliberately scoped out per user)
+    // and Mic (AI doesn't generate audio recordings). It IS shown in Scale
+    // Board's Voice Sketch mode — but the panel renders a disabled state
+    // explaining "Unavailable in Voice Sketch mode" so the user can see
+    // the option exists without being able to misuse it.
     const showInPatchSelector =
-      !inVoicesMode && (id === INSTRUMENTS.SCALEBOARD || id === INSTRUMENTS.PIANO);
+      id === INSTRUMENTS.SCALEBOARD || id === INSTRUMENTS.PIANO;
     btn.style.display = showInPatchSelector ? '' : 'none';
-    // If the user just switched into Voices mode while the popover is
-    // open, close it — the popover is anchored to a now-hidden button.
-    if (inVoicesMode && this._aiSeedPopover) {
-      this._closeAISeedPopover();
+  }
+
+  /**
+   * Whether AI generation is currently available, given the active
+   * instrument and (for Scale Board) its pad mode. The AI Seed Panel
+   * uses this to decide between the normal generation UI and a disabled
+   * "Unavailable in Voice Sketch mode" state.
+   */
+  _isAISeedAvailable() {
+    const id = this.activeInstrument;
+    if (id === INSTRUMENTS.SCALEBOARD && this.scaleBoard?.padMode === 'voices') {
+      return { available: false, reason: 'voices-mode' };
     }
+    if (!this._aiCanGenerateForInstrument(id)) {
+      return { available: false, reason: 'unsupported-instrument' };
+    }
+    return { available: true };
   }
 
   _aiCanGenerateForInstrument(creativeInstrumentId) {
@@ -1037,6 +1046,7 @@ export class CreativeMode {
       controller: this.aiController,
       getProject: () => this.project,
       getActiveInstrumentId: () => this._mapInstrumentToAi(this.activeInstrument),
+      getAvailability: () => this._isAISeedAvailable(),
       onSnippetCreated: (snippet) => this._onAISnippetCreated(snippet),
       onClose: () => this._closeAISeedPopover(),
     });

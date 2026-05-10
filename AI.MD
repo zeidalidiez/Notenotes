@@ -1126,3 +1126,119 @@ Storage and backup:
 Known next steps:
 
 - Wire Kit-type custom instruments so one source sample can generate percussive pad variations.
+
+
+## AI Seed Snippets
+
+A new "AI Seed" panel above the snippet tray lets the user ask an LLM (or a local Mock provider) to generate a snippet. The AI is treated as one of the user's instruments — it produces raw musical material the user keeps, refines, or discards. The user remains the composer.
+
+The feature is BYO-key: the user pastes their own provider API key, the request goes directly from the browser to the provider, and Notenotes never sees, logs, or relays the prompt or the output.
+
+### Files
+
+- `src/ai/sequence-schema.js` — Single source of truth for the shape an AI emits. Exports `AI_INSTRUMENTS`, `KIT_DRUMS`, `getSequenceSchemaForInstrument(id)`, and `getSubmitSequenceTool(id)`. Used by validator, executor, prompt builder, and the LLM tool surface.
+- `src/ai/SequenceValidator.js` — Pure `validateSequence(sequence, context)` that rejects malformed AI output before it touches the project.
+- `src/ai/SequenceExecutor.js` — `buildSnippetFromSequence(sequence, context)` constructs a snippet directly compatible with `project.snippets[]` from a validated sequence. No transport coordination, no real-time playback.
+- `src/ai/PromptBuilder.js` — Builds the system prompt, tool definition, and user prompt. Also has token/cost estimation helpers.
+- `src/ai/AIProvider.js` — Base interface for LLM providers.
+- `src/ai/MockProvider.js` — Canned-pattern provider for offline testing without a key.
+- `src/ai/OpenAIProvider.js` — OpenAI Chat Completions with tool calling. Reused for Ollama by passing a custom `baseUrl`.
+- `src/ai/AnthropicProvider.js` — Anthropic Messages API with tool use.
+- `src/ai/AIController.js` — Top-level facade that orchestrates resolve-provider → build-prompt → call → validate → build-snippet.
+- `src/ai/aiSettings.js` — Helpers for reading/writing AI config. API keys live in localStorage; non-secret config (provider id, model, ollama URL, disclaimer accepted) lives in `project.settings.aiSettings`.
+- `src/ui/AISeedPanel.js` + `.css` — Collapsible inline panel above the snippet tray.
+- `docs/AI_INTERFACE.md` — Human-readable description of the AI's contract; companion to the runtime tool schema.
+
+### Architecture
+
+The AI emits a *sequence* — a flat list of events with positions in beats. Notenotes never plays the sequence in real time. The pipeline is:
+
+```
+prompt
+  → AIController.seed()
+  → PromptBuilder.buildSystemPrompt + buildToolDefinition
+  → provider.generate()                       // LLM call
+  → SequenceValidator.validateSequence()      // rejects garbage
+  → SequenceExecutor.buildSnippetFromSequence()  // builds snippet object
+  → CreativeMode._onAISnippetCreated()        // adds to tray + project
+```
+
+Building a snippet directly (rather than driving the transport) means generation is instant and atomic. The user previews the result by tapping the new snippet in the tray.
+
+### Sequence shape
+
+A sequence is `{ instrument, lengthBars, events[] }`. Three event shapes by instrument:
+
+- `scaleboard`: `{ beat, type: "padPress", padIndex, durationBeats?, velocity? }` — `padIndex` indexes the current scale, not raw MIDI. Scale-locked.
+- `piano`: `{ beat, type: "noteOn", midi, durationBeats?, velocity? }` — chromatic.
+- `kit`: `{ beat, type: "drumHit", drum, velocity? }` — drum name from a fixed enum.
+
+Beats are floats from 0. The executor multiplies by 480 (TICKS_PER_BEAT) when constructing snippet notes/hits. The user's tempo and meter (in `transport.timeSignature.beats`) define how many beats per bar.
+
+### What the AI is and isn't allowed to do
+
+The action surface is one tool: `submitSequence`. The provider is told (in the system prompt and via tool_choice) to call it exactly once and not produce free-text commentary.
+
+Things the AI CANNOT do, by construction:
+
+- Set or change BPM, time signature, scale, root, octave, master volume, Tone Traits, or any project setting.
+- Touch the canvas, mute/solo tracks, edit existing snippets, export, save milestones, etc.
+- Refuse the tool call — that's a generation failure surfaced to the user.
+
+These constraints are enforced at the tool surface; there is no other tool surface to expand.
+
+### Snippet shape additions
+
+AI-seeded snippets are normal MIDI/drum snippets with extra metadata fields:
+
+```js
+{
+  ...standardSnippetFields,
+  aiSeeded: true,
+  aiPrompt: "first 240 chars of user prompt",
+  aiProvider: "openai" | "anthropic" | "ollama" | "mock",
+  aiInstrument: "scaleboard" | "piano" | "kit",
+  aiLengthBars: 1 | 2 | 4 | 8,
+  name: "🤖 N notes" | "🤖 N hits",
+}
+```
+
+`SnippetTray` looks for `aiSeeded` and renders a `🤖 AI` badge with the original prompt as the hover title.
+
+The AI metadata travels with the snippet through workspace backups and is preserved across export/import.
+
+### Settings storage
+
+API keys are stored in `localStorage` under `notenotes.ai.<provider>.apiKey`. They are NEVER stored in the project JSON, so workspace backups are never carrying credentials.
+
+Non-secret config (provider id, model id, Ollama base URL, disclaimer-accepted flag, default length-bars) lives in `project.settings.aiSettings`. That makes the picked model and provider part of the project — useful for "what model was I using when I made this?" reproducibility.
+
+### Cost transparency
+
+`AIController.estimateGenerationCost({ prompt })` returns an approximate USD cost based on per-million-token pricing tables in each provider class. The AI Seed Panel surfaces this estimate ("~$0.02") below the prompt textarea before the user clicks Generate.
+
+Mock and Ollama report "$0".
+
+### Provider quirks
+
+- **OpenAI**: standard Chat Completions with `tools` + `tool_choice: { type: 'function', function: { name } }`. Force-pinning the tool stops the model from refusing or talking back.
+- **Anthropic**: Messages API with `system` as a top-level field (not a message), `tools` with `input_schema`, and `tool_choice: { type: 'tool', name }`. Requires `anthropic-dangerous-direct-browser-access: true` for in-browser usage.
+- **Ollama**: served via the OpenAIProvider with a custom `baseUrl` (default `http://localhost:11434/v1`). Model ids are user-installed (`llama3.1:8b`, `qwen2.5:7b`, etc.). Tool calling support varies by model — Llama 3.1, Qwen 2.5, and Mistral generally work; older models may not respect the schema.
+- **Mock**: returns canned-but-musical patterns for 1/2/4/8 bars, on each instrument. No network. Default provider on first run so the user can validate the pipeline before committing to a key.
+
+### v1 limitations (intentional, not bugs)
+
+- **No reference snippet picker.** The pipeline supports a `referencedSnippet` context field, but the UI does not yet expose a way to attach one. Add a "+ Reference snippet" picker in a follow-up.
+- **No running cost counter.** The per-generation estimate is shown; cumulative session/project totals are not tracked.
+- **No rate limiting / per-session budget cap.** A user could spam Generate. Acceptable for v1; surfaced as a future "max $X per session" setting.
+- **Prompt is single-shot.** No retry on validator failure with a self-correction message. If the LLM returns garbage, the user sees the error and can refine their prompt.
+- **No streaming.** Sequences come back atomically. With small JSON outputs this isn't a UX problem.
+- **No multi-tool conversations.** One tool, one call, one snippet.
+
+### Adding a new provider
+
+1. Subclass `AIProvider`. Implement `generate({systemPrompt, userPrompt, tool, model, signal})`.
+2. Add the provider to `AIController._resolveProvider`.
+3. Add an option to the Settings AI section's provider dropdown (in `SettingsPanel._renderAISection`) and a `case` in `providerModelsForUi`.
+4. If the provider has its own pricing, override `getPricing(modelId)`.
+5. If credentials are required, read them via `readApiKey('<providerId>')` to use the existing localStorage flow — do not invent a new credential store.

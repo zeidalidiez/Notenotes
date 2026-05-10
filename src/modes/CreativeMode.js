@@ -13,6 +13,9 @@ import { MicRecorder } from '../instruments/MicRecorder.js';
 import { ControllerMode } from '../instruments/ControllerMode.js';
 import { RecordingManager } from '../engine/RecordingManager.js';
 import { SnippetTray } from '../ui/SnippetTray.js';
+import { AISeedPanel } from '../ui/AISeedPanel.js';
+import '../ui/AISeedPanel.css';
+import { AIController } from '../ai/AIController.js';
 import { LoopProgress } from '../ui/LoopProgress.js';
 import { TransportState } from '../engine/Transport.js';
 import { ArpeggioManager, ARP_MODES } from '../engine/ArpeggioManager.js';
@@ -70,6 +73,22 @@ export class CreativeMode {
     this.snippetTray = new SnippetTray();
     this.snippetTray.setSnippetUsageProvider((snippetId) => this._snippetInstrumentUsage(snippetId));
     this.loopProgress = new LoopProgress(transport, project);
+
+    // AI Seed: gives the user a way to ask an LLM (or local Mock) to seed a
+    // snippet. Scope is constrained: AI can only build a snippet via the
+    // submitSequence tool. It can't change tempo, meter, instrument, or
+    // anything structural. The user is the composer; AI is an instrument.
+    this.aiController = new AIController({
+      transport,
+      getProject: () => this.project,
+      getActiveInstrumentInfo: () => this._buildAIInstrumentInfo(),
+    });
+    this.aiSeedPanel = new AISeedPanel({
+      controller: this.aiController,
+      getProject: () => this.project,
+      getActiveInstrumentId: () => this._mapInstrumentToAi(this.activeInstrument),
+      onSnippetCreated: (snippet) => this._onAISnippetCreated(snippet),
+    });
 
     this._initialized = false;
     this._heldScaleKeyPads = new Map();
@@ -311,6 +330,10 @@ export class CreativeMode {
     });
 
     this.el.appendChild(container);
+
+    // AI Seed panel sits above the snippet tray so generated snippets land
+    // directly in the user's eye line.
+    this.el.appendChild(this.aiSeedPanel.render());
 
     // Snippet tray (bottom)
     this.el.appendChild(this.snippetTray.render());
@@ -692,6 +715,62 @@ export class CreativeMode {
     if (!this.store || !this.project) return;
     await this.store.save(this.project);
     await this.store.saveVersion?.(this.project);
+  }
+
+  /**
+   * Map CreativeMode's instrument enum to the AI's smaller surface.
+   * Controller is treated as scaleboard for AI purposes — it uses the same
+   * scale-locked pad primitive. Mic returns null because the AI does not
+   * generate audio (intentional scope limit).
+   */
+  _mapInstrumentToAi(creativeInstrumentId) {
+    switch (creativeInstrumentId) {
+      case 'scaleboard':
+      case 'controller':
+        return 'scaleboard';
+      case 'piano':
+        return 'piano';
+      case 'kit':
+        return 'kit';
+      case 'mic':
+      default:
+        return 'scaleboard';
+    }
+  }
+
+  /**
+   * Tell the AIController what instrument it should write events for, plus
+   * the runtime context the prompt needs (scale, root, pad count for scale-
+   * locked, etc.).
+   */
+  _buildAIInstrumentInfo() {
+    const aiInstrument = this._mapInstrumentToAi(this.activeInstrument);
+    const info = {
+      instrument: aiInstrument,
+      scaleName: this.scaleBoard?.scaleName || 'major',
+      rootNote: this.scaleBoard?.rootNote || 'C',
+      octave: this.scaleBoard?.octave || 4,
+    };
+    if (aiInstrument === 'scaleboard') {
+      info.padCount = this.scaleBoard?._notes?.length || 7;
+    }
+    return info;
+  }
+
+  /**
+   * Handle an AI-seeded snippet. Mirrors the post-recording flow but tags
+   * the snippet for the tray badge and uses an AI-flavored toast.
+   */
+  _onAISnippetCreated(snippet) {
+    if (!snippet) return;
+    this.snippetTray.addSnippet(snippet);
+    if (this.project) {
+      if (!Array.isArray(this.project.snippets)) this.project.snippets = [];
+      this.project.snippets.push(snippet);
+      this.store?.scheduleAutoSave(this.project);
+    }
+    const eventCount = (snippet.notes?.length || 0) + (snippet.hits?.length || 0);
+    showToast(`🤖 Snippet seeded (${eventCount} event${eventCount === 1 ? '' : 's'})`);
   }
 
   _customInstrumentUsage(id) {

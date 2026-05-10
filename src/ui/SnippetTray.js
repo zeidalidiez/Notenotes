@@ -97,15 +97,21 @@ export class SnippetTray {
       const badge = usage?.label
         ? `<span class="snippet-tray__badge" title="${this._escapeAttr(usage.title || usage.label)}">${this._escapeHtml(usage.label)}</span>`
         : '';
+      // AI-seeded snippets get a small badge so the user can see at a glance
+      // which were generated. Hovering surfaces the original prompt.
+      const aiBadge = s.aiSeeded
+        ? `<span class="snippet-tray__badge snippet-tray__badge--ai" title="${this._escapeAttr(s.aiPrompt || 'AI-seeded snippet')}">🤖 AI</span>`
+        : '';
 
       return `
-        <div class="snippet-tray__item" data-id="${s.id}" draggable="true">
+        <div class="snippet-tray__item ${s.aiSeeded ? 'is-ai-seeded' : ''}" data-id="${s.id}" draggable="true">
           <div class="snippet-tray__item-preview">
             ${this._renderMiniPreview(s)}
           </div>
           <div class="snippet-tray__item-info">
             <span class="snippet-tray__item-icon">${typeIcon}</span>
             <span class="snippet-tray__item-meta">${displayName}</span>
+            ${aiBadge}
             ${badge}
           </div>
           <div class="snippet-tray__item-actions">

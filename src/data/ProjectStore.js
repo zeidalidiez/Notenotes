@@ -60,6 +60,16 @@ export function createProject(name = 'Untitled Sketch') {
       backupContents: 'current',
       debugLogging: false,
       canvasLoopEnabled: false,
+      aiSettings: {
+        // Default to Mock so users can try the AI Seed panel without keys.
+        // API keys live in localStorage, NEVER in this object — backups
+        // exclude credentials by construction.
+        disclaimerAccepted: false,
+        provider: 'mock',
+        model: 'mock-canned-v1',
+        ollamaBaseUrl: 'http://localhost:11434/v1',
+        defaultLengthBars: 4,
+      },
     }
   };
 }

@@ -12,6 +12,17 @@ import { backupFilename, customInstrumentsWithFreshIds, readJsonFile, saveJsonFi
 import { CHORD_TYPES, ARP_PATTERNS, ARP_RATES } from '../engine/ArpeggioManager.js';
 import { DEFAULT_VERSION_HISTORY_LIMIT, VERSION_HISTORY_LIMITS } from '../data/ProjectStore.js';
 import { APP_VERSION } from '../version.js';
+import {
+  DISCLAIMER_TEXT as AI_DISCLAIMER_TEXT,
+  PROVIDER_IDS as AI_PROVIDER_IDS,
+  clearAllApiKeys as aiClearAllApiKeys,
+  readAiSettings,
+  readApiKey as aiReadApiKey,
+  writeAiSettings,
+  writeApiKey as aiWriteApiKey,
+} from '../ai/aiSettings.js';
+import { OpenAIProvider } from '../ai/OpenAIProvider.js';
+import { AnthropicProvider } from '../ai/AnthropicProvider.js';
 import { showToast } from './Toast.js';
 
 const TIME_SIGNATURE_OPTIONS = [
@@ -47,6 +58,27 @@ function formatBytes(bytes = 0) {
 function percent(value, total) {
   if (!Number.isFinite(value) || !Number.isFinite(total) || total <= 0) return 0;
   return Math.max(0, Math.min(100, (value / total) * 100));
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+function escapeAttr(s) { return escapeHtml(s); }
+
+function providerModelsForUi(providerId) {
+  switch (providerId) {
+    case 'openai':
+      return new OpenAIProvider().listModels();
+    case 'anthropic':
+      return new AnthropicProvider().listModels();
+    case 'ollama':
+      return new OpenAIProvider({ baseUrl: 'http://localhost:11434/v1', requiresKey: false, id: 'ollama' }).listModels();
+    case 'mock':
+    default:
+      return ['mock-canned-v1'];
+  }
 }
 
 export class SettingsPanel {
@@ -250,8 +282,69 @@ export class SettingsPanel {
             </div>
           </div>
         </div>
+        ${this._renderAISection()}
+
         <div class="settings-row" style="margin-top: var(--space-xl); justify-content: center;">
           <button class="btn btn--primary" id="setting-save-btn" style="width: 100%;">Save & Close</button>
+        </div>
+      </div>
+    `;
+  }
+
+  _renderAISection() {
+    const aiSettings = readAiSettings(this.project);
+    const provider = aiSettings.provider || 'mock';
+    const showOllamaUrl = provider === AI_PROVIDER_IDS.ollama;
+    const showApiKey = provider === AI_PROVIDER_IDS.openai || provider === AI_PROVIDER_IDS.anthropic;
+    const apiKey = showApiKey ? aiReadApiKey(provider) : '';
+    const models = providerModelsForUi(provider);
+    return `
+      <div class="settings-group">
+        <h3 class="settings-group__title">AI Seed (experimental)</h3>
+        <div class="settings-row" style="display: block;">
+          <p class="settings-help" style="margin: 0 0 var(--space-sm) 0; color: var(--text-tertiary); font-size: var(--font-size-xs); line-height: 1.45;">
+            Lets you ask an LLM to seed a snippet you'll then play with or refine. The AI is one of your instruments — the user is still the composer.
+            Notenotes is BYO-key. Costs go to your provider, not us. We never see, log, or relay your prompts.
+          </p>
+        </div>
+        <div class="settings-row">
+          <label class="settings-label" for="setting-ai-provider">Provider</label>
+          <select class="settings-select" id="setting-ai-provider">
+            <option value="mock"      ${provider === 'mock'      ? 'selected' : ''}>Mock (offline test)</option>
+            <option value="openai"    ${provider === 'openai'    ? 'selected' : ''}>OpenAI</option>
+            <option value="anthropic" ${provider === 'anthropic' ? 'selected' : ''}>Anthropic (Claude)</option>
+            <option value="ollama"    ${provider === 'ollama'    ? 'selected' : ''}>Ollama (local)</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <label class="settings-label" for="setting-ai-model">Model</label>
+          <select class="settings-select" id="setting-ai-model">
+            ${models.map(m => `<option value="${escapeAttr(m)}" ${aiSettings.model === m ? 'selected' : ''}>${escapeHtml(m)}</option>`).join('')}
+          </select>
+        </div>
+        ${showOllamaUrl ? `
+        <div class="settings-row">
+          <label class="settings-label" for="setting-ai-ollama-url">Ollama base URL</label>
+          <input class="settings-input" id="setting-ai-ollama-url" type="url" value="${escapeAttr(aiSettings.ollamaBaseUrl || 'http://localhost:11434/v1')}" placeholder="http://localhost:11434/v1" />
+        </div>
+        ` : ''}
+        ${showApiKey ? `
+        <div class="settings-row">
+          <label class="settings-label" for="setting-ai-api-key">API key</label>
+          <input class="settings-input" id="setting-ai-api-key" type="password" value="${escapeAttr(apiKey)}" placeholder="sk-... or sk-ant-..." autocomplete="off" />
+        </div>
+        <div class="settings-row" style="display: block;">
+          <p class="settings-help" style="margin: 0 0 var(--space-xs) 0; color: var(--text-tertiary); font-size: var(--font-size-xs); line-height: 1.4;">
+            ${escapeHtml(AI_DISCLAIMER_TEXT)}
+          </p>
+          <label class="settings-row" style="justify-content: flex-start; gap: 8px;">
+            <input type="checkbox" id="setting-ai-disclaimer" ${aiSettings.disclaimerAccepted ? 'checked' : ''} />
+            <span class="settings-label" style="white-space: normal;">I understand and accept these terms.</span>
+          </label>
+        </div>
+        ` : ''}
+        <div class="settings-row" style="justify-content: flex-start; gap: 8px;">
+          <button class="btn btn--ghost btn--sm" id="setting-ai-clear-keys" type="button">Clear all stored API keys</button>
         </div>
       </div>
     `;
@@ -619,11 +712,61 @@ export class SettingsPanel {
         });
       });
 
+      // AI seed settings
+      this._bindAISettingsEvents(body);
+
       // Save & Close button
       body.querySelector('#setting-save-btn')?.addEventListener('click', () => {
         this.close();
       });
     }
+
+  _bindAISettingsEvents(body) {
+    if (!body) return;
+    const refreshSection = () => {
+      // Re-render only the settings section to reflect provider/disclaimer changes.
+      body.innerHTML = this._renderSettingsSection();
+      this._bindSettingsEvents();
+    };
+
+    body.querySelector('#setting-ai-provider')?.addEventListener('change', (e) => {
+      const provider = e.target.value;
+      const models = providerModelsForUi(provider);
+      // Pick a sensible default model when switching providers.
+      const model = models[0] || '';
+      writeAiSettings(this.project, { provider, model });
+      this.store?.scheduleAutoSave(this.project);
+      refreshSection();
+    });
+
+    body.querySelector('#setting-ai-model')?.addEventListener('change', (e) => {
+      writeAiSettings(this.project, { model: e.target.value });
+      this.store?.scheduleAutoSave(this.project);
+    });
+
+    body.querySelector('#setting-ai-ollama-url')?.addEventListener('change', (e) => {
+      writeAiSettings(this.project, { ollamaBaseUrl: e.target.value || 'http://localhost:11434/v1' });
+      this.store?.scheduleAutoSave(this.project);
+    });
+
+    body.querySelector('#setting-ai-api-key')?.addEventListener('change', (e) => {
+      const aiSettings = readAiSettings(this.project);
+      aiWriteApiKey(aiSettings.provider, (e.target.value || '').trim());
+      showToast('API key saved locally');
+    });
+
+    body.querySelector('#setting-ai-disclaimer')?.addEventListener('change', (e) => {
+      writeAiSettings(this.project, { disclaimerAccepted: !!e.target.checked });
+      this.store?.scheduleAutoSave(this.project);
+    });
+
+    body.querySelector('#setting-ai-clear-keys')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      aiClearAllApiKeys();
+      showToast('All AI API keys cleared from this browser');
+      refreshSection();
+    });
+  }
 
   _beatColorsForBeats(beats = 4) {
     const defaults = ['#1e1e2e', '#2a2a3e', '#1e1e2e', '#2a2a3e', '#242436'];

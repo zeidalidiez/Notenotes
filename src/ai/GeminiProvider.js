@@ -1,29 +1,34 @@
 /**
  * GeminiProvider — Talks to Google's Gemini API with function calling.
  *
- * Endpoint shape:
- *   POST https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent
- *   Header: x-goog-api-key: <key>
- *   Body:   contents[], system_instruction, tools[], tool_config, generation_config
+ * Gemini's constrained-decoder is far stricter than OpenAI/Anthropic's. It
+ * rejects schemas with too many "states" — long arrays multiplied by
+ * properties with bounds, fixed enums, etc. We've been chipping at this in
+ * the adapter (camelCase, drop additionalProperties, drop integer enums,
+ * backfill type:string, drop numeric bounds, cap maxItems). Each round
+ * surfaced a new constraint.
  *
- * Differences from OpenAI/Anthropic that matter here:
- *   - System prompt lives under `system_instruction.parts[].text`, not in `messages`.
- *   - Tool schema is a single `function_declarations` array on a single `tools` entry.
- *   - JSON Schema is OpenAPI-3-flavored. Gemini doesn't accept some fields the
- *     other providers tolerate (`const`, `additionalProperties: false`,
- *     `description` on top of `enum`-ed const values). We adapt the schema
- *     before sending to keep one source of truth in `sequence-schema.js`.
- *   - Forced tool call uses `tool_config.function_calling_config.mode: "ANY"`
- *     plus `allowed_function_names: [<name>]`.
- *   - Response: `candidates[0].content.parts[].functionCall.{name, args}`.
+ * The robust approach taken here: build a MINIMAL schema for Gemini that
+ * only includes the fields the LLM actually has to choose:
+ *
+ *   - events: array of { beat, <instrument-specific identifier> }
+ *
+ * Everything else (instrument, lengthBars, event type, velocity defaults,
+ * duration defaults) is set by us after the response comes back. The
+ * system prompt still tells the LLM about constraints; the
+ * SequenceValidator still enforces them on the response side. Gemini's
+ * decoder gets a tiny state space and stops 400-ing.
+ *
+ * Other providers (OpenAI, Anthropic, Mock, Ollama) keep the full,
+ * descriptive schema — they handle complexity fine.
  */
 
 import { AIProvider, parseToolCallArguments, safeFetch } from './AIProvider.js';
+import { AI_INSTRUMENTS, ALLOWED_LENGTHS_BARS, KIT_DRUMS, MIDI_MAX, MIDI_MIN } from './sequence-schema.js';
 
 const DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 
-// Approximate pricing as of late 2025. Pricing shifts; treat as a guide.
 const GEMINI_PRICING = {
   'gemini-2.5-flash':       { inputPerMillion: 0.075, outputPerMillion: 0.30 },
   'gemini-2.5-flash-lite':  { inputPerMillion: 0.075, outputPerMillion: 0.30 },
@@ -32,12 +37,9 @@ const GEMINI_PRICING = {
   'gemini-1.5-pro':         { inputPerMillion: 1.25,  outputPerMillion: 5.00 },
 };
 
+const GEMINI_MAX_EVENTS = 32; // hard cap so the constrained decoder stays sane
+
 export class GeminiProvider extends AIProvider {
-  /**
-   * @param {object} config
-   * @param {string} config.apiKey
-   * @param {string} [config.baseUrl=DEFAULT_BASE_URL]
-   */
   constructor(config = {}) {
     super({ id: 'gemini', label: 'Google Gemini', requiresKey: true });
     this.apiKey = config.apiKey || '';
@@ -52,16 +54,21 @@ export class GeminiProvider extends AIProvider {
     return GEMINI_PRICING[modelId] || null;
   }
 
-  async generate({ systemPrompt, userPrompt, tool, model, signal }) {
+  async generate({ systemPrompt, userPrompt, tool, model, signal, requestedLengthBars }) {
     if (!this.apiKey) {
       throw new Error('Gemini requires an API key. Add one in Settings → AI Seed.');
     }
     const modelId = model || DEFAULT_MODEL;
+    const instrumentId = tool.input_schema?.properties?.instrument?.const || 'scaleboard';
+    const inst = AI_INSTRUMENTS[instrumentId];
+    if (!inst) {
+      throw new Error(`Gemini provider got an unknown instrument: ${instrumentId}`);
+    }
 
-    // Gemini's REST API accepts either snake_case or camelCase for top-level
-    // request fields, but the docs canonicalize on camelCase. We use camelCase
-    // throughout to match the published examples and avoid any edge-case
-    // parsing differences.
+    // Build a minimal schema that only contains the LLM-controlled fields.
+    // The post-processor adds everything else after the response.
+    const minimalSchema = buildMinimalSchemaForInstrument(instrumentId);
+
     const body = {
       contents: [
         { role: 'user', parts: [{ text: userPrompt }] },
@@ -73,7 +80,7 @@ export class GeminiProvider extends AIProvider {
         functionDeclarations: [{
           name: tool.name,
           description: tool.description,
-          parameters: adaptSchemaForGemini(tool.input_schema),
+          parameters: minimalSchema,
         }],
       }],
       toolConfig: {
@@ -98,8 +105,7 @@ export class GeminiProvider extends AIProvider {
     }, signal);
 
     if (!res.ok) {
-      const friendly = await formatGeminiError(res, body, modelId);
-      throw new Error(friendly);
+      throw new Error(await formatGeminiError(res, body, modelId));
     }
 
     const data = await res.json();
@@ -112,12 +118,13 @@ export class GeminiProvider extends AIProvider {
       throw new Error(`Gemini did not call submitSequence. Returned: ${text.slice(0, 200) || '(empty)'}`);
     }
 
-    // Gemini's `args` is already parsed JSON; parseToolCallArguments handles
-    // both pre-parsed objects and JSON strings, so this works either way.
-    const args = parseToolCallArguments(fnPart.functionCall.name, fnPart.functionCall.args);
+    const minimalArgs = parseToolCallArguments(fnPart.functionCall.name, fnPart.functionCall.args);
+    // Re-inflate the minimal args back to the full sequence shape the
+    // SequenceValidator and SequenceExecutor expect.
+    const fullArgs = inflateGeminiResponse(minimalArgs, instrumentId, requestedLengthBars);
 
     return {
-      arguments: args,
+      arguments: fullArgs,
       rawToolName: fnPart.functionCall.name,
       usage: {
         inputTokens: data.usageMetadata?.promptTokenCount || 0,
@@ -130,112 +137,9 @@ export class GeminiProvider extends AIProvider {
 }
 
 /**
- * Convert our JSON-Schema-flavored shape to something Gemini's function
- * declarations accept. Keep this minimal; we don't want a parallel schema
- * dialect.
- *
- * Adaptations:
- *   - `const: X` → `enum: [X]` and drop `const`.
- *   - Drop `additionalProperties`.
- *   - Drop `$schema` / `$id` / `$ref`.
- *   - Drop `description` on a single-element-enum node (the description
- *     just duplicates the constant; some Gemini versions 400 on it).
- *   - Drop non-string `enum`s. Gemini's Schema proto defines `enum` as
- *     `repeated string`, so `enum: [1, 2, 4, 8]` triggers a 400. We drop
- *     the constraint and append the allowed values to the description
- *     so the LLM still sees them; the SequenceValidator catches any
- *     out-of-range value downstream.
- *   - Leave everything else (type, properties, required, items, minItems,
- *     maxItems, minimum, maximum, string enums, descriptions on non-enum
- *     nodes) untouched.
- */
-function adaptSchemaForGemini(schema) {
-  if (Array.isArray(schema)) return schema.map(adaptSchemaForGemini);
-  if (!schema || typeof schema !== 'object') return schema;
-
-  const out = {};
-  for (const [key, value] of Object.entries(schema)) {
-    if (key === 'const') {
-      out.enum = Array.isArray(out.enum) ? out.enum.concat([value]) : [value];
-      continue;
-    }
-    if (key === 'additionalProperties') continue;
-    if (key === '$schema' || key === '$id' || key === '$ref') continue;
-    if (key === 'properties' && value && typeof value === 'object') {
-      const props = {};
-      for (const [propKey, propVal] of Object.entries(value)) {
-        props[propKey] = adaptSchemaForGemini(propVal);
-      }
-      out.properties = props;
-      continue;
-    }
-    if (key === 'items' || key === 'oneOf' || key === 'anyOf' || key === 'allOf') {
-      out[key] = adaptSchemaForGemini(value);
-      continue;
-    }
-    out[key] = value;
-  }
-
-  // Drop non-string enums. Gemini only supports string-array enums; an
-  // integer enum like `[1, 2, 4, 8]` causes a 400. Move the constraint
-  // into the description so the LLM still sees the allowed values.
-  if (Array.isArray(out.enum) && out.enum.some(v => typeof v !== 'string')) {
-    const allowed = out.enum.map(v => JSON.stringify(v)).join(', ');
-    delete out.enum;
-    const note = `Allowed values: ${allowed}.`;
-    out.description = out.description ? `${out.description} ${note}` : note;
-  }
-
-  // Gemini requires `type: "string"` to be explicitly declared on any node
-  // that has an enum. Our `const: "X"` conversion produces a bare
-  // `{ enum: ["X"] }` with no type field; Gemini's validator rejects that
-  // with "only allowed for STRING type." Backfill the type for any
-  // surviving (necessarily-string-only) enum.
-  if (Array.isArray(out.enum) && out.enum.length > 0 && !('type' in out)) {
-    out.type = 'string';
-  }
-
-  // Drop description on single-value-enum nodes — Gemini has been observed
-  // to 400 on a one-element enum sitting next to a description.
-  if (Array.isArray(out.enum) && out.enum.length === 1 && 'description' in out) {
-    delete out.description;
-  }
-
-  // Gemini's constrained-decoder rejects schemas whose state space is too
-  // large. Two of our primitives explode it:
-  //
-  //   - Numeric `minimum`/`maximum` bounds on integer/number properties.
-  //     Each constrained numeric multiplies the decoder's state count.
-  //   - Long `maxItems` on arrays of objects with constrained properties.
-  //     A 256-event array × 5 bounded numerics per event explodes badly.
-  //
-  // The SequenceValidator enforces these constraints on the response side,
-  // so dropping them from the wire schema is safe — the LLM may emit
-  // out-of-range values, but they get rejected before reaching the user.
-  const NUMERIC_BOUNDS = ['minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'multipleOf'];
-  if (out.type === 'integer' || out.type === 'number') {
-    for (const key of NUMERIC_BOUNDS) {
-      if (key in out) delete out[key];
-    }
-  }
-  if (out.type === 'array') {
-    // Cap maxItems aggressively. 64 events is plenty for any reasonable
-    // 1-8 bar musical sequence.
-    if (typeof out.maxItems === 'number' && out.maxItems > 64) {
-      out.maxItems = 64;
-    }
-    // minItems is harmless on its own, but the validator catches empty
-    // arrays anyway. Drop it to keep the schema lean.
-    if ('minItems' in out) delete out.minItems;
-  }
-
-  return out;
-}
-
-/**
  * Compose a friendly error message from a Gemini 4xx/5xx response. Logs the
- * full response body and our request body to console.error so the user can
- * paste them into a bug report; the toast shows a tighter summary.
+ * full request and response bodies to console.error so the user can paste
+ * them into a bug report; the toast shows a tighter summary.
  */
 async function formatGeminiError(res, requestBody, modelId) {
   let raw = null;
@@ -249,9 +153,6 @@ async function formatGeminiError(res, requestBody, modelId) {
   const status = errBlock.status || res.statusText || `HTTP ${res.status}`;
   const message = errBlock.message || raw || res.statusText || '';
 
-  // Pull the FieldViolation reasons out of details when present. Google's
-  // API surfaces them under either error.details[*].fieldViolations[] or
-  // error.details[*].reason.
   let detailLines = [];
   if (Array.isArray(errBlock.details)) {
     for (const d of errBlock.details) {
@@ -266,15 +167,106 @@ async function formatGeminiError(res, requestBody, modelId) {
       }
     }
   }
-
   const detailsStr = detailLines.length > 0 ? `\n${detailLines.join('\n')}` : '';
 
-  // Console-level diagnostics for the developer / power user.
   try {
     console.error('[Gemini] request failed', { model: modelId, status: res.status, body: parsed || raw });
     console.error('[Gemini] request body was', requestBody);
-  } catch (_) { /* console may not exist */ }
+  } catch (_) {}
 
-  const summary = `Gemini ${res.status} ${status}: ${message}${detailsStr}`;
-  return summary.slice(0, 480);
+  return `Gemini ${res.status} ${status}: ${message}${detailsStr}`.slice(0, 480);
+}
+
+// ---------- minimal schema + response inflation ----------
+
+/**
+ * Per-instrument minimal schema for Gemini's constrained decoder. We
+ * include only the LLM-chosen fields. instrument, lengthBars, event type,
+ * and the velocity/duration defaults are added back in `inflateGeminiResponse`.
+ */
+function buildMinimalSchemaForInstrument(instrumentId) {
+  const eventItem = buildMinimalEventItem(instrumentId);
+  return {
+    type: 'object',
+    description: 'Submit your planned sequence as an array of events. The instrument, length, and per-event type/velocity/duration are set by Notenotes from the system prompt context.',
+    required: ['events'],
+    properties: {
+      events: {
+        type: 'array',
+        description: 'Ordered events. Sort by beat ascending. 1-' + GEMINI_MAX_EVENTS + ' entries.',
+        maxItems: GEMINI_MAX_EVENTS,
+        items: eventItem,
+      },
+    },
+  };
+}
+
+function buildMinimalEventItem(instrumentId) {
+  switch (instrumentId) {
+    case 'scaleboard':
+      return {
+        type: 'object',
+        required: ['beat', 'padIndex'],
+        properties: {
+          beat:     { type: 'number',  description: 'Beat position from sequence start (>= 0).' },
+          padIndex: { type: 'integer', description: 'Scale-locked pad index (0 = root).' },
+        },
+      };
+    case 'piano':
+      return {
+        type: 'object',
+        required: ['beat', 'midi'],
+        properties: {
+          beat: { type: 'number',  description: 'Beat position from sequence start (>= 0).' },
+          midi: { type: 'integer', description: `MIDI note ${MIDI_MIN}..${MIDI_MAX}; middle C is 60.` },
+        },
+      };
+    case 'kit':
+      return {
+        type: 'object',
+        required: ['beat', 'drum'],
+        properties: {
+          beat: { type: 'number', description: 'Beat position from sequence start (>= 0).' },
+          drum: {
+            type: 'string',
+            enum: [...KIT_DRUMS],
+            description: 'Drum voice id.',
+          },
+        },
+      };
+    default:
+      throw new Error(`buildMinimalEventItem: unknown instrument ${instrumentId}`);
+  }
+}
+
+/**
+ * Re-inflate Gemini's minimal-schema response into the full sequence shape
+ * the SequenceValidator and SequenceExecutor expect.
+ */
+function inflateGeminiResponse(minimalArgs, instrumentId, requestedLengthBars) {
+  const inst = AI_INSTRUMENTS[instrumentId];
+  if (!inst) throw new Error(`inflateGeminiResponse: unknown instrument ${instrumentId}`);
+
+  const lengthBars = ALLOWED_LENGTHS_BARS.includes(requestedLengthBars) ? requestedLengthBars : 4;
+  const events = Array.isArray(minimalArgs?.events) ? minimalArgs.events : [];
+
+  const inflatedEvents = events.map(rawEv => {
+    const ev = { ...rawEv };
+    // Add the type field that Gemini didn't see.
+    ev.type = inst.eventType;
+    // Apply velocity/duration defaults for fields the LLM didn't have to choose.
+    if (typeof ev.velocity !== 'number') {
+      ev.velocity = inst.eventType === 'drumHit' ? 1 : 0.85;
+    }
+    if (inst.eventType !== 'drumHit' && typeof ev.durationBeats !== 'number') {
+      ev.durationBeats = 0.5;
+    }
+    return ev;
+  });
+
+  return {
+    instrument: instrumentId,
+    lengthBars,
+    events: inflatedEvents,
+  };
 }

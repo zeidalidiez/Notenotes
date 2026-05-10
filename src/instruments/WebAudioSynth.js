@@ -232,6 +232,16 @@ export class WebAudioSynth {
     if (this._toneInput && this._output) this._rebuildEffects();
   }
 
+  /**
+   * The entry point of the Tone effect chain. Other instruments (e.g.,
+   * VoiceEngine) can connect their output here so they share Crush, Echo,
+   * Wobble, Drive, Space, Noise without each one rebuilding the chain.
+   * Returns null until init() has run.
+   */
+  getSynthInput() {
+    return this._toneInput || null;
+  }
+
   _traitCurve(id) {
     const amount = this._traitAmount(id);
     if (id === 'wobble') return Math.pow(amount, 0.55);

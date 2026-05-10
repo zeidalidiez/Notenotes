@@ -101,6 +101,7 @@ export class SketchKit {
     this.onKitChanged = null;
     this.onCreateInstrument = null;
     this.onDeleteInstrument = null;
+    this.onAISeedClick = null;
     this._activePadTimers = new Map();
 
     window.addEventListener('settings-pads-changed', () => {
@@ -165,6 +166,7 @@ export class SketchKit {
         <button class="tone-button" id="sk-create-instrument-button" type="button">${this.selectedCustomInstrumentId ? 'Edit Instrument' : 'Create Instrument'}</button>
         <button class="tone-button" id="sk-delete-instrument-button" type="button">Delete</button>
         <button class="tone-button" id="sk-tone-button" type="button" aria-expanded="false" aria-controls="sk-tone-popover">Tone</button>
+        <button class="tone-button ai-seed-button" id="sk-ai-seed-button" type="button" aria-expanded="false" aria-controls="ai-seed-popover" title="Seed a snippet with AI">🤖 AI</button>
       </div>
       <div class="sketchkit__pads" id="sk-pads" style="grid-template-columns:${this._gridColumns()};">
         ${this._renderPads()}
@@ -219,6 +221,14 @@ export class SketchKit {
     this.el.querySelector('#sk-tone-button')?.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       this._toggleTonePopover();
+    });
+    this.el.querySelector('#sk-ai-seed-button')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      // Fire up to CreativeMode, which owns the AI Seed popover. Pass the
+      // anchor element so the popover positions correctly under this button.
+      if (this.onAISeedClick) {
+        this.onAISeedClick(this.el.querySelector('#sk-kit-selector'), this.el.querySelector('#sk-ai-seed-button'));
+      }
     });
     this._syncInstrumentButtons();
     this._bindPadEvents();

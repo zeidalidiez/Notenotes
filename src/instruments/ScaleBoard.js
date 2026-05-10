@@ -1,28 +1,51 @@
 /**
- * ScaleBoard — 7-Pad scale-locked instrument.
- * Prevents wrong notes by locking pads to the selected scale.
- * Includes octave up/down toggles.
+ * ScaleBoard — Scale-locked pad instrument.
+ *
+ * Pad Mode dropdown options:
+ *   - "single": each pad plays a single note from the scale.
+ *   - "chords": each pad plays a triad rooted on its scale degree.
+ *   - "voices": each pad sings a syllable from a typed phrase, at the pad's pitch.
+ *               Requires a VoiceEngine to be passed in. Phrase is persisted in
+ *               project.settings.voicePhrase.
+ *   - "custom": per-pad type selection (single/chord) editable via "Edit Layout".
+ *
+ * Octave shifts apply uniformly across modes. In voices mode, octave shifts move
+ * the voiced source's pitch but leave the syllable's formants alone — that's how
+ * a low and a high voice singing "ah" both sound like "ah."
  */
 
 import { getScaleNotes, midiToNoteName, SCALES, NOTE_NAMES } from '../engine/MusicTheory.js';
 import { showToast } from '../ui/Toast.js';
+import { syllabify, extractPlayableSyllables, sanitizePhraseInput } from './voice/syllabify.js';
 
 export class ScaleBoard {
   /**
    * @param {WebAudioSynth} synth - The synth engine to play through
    * @param {Object} project - The project to read settings from
+   * @param {VoiceEngine|null} voiceEngine - Optional. If provided, "voices" pad mode is enabled.
    */
-  constructor(synth, project) {
+  constructor(synth, project, voiceEngine = null) {
     this.synth = synth;
+    this.voiceEngine = voiceEngine;
     this.el = null;
 
     // State
     this.scaleName = 'major';
     this.rootNote = 'C';
     this.octave = 4;
-    this.padMode = 'single'; // 'single', 'chords', 'custom'
+    this.padMode = 'single'; // 'single', 'chords', 'voices', 'custom'
     this.isEditingLayout = false;
     this.customPadTypes = []; // 'single' or 'chord'
+
+    // Voice mode state
+    this._voicePhrase = '';        // raw user-typed string
+    this._voiceTokens = [];        // syllabify() output for the current phrase
+    this._playableSyllables = [];  // valid syllable IDs in order
+    this._phrasePointer = 0;       // next syllable index to sing on pressPad
+    this._voiceInputDebounce = null;
+    this._lastVoiceMidiByPad = new Map(); // padIndex -> last midi sung (for release)
+    this.onVoicePhraseChanged = null;
+    this.onPadModeChange = null;
 
     this._notes = [];
     this._fullScaleNotes = [];
@@ -59,13 +82,53 @@ export class ScaleBoard {
   set project(p) {
     this._project = p;
     this._updateNotes();
+    this._loadVoiceStateFromProject();
     if (this.el) {
       this._refreshPads();
+      this._refreshVoiceUi();
     }
   }
 
   get project() {
     return this._project;
+  }
+
+  /**
+   * Set the VoiceEngine instance. May be called after construction once
+   * the AudioEngine has initialized and the synth's tone input exists.
+   */
+  setVoiceEngine(voiceEngine) {
+    this.voiceEngine = voiceEngine;
+    if (this.el) this._refreshVoiceUi();
+  }
+
+  _loadVoiceStateFromProject() {
+    const phrase = (this._project?.settings?.voicePhrase ?? '');
+    this._voicePhrase = typeof phrase === 'string' ? phrase : '';
+    this._recomputeVoiceTokens();
+  }
+
+  _persistVoicePhrase() {
+    if (!this._project) return;
+    if (!this._project.settings) this._project.settings = {};
+    this._project.settings.voicePhrase = this._voicePhrase;
+    if (this.onVoicePhraseChanged) this.onVoicePhraseChanged(this._voicePhrase);
+  }
+
+  _recomputeVoiceTokens() {
+    if (!this.voiceEngine) {
+      this._voiceTokens = [];
+      this._playableSyllables = [];
+      this._phrasePointer = 0;
+      return;
+    }
+    const ids = this.voiceEngine.getAvailableSyllableIds();
+    const bank = new Set(ids);
+    this._voiceTokens = syllabify(this._voicePhrase, bank);
+    this._playableSyllables = extractPlayableSyllables(this._voiceTokens);
+    if (this._phrasePointer >= this._playableSyllables.length) {
+      this._phrasePointer = 0;
+    }
   }
 
   /** Set callbacks for note events (used by recording system) */
@@ -126,6 +189,7 @@ export class ScaleBoard {
           <select class="scaleboard__select" id="sb-pad-mode" aria-label="Pad mode">
             <option value="single" ${this.padMode === 'single' ? 'selected' : ''}>Single</option>
             <option value="chords" ${this.padMode === 'chords' ? 'selected' : ''}>Chords</option>
+            ${this.voiceEngine ? `<option value="voices" ${this.padMode === 'voices' ? 'selected' : ''}>Voice Sketch</option>` : ''}
             <option value="custom" ${this.padMode === 'custom' ? 'selected' : ''}>Custom</option>
           </select>
         </div>
@@ -142,6 +206,7 @@ export class ScaleBoard {
         </div>
         ` : ''}
       </div>
+      ${this._renderVoiceRow()}
       <div class="scaleboard__pads" id="sb-pads" style="grid-template-columns: ${this._gridColumns()}; gap: ${this._gridGap()};">
         ${this._renderPads()}
       </div>
@@ -170,15 +235,110 @@ export class ScaleBoard {
       const noteInfo = midiToNoteName(midi);
       let isChord = this.padMode === 'chords' || (this.padMode === 'custom' && this.customPadTypes[i] === 'chord');
       let typeLabel = isChord ? 'Chord' : 'Note';
+      const isVoice = this.padMode === 'voices';
+      const voiceLabel = isVoice ? this._previewSyllableForPad(i) : null;
+      const voiceClass = isVoice ? ' scaleboard__pad--voice' : '';
       return `
-        <button class="scaleboard__pad ${this.isEditingLayout ? 'is-editing' : ''}" data-index="${i}" data-midi="${midi}"
-                aria-label="Scale degree ${i + 1}, ${noteInfo.display}">
+        <button class="scaleboard__pad${voiceClass} ${this.isEditingLayout ? 'is-editing' : ''}" data-index="${i}" data-midi="${midi}"
+                aria-label="Scale degree ${i + 1}, ${noteInfo.display}${voiceLabel ? ', sings ' + voiceLabel : ''}">
           <span class="scaleboard__pad-degree">${i + 1}</span>
           <span class="scaleboard__pad-note">${noteInfo.display}</span>
           ${this.padMode === 'custom' ? `<span class="scaleboard__pad-type">${typeLabel}</span>` : ''}
+          ${isVoice && voiceLabel ? `<span class="scaleboard__pad-syllable">${this._escapeHtml(voiceLabel)}</span>` : ''}
         </button>
       `;
     }).join('');
+  }
+
+  _renderVoiceRow() {
+    if (this.padMode !== 'voices' || !this.voiceEngine) return '';
+    const pointerHint = this._playableSyllables.length === 0
+      ? 'Experimental robot voice. Type supported sounds below. Empty phrase = pads sing "ah".'
+      : `Experimental robot voice: pads advance through ${this._playableSyllables.length} token${this._playableSyllables.length === 1 ? '' : 's'}.`;
+    const tokensHtml = this._renderVoiceTokens();
+    return `
+      <div class="scaleboard__voice-row" id="sb-voice-row">
+        <div class="scaleboard__voice-input-wrap">
+          <label class="scaleboard__label" for="sb-voice-phrase">Phrase</label>
+          <input
+            class="scaleboard__voice-input"
+            id="sb-voice-phrase"
+            type="text"
+            spellcheck="false"
+            autocomplete="off"
+            autocapitalize="off"
+            placeholder="supported sounds: ah eh ee oh oo ai oi au ei h n m l s t la lee lo ma mee mo na no ha sa ta"
+            value="${this._escapeAttr(this._voicePhrase || '')}"
+            aria-label="Voice phrase"
+          />
+          <button class="btn btn--sm btn--ghost scaleboard__voice-rewind" id="sb-voice-rewind" aria-label="Rewind phrase to start" title="Rewind to start">↻</button>
+        </div>
+        <div class="scaleboard__voice-tokens" id="sb-voice-tokens" aria-live="polite">${tokensHtml}</div>
+        <div class="scaleboard__voice-hint">${pointerHint}</div>
+      </div>
+    `;
+  }
+
+  _renderVoiceTokens() {
+    if (!this._voiceTokens || this._voiceTokens.length === 0) {
+      if (!this.voiceEngine) return '';
+      // Show a default-cycle hint when phrase is empty.
+      return '<span class="voice-token voice-token--hint">(experimental robot voice — empty phrase sings "ah")</span>';
+    }
+    let validIndex = 0;
+    const parts = this._voiceTokens.map((tok) => {
+      if (tok.isWhitespace) return `<span class="voice-token-gap">·</span>`;
+      const isCurrent = tok.valid && validIndex === this._phrasePointer;
+      const cls = [
+        'voice-token',
+        tok.valid ? 'voice-token--valid' : 'voice-token--invalid',
+        isCurrent ? 'is-current' : '',
+      ].filter(Boolean).join(' ');
+      const html = `<span class="${cls}" title="${tok.valid ? 'Will play: ' + this._escapeAttr(tok.text) : 'No match: ' + this._escapeAttr(tok.text) + '. Add a space or change the spelling.'}">${this._escapeHtml(tok.text)}</span>`;
+      if (tok.valid) validIndex++;
+      return html;
+    });
+    return parts.join('');
+  }
+
+  /** What syllable would the next pad press sing? */
+  _previewSyllableForPad(_padIndex) {
+    if (!this.voiceEngine) return null;
+    if (this._playableSyllables.length === 0) return 'ah';
+    const idx = this._phrasePointer % this._playableSyllables.length;
+    return this._playableSyllables[idx];
+  }
+
+  _refreshVoiceUi() {
+    if (!this.el) return;
+    const row = this.el.querySelector('#sb-voice-row');
+    if (this.padMode === 'voices') {
+      if (!row) {
+        // Re-render entire layout to insert the row
+        this._refreshLayout();
+        return;
+      }
+      const tokens = row.querySelector('#sb-voice-tokens');
+      if (tokens) tokens.innerHTML = this._renderVoiceTokens();
+      const hint = row.querySelector('.scaleboard__voice-hint');
+      if (hint) {
+        hint.textContent = this._playableSyllables.length === 0
+          ? 'Experimental robot voice. Type supported sounds below. Empty phrase = pads sing "ah".'
+          : `Experimental robot voice: pads advance through ${this._playableSyllables.length} token${this._playableSyllables.length === 1 ? '' : 's'}.`;
+      }
+    } else if (row) {
+      row.remove();
+    }
+  }
+
+  _escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
+  }
+
+  _escapeAttr(str) {
+    return this._escapeHtml(str);
   }
 
   _refreshLayout() {
@@ -228,10 +388,20 @@ export class ScaleBoard {
     this.el.querySelector('#sb-pad-mode')?.addEventListener('change', (e) => {
       this.padMode = e.target.value;
       if (this.padMode !== 'custom') this.isEditingLayout = false;
+      // When entering voices mode, ensure tokens reflect the latest bank/phrase.
+      if (this.padMode === 'voices') {
+        this._recomputeVoiceTokens();
+      }
       this._refreshLayout();
       if (this.padMode === 'custom') {
         showToast('Tap "Edit Layout" to set each pad to Note or Chord');
+      } else if (this.padMode === 'voices') {
+        showToast('Voice Sketch: experimental robot voice tokens');
       }
+      // Notify host (CreativeMode) so it can sync the AI Seed button:
+      // AI is hidden in Voices mode because the AI emits MIDI/drum events,
+      // not vocal-phrase events.
+      if (this.onPadModeChange) this.onPadModeChange(this.padMode);
     });
 
     // Edit Layout toggle
@@ -241,7 +411,60 @@ export class ScaleBoard {
       this._refreshLayout();
     });
 
+    this._bindVoiceEvents();
     this._bindPadEvents();
+  }
+
+  _bindVoiceEvents() {
+    if (this.padMode !== 'voices') return;
+    const input = this.el.querySelector('#sb-voice-phrase');
+    if (input) {
+      input.addEventListener('input', (e) => {
+        // Sanitize to ASCII letters/spaces/apostrophes/hyphens.
+        const sanitized = sanitizePhraseInput(e.target.value);
+        if (sanitized !== e.target.value) {
+          // Preserve cursor position approximately.
+          const pos = input.selectionStart;
+          input.value = sanitized;
+          if (typeof pos === 'number') {
+            const next = Math.max(0, Math.min(sanitized.length, pos - (e.target.value.length - sanitized.length)));
+            try { input.setSelectionRange(next, next); } catch (_) {}
+          }
+        }
+        this._voicePhrase = sanitized;
+        this._phrasePointer = 0;
+
+        // Debounce token recomputation.
+        if (this._voiceInputDebounce) clearTimeout(this._voiceInputDebounce);
+        this._voiceInputDebounce = setTimeout(() => {
+          this._recomputeVoiceTokens();
+          this._persistVoicePhrase();
+          this._refreshVoiceUi();
+          this._refreshPadsSoft();
+        }, 60);
+      });
+    }
+    const rewind = this.el.querySelector('#sb-voice-rewind');
+    if (rewind) {
+      rewind.addEventListener('click', (e) => {
+        e.preventDefault();
+        this._phrasePointer = 0;
+        this._refreshVoiceUi();
+        this._refreshPadsSoft();
+      });
+    }
+  }
+
+  /** Update pad text without rebuilding event handlers (cheap re-render). */
+  _refreshPadsSoft() {
+    if (!this.el) return;
+    if (this.padMode !== 'voices') return;
+    const pads = this.el.querySelectorAll('.scaleboard__pad');
+    const next = this._previewSyllableForPad(0);
+    pads.forEach((pad) => {
+      const slot = pad.querySelector('.scaleboard__pad-syllable');
+      if (slot) slot.textContent = next || '';
+    });
   }
 
   _getChordMidis(startIndex) {
@@ -299,6 +522,11 @@ export class ScaleBoard {
     pad.classList.add('is-active');
     this._activePadIndexes.add(index);
 
+    if (this.padMode === 'voices' && this.voiceEngine) {
+      this._pressVoicePad(index, midi);
+      return;
+    }
+
     const isChord = this.padMode === 'chords' || (this.padMode === 'custom' && this.customPadTypes[index] === 'chord');
     if (isChord) {
       const chordMidis = this._getChordMidis(index);
@@ -315,6 +543,12 @@ export class ScaleBoard {
     const midi = this._notes[index];
     if (pad) pad.classList.remove('is-active');
 
+    if (this.padMode === 'voices' && this.voiceEngine) {
+      this._releaseVoicePad(index);
+      this._activePadIndexes.delete(index);
+      return;
+    }
+
     if (this._activeChords.has(index)) {
       const chordMidis = this._activeChords.get(index) || [];
       chordMidis.forEach(m => this._noteOff(m));
@@ -326,8 +560,55 @@ export class ScaleBoard {
     this._activePadIndexes.delete(index);
   }
 
+  _pressVoicePad(index, midi) {
+    // Choose syllable: from the parsed phrase, or fall back to "ah" when phrase
+    // is empty / has no playable syllables. Empty-phrase fallback gives users
+    // immediate feedback without forcing them to type first.
+    let syllable;
+    if (this._playableSyllables.length === 0) {
+      syllable = this.voiceEngine.hasSyllable('ah') ? 'ah' : (this.voiceEngine.getAvailableSyllableIds()[0] || null);
+    } else {
+      const ptr = this._phrasePointer % this._playableSyllables.length;
+      syllable = this._playableSyllables[ptr];
+      this._phrasePointer = (ptr + 1) % this._playableSyllables.length;
+    }
+    if (syllable) {
+      this.voiceEngine.singSyllable(syllable, midi, 0.85);
+      this._lastVoiceMidiByPad.set(index, midi);
+      // Preserve voice intent for recorded snippets; playback/export routing is
+      // a follow-up so old synth playback still has a clean data path.
+      const voiceInfo = this.voiceEngine.getVoiceInfo?.();
+      if (this._onNoteOn) {
+        this._onNoteOn(midi, 0.85, {
+          voice: {
+            mode: 'voice-sketch',
+            voiceId: voiceInfo?.id || this.project?.settings?.voiceId || 'english-base',
+            syllableId: syllable,
+          },
+        });
+      }
+    }
+    // Update token highlight + pad preview.
+    this._refreshVoiceUi();
+    this._refreshPadsSoft();
+  }
+
+  _releaseVoicePad(index) {
+    const midi = this._lastVoiceMidiByPad.get(index);
+    if (midi !== undefined && this.voiceEngine) {
+      this.voiceEngine.releaseSyllable(midi);
+      if (this._onNoteOff) this._onNoteOff(midi);
+      this._lastVoiceMidiByPad.delete(index);
+    }
+  }
+
   releaseAllPads() {
     [...this._activePadIndexes].forEach(index => this.releasePad(index));
+    if (this.voiceEngine) {
+      // Defensive: stop anything still ringing in voice engine.
+      this.voiceEngine.releaseAll();
+      this._lastVoiceMidiByPad.clear();
+    }
   }
 
   shiftOctave(delta) {

@@ -135,17 +135,19 @@ export class GeminiProvider extends AIProvider {
  * dialect.
  *
  * Adaptations:
- *   - `const: X` → `enum: [X]` and drop `const` (Gemini rejects `const`).
- *   - Drop `additionalProperties` (Gemini rejects it on some shapes).
+ *   - `const: X` → `enum: [X]` and drop `const`.
+ *   - Drop `additionalProperties`.
  *   - Drop `$schema` / `$id` / `$ref`.
- *   - Drop `description` on schema nodes that are JUST a fixed enum (single
- *     allowed value). Gemini sometimes 400s on a description sitting next
- *     to a one-element enum because the description duplicates the
- *     constant. Safe to drop; the parent `description` carries the
- *     necessary context.
+ *   - Drop `description` on a single-element-enum node (the description
+ *     just duplicates the constant; some Gemini versions 400 on it).
+ *   - Drop non-string `enum`s. Gemini's Schema proto defines `enum` as
+ *     `repeated string`, so `enum: [1, 2, 4, 8]` triggers a 400. We drop
+ *     the constraint and append the allowed values to the description
+ *     so the LLM still sees them; the SequenceValidator catches any
+ *     out-of-range value downstream.
  *   - Leave everything else (type, properties, required, items, minItems,
- *     maxItems, minimum, maximum, multi-value enum, descriptions on
- *     non-enum-only nodes) untouched.
+ *     maxItems, minimum, maximum, string enums, descriptions on non-enum
+ *     nodes) untouched.
  */
 function adaptSchemaForGemini(schema) {
   if (Array.isArray(schema)) return schema.map(adaptSchemaForGemini);
@@ -174,11 +176,18 @@ function adaptSchemaForGemini(schema) {
     out[key] = value;
   }
 
-  // Strip description on single-value-enum nodes. (After the const→enum
-  // conversion above, an instrument-fixing node like
-  // { const: "scaleboard", description: "..." } becomes
-  // { enum: ["scaleboard"], description: "..." }. Gemini has been observed
-  // to 400 on this combination.)
+  // Drop non-string enums. Gemini only supports string-array enums; an
+  // integer enum like `[1, 2, 4, 8]` causes a 400. Move the constraint
+  // into the description so the LLM still sees the allowed values.
+  if (Array.isArray(out.enum) && out.enum.some(v => typeof v !== 'string')) {
+    const allowed = out.enum.map(v => JSON.stringify(v)).join(', ');
+    delete out.enum;
+    const note = `Allowed values: ${allowed}.`;
+    out.description = out.description ? `${out.description} ${note}` : note;
+  }
+
+  // Drop description on single-value-enum nodes — Gemini has been observed
+  // to 400 on a one-element enum sitting next to a description.
   if (Array.isArray(out.enum) && out.enum.length === 1 && 'description' in out) {
     delete out.description;
   }

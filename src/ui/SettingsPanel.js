@@ -23,6 +23,7 @@ import {
 } from '../ai/aiSettings.js';
 import { OpenAIProvider } from '../ai/OpenAIProvider.js';
 import { AnthropicProvider } from '../ai/AnthropicProvider.js';
+import { GeminiProvider } from '../ai/GeminiProvider.js';
 import { showToast } from './Toast.js';
 
 const TIME_SIGNATURE_OPTIONS = [
@@ -67,12 +68,23 @@ function escapeHtml(s) {
 }
 function escapeAttr(s) { return escapeHtml(s); }
 
+function apiKeyPlaceholderFor(providerId) {
+  switch (providerId) {
+    case 'openai':    return 'sk-...';
+    case 'anthropic': return 'sk-ant-...';
+    case 'gemini':    return 'AIza...';
+    default:          return 'paste your API key';
+  }
+}
+
 function providerModelsForUi(providerId) {
   switch (providerId) {
     case 'openai':
       return new OpenAIProvider().listModels();
     case 'anthropic':
       return new AnthropicProvider().listModels();
+    case 'gemini':
+      return new GeminiProvider().listModels();
     case 'ollama':
       return new OpenAIProvider({ baseUrl: 'http://localhost:11434/v1', requiresKey: false, id: 'ollama' }).listModels();
     case 'mock':
@@ -295,7 +307,9 @@ export class SettingsPanel {
     const aiSettings = readAiSettings(this.project);
     const provider = aiSettings.provider || 'mock';
     const showOllamaUrl = provider === AI_PROVIDER_IDS.ollama;
-    const showApiKey = provider === AI_PROVIDER_IDS.openai || provider === AI_PROVIDER_IDS.anthropic;
+    const showApiKey = provider === AI_PROVIDER_IDS.openai
+      || provider === AI_PROVIDER_IDS.anthropic
+      || provider === AI_PROVIDER_IDS.gemini;
     const apiKey = showApiKey ? aiReadApiKey(provider) : '';
     const keyStaged = showApiKey && !!apiKey;
     const models = providerModelsForUi(provider);
@@ -314,6 +328,7 @@ export class SettingsPanel {
             <option value="mock"      ${provider === 'mock'      ? 'selected' : ''}>Mock (offline test)</option>
             <option value="openai"    ${provider === 'openai'    ? 'selected' : ''}>OpenAI</option>
             <option value="anthropic" ${provider === 'anthropic' ? 'selected' : ''}>Anthropic (Claude)</option>
+            <option value="gemini"    ${provider === 'gemini'    ? 'selected' : ''}>Google Gemini</option>
             <option value="ollama"    ${provider === 'ollama'    ? 'selected' : ''}>Ollama (local)</option>
           </select>
         </div>
@@ -332,7 +347,7 @@ export class SettingsPanel {
         ${showApiKey ? `
         <div class="settings-row">
           <label class="settings-label" for="setting-ai-api-key">API key (this session)</label>
-          <input class="settings-input" id="setting-ai-api-key" type="password" value="${escapeAttr(apiKey)}" placeholder="sk-... or sk-ant-..." autocomplete="off" />
+          <input class="settings-input" id="setting-ai-api-key" type="password" value="${escapeAttr(apiKey)}" placeholder="${escapeAttr(apiKeyPlaceholderFor(provider))}" autocomplete="off" />
         </div>
         <div class="settings-row" style="display: block;">
           <p class="settings-help" style="margin: 0 0 var(--space-xs) 0; color: var(--text-tertiary); font-size: var(--font-size-xs); line-height: 1.4;">

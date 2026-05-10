@@ -25,6 +25,7 @@ export const PROVIDER_IDS = Object.freeze({
   mock: 'mock',
   openai: 'openai',
   anthropic: 'anthropic',
+  gemini: 'gemini',
   ollama: 'ollama',
 });
 

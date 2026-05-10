@@ -55,6 +55,7 @@ export class CreativeMode {
     this.sketchKit.onCreateInstrument = (anchor) => this._toggleCreateInstrumentPopover(anchor);
     this.sketchKit.onDeleteInstrument = () => this._deleteSelectedCustomInstrument();
     this.sketchKit.onKitChanged = () => this.store?.scheduleAutoSave(this.project);
+    this.sketchKit.onAISeedClick = (anchor, buttonEl) => this._toggleAISeedPopover(anchor, buttonEl);
     this.micRecorder = new MicRecorder();
     this.controllerMode = new ControllerMode(this.synth, this.project, modManager);
     this.controllerMode.onToneAssignmentChanged = () => this.store?.scheduleAutoSave(this.project);
@@ -289,6 +290,7 @@ export class CreativeMode {
       <button class="tone-button" id="create-instrument-button" type="button">${this._activePatchId.startsWith('custom:') ? 'Edit Instrument' : 'Create Instrument'}</button>
       <button class="tone-button" id="delete-instrument-button" type="button">Delete</button>
       <button class="tone-button" id="tone-button" type="button" aria-expanded="false" aria-controls="tone-popover">Tone</button>
+      <button class="tone-button ai-seed-button" id="ai-seed-button" type="button" aria-expanded="false" aria-controls="ai-seed-popover" title="Seed a snippet with AI">🤖 AI</button>
       <span class="tone-trigger-indicator" id="tone-trigger-indicator" aria-live="polite"></span>
     `;
     patchSel.querySelector('#patch-select').addEventListener('change', async (e) => {
@@ -306,6 +308,10 @@ export class CreativeMode {
     patchSel.querySelector('#tone-button').addEventListener('pointerdown', (e) => {
       e.preventDefault();
       this._toggleTonePopover(patchSel);
+    });
+    patchSel.querySelector('#ai-seed-button').addEventListener('click', (e) => {
+      e.preventDefault();
+      this._toggleAISeedPopover(patchSel, patchSel.querySelector('#ai-seed-button'));
     });
     this.el.appendChild(patchSel);
     this._syncInstrumentButtons();
@@ -332,27 +338,11 @@ export class CreativeMode {
 
     this.el.appendChild(container);
 
-    // AI Seed toolbar row sits above the snippet tray. Hidden when the
-    // active instrument is one the AI can't play (Mic / Controller).
-    const aiRow = document.createElement('div');
-    aiRow.className = 'ai-seed-row';
-    aiRow.id = 'ai-seed-row';
-    aiRow.innerHTML = `
-      <button class="ai-seed-button" id="ai-seed-button" type="button" aria-expanded="false" aria-controls="ai-seed-popover">
-        <span aria-hidden="true">🤖</span>
-        <span>AI seed</span>
-      </button>
-    `;
-    aiRow.querySelector('#ai-seed-button').addEventListener('click', (e) => {
-      e.preventDefault();
-      this._toggleAISeedPopover(aiRow);
-    });
-    this.el.appendChild(aiRow);
-    // Hidden by default until we know which instrument is active.
-    this._syncAISeedRowVisibility();
-
     // Snippet tray (bottom)
     this.el.appendChild(this.snippetTray.render());
+
+    // Sync AI Seed button visibility now that everything is mounted.
+    this._syncAISeedButtonVisibility();
     this._bindKeyboardPerformance();
 
     return this.el;
@@ -950,24 +940,36 @@ export class CreativeMode {
     // a context the AI can't write for. If the popover is open and the new
     // instrument is supported, refresh it so the suggestion chips and the
     // active-instrument label update.
-    this._syncAISeedRowVisibility();
+    this._syncAISeedButtonVisibility();
     if (!this._aiCanGenerateForInstrument(id)) {
       this._closeAISeedPopover();
     } else {
-      this._aiSeedPanelInstance?.refresh();
+      // The popover is anchored to whichever button was clicked. When the
+      // user switches to a different instrument while it's open, close it —
+      // the previous anchor may not be visible anymore. Re-opening the
+      // popover from the new instrument's button gives a fresh, correctly-
+      // positioned popover.
+      this._closeAISeedPopover();
     }
   }
 
   /**
-   * Show the AI Seed toolbar row only on instruments the AI can play.
-   * Controller and Mic don't qualify — Controller because it duplicates
-   * Scale Board's primitives and the user wanted it scoped out, Mic
-   * because the AI doesn't generate audio.
+   * Show the AI Seed button only on instruments the AI can play.
+   * - Scale Board / Piano: button lives in the patch-selector next to Tone.
+   * - Sketch Kit: button lives in the Kit's own toolbar (next to its Tone
+   *   button), surfaced by SketchKit. We only need to control the
+   *   patch-selector copy here.
+   * - Controller: AI scope explicitly excludes it (per user). Hide the
+   *   patch-selector AI button when Controller is active.
+   * - Mic: patch-selector is hidden anyway, so nothing to do.
    */
-  _syncAISeedRowVisibility() {
-    const row = this.el?.querySelector('#ai-seed-row');
-    if (!row) return;
-    row.style.display = this._aiCanGenerateForInstrument(this.activeInstrument) ? 'flex' : 'none';
+  _syncAISeedButtonVisibility() {
+    const btn = this.el?.querySelector('#ai-seed-button');
+    if (!btn) return;
+    const id = this.activeInstrument;
+    const showInPatchSelector =
+      id === INSTRUMENTS.SCALEBOARD || id === INSTRUMENTS.PIANO;
+    btn.style.display = showInPatchSelector ? '' : 'none';
   }
 
   _aiCanGenerateForInstrument(creativeInstrumentId) {
@@ -977,11 +979,15 @@ export class CreativeMode {
   }
 
   /**
-   * Open or close the AI seed popover. Anchors the popover to the toolbar
-   * row so it floats above the row (using bottom-anchoring CSS) without
-   * being clipped by the snippet tray.
+   * Open or close the AI seed popover.
+   *
+   * @param {HTMLElement} anchor      - Container element for the popover.
+   *   Patch-selector for Scale/Piano, sk-kit-selector for Kit.
+   * @param {HTMLElement} [buttonEl]  - The button element that opens the
+   *   popover. Used for aria-expanded and to suppress the click-outside
+   *   handler when re-clicking the button itself.
    */
-  _toggleAISeedPopover(anchor) {
+  _toggleAISeedPopover(anchor, buttonEl = null) {
     if (this._aiSeedPopover) {
       this._closeAISeedPopover();
       return;
@@ -1001,17 +1007,17 @@ export class CreativeMode {
     popover.appendChild(this._aiSeedPanelInstance.render());
 
     anchor.appendChild(popover);
-    anchor.querySelector('#ai-seed-button')?.setAttribute('aria-expanded', 'true');
+    if (buttonEl) buttonEl.setAttribute('aria-expanded', 'true');
     this._aiSeedPopover = popover;
+    this._aiSeedAnchorButton = buttonEl;
 
     // Click-outside to close. Listen on capture so we beat the popover's
     // own click handlers. Bound on next microtask so the click that opened
     // the popover doesn't immediately close it.
     const handlePointer = (e) => {
       if (!this._aiSeedPopover) return;
-      const aiBtn = anchor.querySelector('#ai-seed-button');
       if (this._aiSeedPopover.contains(e.target)) return;
-      if (aiBtn && aiBtn.contains(e.target)) return;
+      if (buttonEl && buttonEl.contains(e.target)) return;
       this._closeAISeedPopover();
     };
     queueMicrotask(() => {
@@ -1033,7 +1039,10 @@ export class CreativeMode {
       this._aiSeedPopover.remove();
       this._aiSeedPopover = null;
     }
-    this.el?.querySelector('#ai-seed-button')?.setAttribute('aria-expanded', 'false');
+    if (this._aiSeedAnchorButton) {
+      this._aiSeedAnchorButton.setAttribute('aria-expanded', 'false');
+      this._aiSeedAnchorButton = null;
+    }
   }
 
   _releaseKeyboardPerformance() {

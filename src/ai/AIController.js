@@ -18,6 +18,7 @@
 
 import { AIProvider } from './AIProvider.js';
 import { AnthropicProvider } from './AnthropicProvider.js';
+import { GeminiProvider } from './GeminiProvider.js';
 import { MockProvider } from './MockProvider.js';
 import { OpenAIProvider } from './OpenAIProvider.js';
 import { validateSequence } from './SequenceValidator.js';
@@ -88,6 +89,9 @@ export class AIController {
       }
       case PROVIDER_IDS.anthropic: {
         return new AnthropicProvider({ apiKey: readApiKey(PROVIDER_IDS.anthropic) });
+      }
+      case PROVIDER_IDS.gemini: {
+        return new GeminiProvider({ apiKey: readApiKey(PROVIDER_IDS.gemini) });
       }
       case PROVIDER_IDS.ollama: {
         return new OpenAIProvider({

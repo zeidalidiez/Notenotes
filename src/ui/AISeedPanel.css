@@ -1,40 +1,16 @@
 /* ============================================================
-   AI Seed — small toolbar row + popover
+   AI Seed — popover anchored to the AI Seed button.
+   The button itself piggybacks on .tone-button styling so it
+   matches the Tone button (same row, same shape, same fonts).
    ============================================================ */
 
-.ai-seed-row {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-md);
-  background: var(--surface-1);
-  border-top: var(--border-subtle);
-  border-bottom: var(--border-subtle);
-  flex-shrink: 0;
-  position: relative;
-}
-
+/* The AI Seed button is a .tone-button-classed element with a small
+   accent so it's recognizable but not louder than the Tone button. */
 .ai-seed-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--surface-3);
-  border: var(--border-subtle);
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  font-family: var(--font-family);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  min-height: 32px;
-  padding: var(--space-xs) var(--space-sm);
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-out),
-              color var(--duration-fast) var(--ease-out),
-              border-color var(--duration-fast) var(--ease-out);
+  /* Inherit base style from .tone-button via CSS class composition;
+     these rules only add accents specific to the AI button. */
 }
 
-.ai-seed-button:hover,
 .ai-seed-button[aria-expanded="true"] {
   border-color: var(--accent-dim);
   color: var(--accent-light);
@@ -43,7 +19,7 @@
 
 .ai-seed-popover {
   position: absolute;
-  bottom: calc(100% + 4px);
+  top: calc(100% + 4px);
   right: var(--space-md);
   z-index: 30;
   width: min(420px, calc(100vw - 32px));

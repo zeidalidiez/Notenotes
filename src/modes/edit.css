@@ -19,6 +19,7 @@
   border-bottom: var(--border-subtle);
   flex-shrink: 0;
   min-height: 36px;
+  overflow-x: auto;
 }
 
 .edit-toolbar__group {
@@ -56,6 +57,49 @@
   white-space: nowrap;
 }
 
+.edit-toolbar__btn--compact {
+  min-width: 30px;
+  padding-inline: 8px;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.edit-toolbar__btn--tiny {
+  min-height: 24px;
+  padding-inline: 6px;
+  font-size: var(--font-size-xs);
+}
+
+.edit-toolbar__btn--danger:hover {
+  color: var(--color-error);
+  border-color: rgba(232, 64, 64, 0.35);
+}
+
+.edit-toolbar__name-input {
+  width: 120px;
+  max-width: 24vw;
+  min-height: 28px;
+  padding: 2px 8px;
+  border: 1px solid var(--surface-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  outline: none;
+}
+
+.edit-toolbar__name-input:focus {
+  border-color: var(--accent-dim);
+  box-shadow: var(--shadow-glow);
+}
+
+.edit-toolbar__range-separator {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
 .edit-toolbar__select {
   background: var(--surface-3);
   border: var(--border-subtle);
@@ -65,6 +109,24 @@
   font-size: var(--font-size-xs);
   padding: 2px 6px;
   min-height: 28px;
+}
+
+@media (max-width: 640px) {
+  .edit-toolbar {
+    gap: var(--space-xs);
+    padding-inline: var(--space-sm);
+  }
+
+  .edit-toolbar__btn,
+  .edit-toolbar__select,
+  .edit-toolbar__name-input {
+    min-height: 34px;
+  }
+
+  .edit-toolbar__name-input {
+    width: 132px;
+    max-width: 42vw;
+  }
 }
 
 /* --- No Clip State --- */

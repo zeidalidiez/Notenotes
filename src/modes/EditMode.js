@@ -248,7 +248,7 @@ export class EditMode {
         <select class="edit-toolbar__select" id="edit-oct-low" aria-label="Low octave">
           ${[1,2,3,4,5].map(o => `<option value="${o}" ${pitchMinOct === o ? 'selected' : ''}>C${o}</option>`).join('')}
         </select>
-        <span style="font-size:0.7rem;color:var(--text-tertiary);">to</span>
+        <span class="edit-toolbar__range-separator">to</span>
         <select class="edit-toolbar__select" id="edit-oct-high" aria-label="High octave">
           ${[2,3,4,5,6].map(o => `<option value="${o}" ${pitchMaxOct === o ? 'selected' : ''}>C${o}</option>`).join('')}
         </select>
@@ -257,19 +257,19 @@ export class EditMode {
     const zoomHTML = isDrum ? '' : `
       <div class="edit-toolbar__group">
         <span class="edit-toolbar__label">Zoom</span>
-        <button class="btn btn--ghost" id="edit-zoom-out" style="min-height:26px;padding:0 6px;font-size:0.7rem;" title="Vertical zoom out">-</button>
-        <button class="btn btn--ghost" id="edit-zoom-in" style="min-height:26px;padding:0 6px;font-size:0.7rem;" title="Vertical zoom in">+</button>
+        <button class="btn btn--ghost edit-toolbar__btn edit-toolbar__btn--compact" id="edit-zoom-out" title="Vertical zoom out">-</button>
+        <button class="btn btn--ghost edit-toolbar__btn edit-toolbar__btn--compact" id="edit-zoom-in" title="Vertical zoom in">+</button>
       </div>
     `;
     const quantizeAllHTML = isDrum ? '' : `
-      <button class="btn btn--ghost" id="edit-quantize-all-btn" style="font-size:0.7rem;min-height:26px;padding:2px 8px;" title="Set every note duration to the selected grid">Quantize all</button>
+      <button class="btn btn--ghost edit-toolbar__btn" id="edit-quantize-all-btn" title="Set every note duration to the selected grid">Quantize all</button>
     `;
 
     return `
       <div class="edit-toolbar__group">
-        <input type="text" class="edit-toolbar__name-input" id="edit-snippet-name" value="${this._snippet.name || 'Snippet'}" placeholder="Snippet name" title="Edit snippet name" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--surface-3);border-radius:4px;padding:2px 6px;font-size:var(--font-size-sm);font-weight:var(--font-weight-medium);outline:none;max-width:100px;" />
-        <button class="btn btn--ghost" id="edit-double-btn" style="font-size:0.65rem;min-height:22px;padding:0 5px;" title="Double snippet length">2x</button>
-        <button class="btn btn--ghost" id="edit-half-btn" style="font-size:0.65rem;min-height:22px;padding:0 5px;" title="Halve snippet length">½</button>
+        <input type="text" class="edit-toolbar__name-input" id="edit-snippet-name" value="${this._snippet.name || 'Snippet'}" placeholder="Snippet name" title="Edit snippet name" />
+        <button class="btn btn--ghost edit-toolbar__btn edit-toolbar__btn--tiny" id="edit-double-btn" title="Double snippet length">2x</button>
+        <button class="btn btn--ghost edit-toolbar__btn edit-toolbar__btn--tiny" id="edit-half-btn" title="Halve snippet length">1/2</button>
         <span class="edit-toolbar__value">${noteCount} ${isDrum ? 'hits' : 'notes'}</span>
       </div>
       <div class="edit-toolbar__group">
@@ -287,11 +287,11 @@ export class EditMode {
       </div>
       ${zoomHTML}
       ${rangeHTML}
-      <button class="btn btn--ghost${this._splitMode ? ' is-active' : ''}" id="edit-split-btn" style="font-size:0.7rem;min-height:26px;padding:2px 8px;" title="Split view">Split</button>
+      <button class="btn btn--ghost edit-toolbar__btn${this._splitMode ? ' is-active' : ''}" id="edit-split-btn" title="Split view">Split</button>
       ${quantizeAllHTML}
       <div class="edit-toolbar__spacer"></div>
       <div class="edit-toolbar__group">
-        <button class="btn btn--ghost" id="edit-delete-btn" style="font-size:0.7rem;min-height:26px;padding:2px 8px;">Delete ${isDrum ? 'Hit' : 'Note'}</button>
+        <button class="btn btn--ghost edit-toolbar__btn edit-toolbar__btn--danger" id="edit-delete-btn">Delete ${isDrum ? 'Hit' : 'Note'}</button>
       </div>
     `;
   }

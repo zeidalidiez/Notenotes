@@ -985,7 +985,7 @@ On import/migration, embedded `audioDataUrl` should always be converted into a f
 
 ## App Versioning
 
-Current App Version: `0.0.36`
+Current App Version: `0.0.37`
 
 The visible app version is displayed in Settings. Bump it for meaningful user-facing changes or architecture/storage changes, especially when AI.MD is updated for completed work.
 
@@ -1346,7 +1346,7 @@ The Canvas toolbar is an editing surface, not a marketing strip. Keep it compact
 
 ## Inspect Blank Clip Creation
 
-App version `0.0.35` adds a direct writing path for users who do not want to record live. App version `0.0.36` fixes Inspect click-to-place coordinate math.
+App version `0.0.35` adds a direct writing path for users who do not want to record live. App version `0.0.36` fixes Inspect click-to-place coordinate math. App version `0.0.37` cleans up the Inspect toolbar styling.
 
 ### What changed
 
@@ -1357,6 +1357,8 @@ App version `0.0.35` adds a direct writing path for users who do not want to rec
 - `durationTicks` defaults to the current project bar length (`transport.ticksPerBar`) so the blank clip aligns with the current meter from the start.
 - New note/hit placement uses the clicked grid cell's start via `Math.floor(...)`, not `Math.round(...)`. This means clicking anywhere inside a 1/4, 1/8, 1/16, etc. grid block places in that block rather than jumping to the next block when clicking the right half.
 - Pointer coordinates are measured against `pane.gridEl.getBoundingClientRect()` without adding `gridContainer.scrollLeft/scrollTop`. The grid element's rect is already shifted by scroll, so adding scroll again caused notes to be placed down and to the right after scrolling.
+- Inspect toolbar controls now use `.edit-toolbar__btn`, `.edit-toolbar__btn--compact`, `.edit-toolbar__btn--tiny`, `.edit-toolbar__btn--danger`, `.edit-toolbar__name-input`, and `.edit-toolbar__range-separator` instead of inline per-button styles.
+- The toolbar now allows horizontal overflow, with taller touch targets under `640px`, matching the Canvas toolbar approach.
 
 ### Design intent
 

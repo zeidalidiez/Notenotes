@@ -985,7 +985,7 @@ On import/migration, embedded `audioDataUrl` should always be converted into a f
 
 ## App Versioning
 
-Current App Version: `0.0.32`
+Current App Version: `0.0.33`
 
 The visible app version is displayed in Settings. Bump it for meaningful user-facing changes or architecture/storage changes, especially when AI.MD is updated for completed work.
 
@@ -1317,6 +1317,29 @@ Mock and Ollama report "$0".
 - **Prompt is single-shot.** No retry on validator failure with a self-correction message. If the LLM returns garbage, the user sees the error and can refine their prompt.
 - **No streaming.** Sequences come back atomically. With small JSON outputs this isn't a UX problem.
 - **No multi-tool conversations.** One tool, one call, one snippet.
+
+## Canvas Toolbar Polish
+
+App version `0.0.33` cleaned up the Canvas toolbar as the second frontend-design pass.
+
+### What changed
+
+- The Canvas toolbar no longer uses one-off inline styles for its main controls. Track add buttons, zoom buttons, Trim, Loop, and Apply to Clip now share `.canvas-toolbar__btn` / `.canvas-toolbar__btn--icon`.
+- Inline divider `<div style="...">` elements were replaced with `.canvas-toolbar__divider`.
+- Zoom buttons now render as simple `-` and `+` controls with explicit `aria-label`s instead of emoji/text hybrids. This keeps the toolbar calmer and avoids inconsistent emoji rendering across mobile browsers.
+- Mobile toolbar touch targets are slightly taller at the `640px` breakpoint, while preserving the horizontal scrolling behavior needed for the full control strip.
+
+### Design intent
+
+The Canvas toolbar is an editing surface, not a marketing strip. Keep it compact, grouped, and predictable:
+
+- track creation controls first
+- timeline zoom next
+- edit/loop tools next
+- selected-clip Tone tools last
+- avoid per-button inline styles so future polish can happen from CSS
+
+---
 
 ## Mobile Transport Menu Polish
 

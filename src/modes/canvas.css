@@ -29,6 +29,30 @@
   flex: 0 0 auto;
 }
 
+.canvas-toolbar__btn {
+  min-height: 28px;
+  padding: 2px 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.canvas-toolbar__btn--icon {
+  min-width: 32px;
+  padding: 2px 8px;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.canvas-toolbar__divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--surface-3);
+  flex: 0 0 auto;
+}
+
 .canvas-toolbar__label {
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
@@ -52,7 +76,10 @@
 .canvas-loop-toggle {
   min-height: 28px;
   padding: 2px 10px;
-  font-size: 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .canvas-loop-toggle.is-active {
@@ -62,6 +89,33 @@
 }
 
 .canvas-toolbar__spacer { flex: 1; }
+
+@media (max-width: 640px) {
+  .canvas-toolbar {
+    gap: var(--space-xs);
+    padding-inline: var(--space-sm);
+  }
+
+  .canvas-toolbar__group {
+    gap: 4px;
+  }
+
+  .canvas-toolbar__btn,
+  .canvas-loop-toggle {
+    min-height: 34px;
+    padding-inline: 9px;
+  }
+
+  .canvas-toolbar__select {
+    height: 34px;
+    min-width: 132px;
+  }
+
+  .canvas-toolbar__divider {
+    height: 22px;
+    margin-inline: 3px;
+  }
+}
 
 /* --- Timeline Container --- */
 .canvas-timeline {

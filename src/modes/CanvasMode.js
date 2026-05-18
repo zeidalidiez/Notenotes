@@ -146,20 +146,20 @@ export class CanvasMode {
     toolbar.className = 'canvas-toolbar';
     toolbar.innerHTML = `
       <div class="canvas-toolbar__group">
-        <button class="btn btn--ghost" data-add-track-type="midi" style="font-size:0.75rem;min-height:28px;padding:2px 10px;">+ MIDI Track</button>
-        <button class="btn btn--ghost" data-add-track-type="drum" style="font-size:0.75rem;min-height:28px;padding:2px 10px;">+ Drum Track</button>
-        <button class="btn btn--ghost" data-add-track-type="audio" style="font-size:0.75rem;min-height:28px;padding:2px 10px;">+ Audio Track</button>
-        <div style="width: 1px; height: 16px; background: var(--surface-3); margin: 0 4px;"></div>
-        <button class="btn btn--ghost" id="canvas-zoom-out-btn" style="font-size:0.75rem;min-height:28px;padding:2px 8px;" title="Zoom Out (1/2x)">🔍-</button>
-        <button class="btn btn--ghost" id="canvas-zoom-in-btn" style="font-size:0.75rem;min-height:28px;padding:2px 8px;" title="Zoom In (2x)">🔍+</button>
-        <div style="width: 1px; height: 16px; background: var(--surface-3); margin: 0 4px;"></div>
-        <button class="btn btn--ghost" id="canvas-trim-btn" style="font-size:0.75rem;min-height:28px;padding:2px 8px;" title="Trim empty space from all snippets">✂️ Trim</button>
+        <button class="btn btn--ghost canvas-toolbar__btn" data-add-track-type="midi">+ MIDI Track</button>
+        <button class="btn btn--ghost canvas-toolbar__btn" data-add-track-type="drum">+ Drum Track</button>
+        <button class="btn btn--ghost canvas-toolbar__btn" data-add-track-type="audio">+ Audio Track</button>
+        <div class="canvas-toolbar__divider"></div>
+        <button class="btn btn--ghost canvas-toolbar__btn canvas-toolbar__btn--icon" id="canvas-zoom-out-btn" title="Zoom Out (1/2x)" aria-label="Zoom out">-</button>
+        <button class="btn btn--ghost canvas-toolbar__btn canvas-toolbar__btn--icon" id="canvas-zoom-in-btn" title="Zoom In (2x)" aria-label="Zoom in">+</button>
+        <div class="canvas-toolbar__divider"></div>
+        <button class="btn btn--ghost canvas-toolbar__btn" id="canvas-trim-btn" title="Trim empty space from all snippets">Trim</button>
         <button class="btn btn--ghost canvas-loop-toggle" id="canvas-loop-toggle" type="button" aria-pressed="${this._canvasLoopEnabled() ? 'true' : 'false'}" title="Loop Canvas from the start to the latest clip">Loop</button>
-        <div style="width: 1px; height: 16px; background: var(--surface-3); margin: 0 4px;"></div>
+        <div class="canvas-toolbar__divider"></div>
         <select class="canvas-toolbar__select" id="canvas-tone-preset" aria-label="Tone preset for selected clip">
           ${this._renderTonePresetOptions()}
         </select>
-        <button class="btn btn--ghost" id="canvas-tone-apply" style="font-size:0.75rem;min-height:28px;padding:2px 8px;" title="Apply Tone preset to selected clip">Apply to Clip</button>
+        <button class="btn btn--ghost canvas-toolbar__btn" id="canvas-tone-apply" title="Apply Tone preset to selected clip">Apply to Clip</button>
       </div>
       <div class="canvas-toolbar__spacer"></div>
       <div class="canvas-toolbar__group">

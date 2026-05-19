@@ -265,6 +265,7 @@ export class EditMode {
     const quantizeAllHTML = isDrum ? '' : `
       <button class="btn btn--ghost edit-toolbar__btn" id="edit-quantize-all-btn" title="Set every note duration to the selected grid">Quantize all</button>
     `;
+    const velocityValue = Math.round((this._selectedEditableEvent()?.velocity ?? 0.8) * 100);
 
     return `
       <div class="edit-toolbar__group">
@@ -276,6 +277,12 @@ export class EditMode {
       <div class="edit-toolbar__group">
         <button class="btn btn--ghost edit-toolbar__btn" id="edit-new-midi-toolbar" type="button">New MIDI</button>
         <button class="btn btn--ghost edit-toolbar__btn" id="edit-new-drum-toolbar" type="button">New Drum</button>
+      </div>
+      <div class="edit-toolbar__group">
+        <span class="edit-toolbar__label">Load</span>
+        <select class="edit-toolbar__select edit-toolbar__select--clip" id="edit-load-clip-select" aria-label="Load editable clip">
+          ${this._renderEditableClipOptions()}
+        </select>
       </div>
       <div class="edit-toolbar__group">
         <span class="edit-toolbar__label">Grid</span>
@@ -292,6 +299,11 @@ export class EditMode {
       </div>
       ${zoomHTML}
       ${rangeHTML}
+      <div class="edit-toolbar__group">
+        <span class="edit-toolbar__label">Velocity</span>
+        <input class="edit-toolbar__velocity" id="edit-velocity-range" type="range" min="1" max="100" value="${velocityValue}" aria-label="Selected note velocity" ${this._selectedNoteIdx === null ? 'disabled' : ''} />
+        <span class="edit-toolbar__velocity-value" id="edit-velocity-value">${this._selectedNoteIdx === null ? '--' : velocityValue}</span>
+      </div>
       <button class="btn btn--ghost edit-toolbar__btn${this._splitMode ? ' is-active' : ''}" id="edit-split-btn" title="Split view">Split</button>
       ${quantizeAllHTML}
       <div class="edit-toolbar__spacer"></div>
@@ -299,6 +311,18 @@ export class EditMode {
         <button class="btn btn--ghost edit-toolbar__btn edit-toolbar__btn--danger" id="edit-delete-btn">Delete ${isDrum ? 'Hit' : 'Note'}</button>
       </div>
     `;
+  }
+
+  _renderEditableClipOptions() {
+    const snippets = (this.project?.snippets || []).filter(s => s?.type === 'midi' || s?.type === 'drum');
+    if (!snippets.length) return '<option value="">No editable clips</option>';
+    return snippets.map(s => {
+      const count = (s.notes?.length || 0) + (s.hits?.length || 0);
+      const type = s.type === 'drum' ? 'Drum' : 'MIDI';
+      const label = s.name || `${type} clip`;
+      const selected = s.id === this._snippet?.id ? 'selected' : '';
+      return `<option value="${s.id}" ${selected}>${type}: ${label} (${count})</option>`;
+    }).join('');
   }
 
   _renderShadowOptions(isDrum) {
@@ -414,7 +438,7 @@ export class EditMode {
     const el = document.createElement('div');
     el.className = 'piano-roll__ruler';
 
-    const duration = this._snippet.durationTicks || (480 * 4);
+    const duration = this._displayDurationTicks();
     const width = duration * TICK_WIDTH;
     el.style.width = `${width}px`;
     el.style.minWidth = '100%';
@@ -434,6 +458,13 @@ export class EditMode {
     return el;
   }
 
+  _displayDurationTicks() {
+    const ticksPerBeat = this.transport?.ticksPerBeat || 480;
+    const beatsPerBar = this._beatsPerBar();
+    const minimumTicks = ticksPerBeat * beatsPerBar * 4;
+    return Math.max(this._snippet?.durationTicks || ticksPerBeat * beatsPerBar, minimumTicks);
+  }
+
   _beatsPerBar() {
     return Math.max(
       1,
@@ -445,7 +476,7 @@ export class EditMode {
   }
 
   _renderGridForRange(pitchMin, pitchMax, paneId) {
-    const duration = this._snippet.durationTicks || (480 * 4);
+    const duration = this._displayDurationTicks();
     const width = duration * TICK_WIDTH;
     const pitchRange = pitchMax - pitchMin;
     const isDrum = this._snippet?.type === 'drum';
@@ -696,6 +727,31 @@ export class EditMode {
       const isSel = n.dataset.noteIdx == idx || n.dataset.hitIdx == idx;
       n.classList.toggle('is-selected', isSel);
     });
+    this._syncVelocityControl();
+  }
+
+  _selectedEditableEvent() {
+    if (this._selectedNoteIdx === null || !this._snippet) return null;
+    if (this._snippet.type === 'drum') {
+      return this._snippet.hits?.[this._selectedNoteIdx] || null;
+    }
+    return this._snippet.notes?.[this._selectedNoteIdx] || null;
+  }
+
+  _syncVelocityControl() {
+    const range = this.el?.querySelector('#edit-velocity-range');
+    const value = this.el?.querySelector('#edit-velocity-value');
+    if (!range || !value) return;
+    const event = this._selectedEditableEvent();
+    if (!event) {
+      range.disabled = true;
+      value.textContent = '--';
+      return;
+    }
+    const velocity = Math.round(Math.max(0.01, Math.min(1, event.velocity ?? 0.8)) * 100);
+    range.disabled = false;
+    range.value = String(velocity);
+    value.textContent = String(velocity);
   }
 
   _deleteSelectedHit() {
@@ -847,6 +903,26 @@ export class EditMode {
       this._rebuildGrids();
     });
 
+    toolbar.querySelector('#edit-load-clip-select')?.addEventListener('change', (e) => {
+      const id = e.target.value;
+      if (!id || id === this._snippet?.id) return;
+      const snippet = this.project?.snippets?.find(s => s.id === id && (s.type === 'midi' || s.type === 'drum'));
+      if (!snippet) return;
+      this.loadSnippet(snippet);
+      showToast('Loaded clip in Inspect');
+    });
+
+    toolbar.querySelector('#edit-velocity-range')?.addEventListener('input', (e) => {
+      const event = this._selectedEditableEvent();
+      if (!event) return;
+      const velocity = Math.max(0.01, Math.min(1, Number(e.target.value) / 100));
+      event.velocity = velocity;
+      const value = toolbar.querySelector('#edit-velocity-value');
+      if (value) value.textContent = e.target.value;
+      this._rebuildGrids();
+      this.store?.scheduleAutoSave(this.project);
+    });
+
     const nameInput = toolbar.querySelector('#edit-snippet-name');
     if (nameInput) {
       const saveName = () => {
@@ -985,6 +1061,12 @@ export class EditMode {
   _addNote(startTick, pitch) {
     if (!this._snippet) return;
     if (!this._snippet.notes) this._snippet.notes = [];
+    const existingIdx = this._snippet.notes.findIndex(n => n.startTick === startTick && n.pitch === pitch);
+    if (existingIdx >= 0) {
+      this._selectNote(existingIdx);
+      showToast('Note already exists there');
+      return;
+    }
     const beforeState = this._snapshotSnippetState();
 
     const note = {
@@ -1003,6 +1085,12 @@ export class EditMode {
   _addHit(startTick, drumType) {
     if (!this._snippet) return;
     if (!this._snippet.hits) this._snippet.hits = [];
+    const existingIdx = this._snippet.hits.findIndex(h => h.startTick === startTick && h.type === drumType);
+    if (existingIdx >= 0) {
+      this._selectNote(existingIdx);
+      showToast('Hit already exists there');
+      return;
+    }
     const beforeState = this._snapshotSnippetState();
 
     const hit = {

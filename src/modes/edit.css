@@ -115,6 +115,26 @@
   max-width: 190px;
 }
 
+.edit-toolbar__select--clip {
+  max-width: 190px;
+}
+
+.edit-toolbar__velocity {
+  width: 82px;
+  accent-color: var(--accent);
+}
+
+.edit-toolbar__velocity:disabled {
+  opacity: 0.35;
+}
+
+.edit-toolbar__velocity-value {
+  min-width: 24px;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
 @media (max-width: 640px) {
   .edit-toolbar {
     gap: var(--space-xs);

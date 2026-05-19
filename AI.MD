@@ -985,7 +985,7 @@ On import/migration, embedded `audioDataUrl` should always be converted into a f
 
 ## App Versioning
 
-Current App Version: `0.0.38`
+Current App Version: `0.0.39`
 
 The visible app version is displayed in Settings. Bump it for meaningful user-facing changes or architecture/storage changes, especially when AI.MD is updated for completed work.
 
@@ -1346,7 +1346,7 @@ The Canvas toolbar is an editing surface, not a marketing strip. Keep it compact
 
 ## Inspect Blank Clip Creation
 
-App version `0.0.35` adds a direct writing path for users who do not want to record live. App version `0.0.36` fixes Inspect click-to-place coordinate math. App version `0.0.37` cleans up the Inspect toolbar styling. App version `0.0.38` adds a one-clip Shadow reference in Inspect.
+App version `0.0.35` adds a direct writing path for users who do not want to record live. App version `0.0.36` fixes Inspect click-to-place coordinate math. App version `0.0.37` cleans up the Inspect toolbar styling. App version `0.0.38` adds a one-clip Shadow reference in Inspect. App version `0.0.39` adds active clip loading, velocity editing, duplicate-add prevention, and a clearer four-bar minimum ruler/grid display.
 
 ### What changed
 
@@ -1362,6 +1362,10 @@ App version `0.0.35` adds a direct writing path for users who do not want to rec
 - The Inspect toolbar's `Shadow` select is intentionally immediate-use UI state only. `EditMode._shadowSnippetId` is not persisted to the project, milestones, backups, or exports.
 - Shadow clips render as `.piano-roll__shadow-note` elements before editable notes, so they sit behind the active clip and never intercept pointer events. MIDI shadows are green translucent blocks. Drum shadows are red translucent hits.
 - MIDI Inspect can shadow MIDI or drum snippets. Drum hits are mapped onto approximate MIDI pitches for melody alignment. Drum Inspect only lists drum snippets because melody notes do not map cleanly to drum rows.
+- The active Inspect toolbar now has a `Load` select for switching between editable MIDI/drum snippets without going back to the empty Inspect screen or snippet tray.
+- Selected notes/hits expose a `Velocity` slider. Velocity is stored back onto the selected note/hit as `0.01` to `1.0`, and the existing mini velocity strip remains the visual hint inside each note.
+- Exact duplicate note/hit creation is blocked when clicking the same pitch/type at the same start tick. Duplicates can make notes look brighter and can also stack playback voices, so new accidental duplicates should not be created.
+- `_displayDurationTicks()` keeps the Inspect ruler and grid visually extended to at least four bars, while `_updateSnippetDuration()` still keeps the actual snippet duration based on content.
 
 ### Design intent
 

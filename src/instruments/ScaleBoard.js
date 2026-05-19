@@ -156,7 +156,9 @@ export class ScaleBoard {
     } else {
       const scaleDef = SCALES[this.scaleName];
       const degreeCount = scaleDef ? scaleDef.intervals.length : 7;
-      const count = this._usesExtensions() ? 13 : degreeCount;
+      const count = this._usesExtensions()
+        ? (degreeCount === 7 ? 13 : degreeCount * 2)
+        : degreeCount;
       this._notes = this._fullScaleNotes.slice(0, Math.min(count, this._fullScaleNotes.length));
     }
 

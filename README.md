@@ -78,7 +78,7 @@ Open any snippet in a piano roll for fine edits. Click to add notes, drag to mov
 
 | Instrument | What it is |
 |---|---|
-| **Scale Board** | Pads locked to any scale (Major, Minor, Pentatonic, Blues, Dorian, Mixolydian, Chromatic). Pad count follows the scale, Extensions can continue it up to degree 13, or go fully custom. |
+| **Scale Board** | Pads locked to any scale (Major, Minor, Pentatonic, Blues, Dorian, Mixolydian, Chromatic). Pad count follows the scale, Extensions can continue it into the next octave, or go fully custom. |
 | **Controller** | Gamepad-as-instrument via the Web Gamepad API. D-pad + face buttons play notes; analog sticks bend pitch and modulation. Live on-screen overlay shows what you're pressing. |
 | **Micro Piano** | Configurable chromatic keyboard (1 or 2 stacked, 10–32 keys each) with octave shifting. |
 | **Sketch Kit** | 10-pad synthesized drum kit. Four kit presets (Classic, 808, Electronic, Acoustic), with the same Tone controls as the synth side. |
@@ -88,7 +88,7 @@ Plus: **16 synth presets** split into Chip and Modern families, **Tone** control
 
 ### For someone who wants a different perspective into the world of music.
 
-- **Scale-locked pads** - every press is in key. You can't pick a wrong note. Turn on **Extensions** to keep the scale going past 7, up to 13, without turning it into a theory quiz.
+- **Scale-locked pads** - every press is in key. You can't pick a wrong note. Turn on **Extensions** to keep the scale going into the next octave without turning it into a theory quiz.
 - **Beat colors** - set a different color for each beat. The background pulses in time so you can *see* the meter.
 - **Hold & arpeggio modes** - latch notes, auto-arpeggiate chords across **10 chord types**, **4 patterns**, and **4 rates**. Or sustain a drone while you explore.
 - **Tone** - simple sliders for Crush, Echo, Space, Wobble, Drive, and Noise. They work on synths and the drum kit, can be saved as presets, reset back to zero, and are meant to be fast and playful rather than a wall of studio knobs. Echo and Space have been tightened so live playback and WAV export are chasing the same sound instead of two separate guesses.

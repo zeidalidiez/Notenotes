@@ -46,6 +46,8 @@ export function normalizeSoundTraits(traits = {}) {
 /** Default synth patch */
 const DEFAULT_PATCH = {
   name: 'Default',
+  family: 'chip',
+  schemaVersion: 1,
   oscillator: {
     type: 'triangle',     // sine, square, sawtooth, triangle
     detune: 0,            // cents (-100 to 100)
@@ -64,6 +66,10 @@ const DEFAULT_PATCH = {
   },
   gain: 0.5,
   drive: 0,
+  filterEnv: null,
+  vibrato: null,
+  unison: null,
+  keyTrack: 0,
 };
 
 /** Built-in preset patches */
@@ -71,6 +77,7 @@ export const PRESETS = {
   // --- Retro / Chiptune ---
   chip_lead: {
     name: 'Chip Lead',
+    family: 'chip',
     oscillator: { type: 'square', detune: 0 },
     envelope: { attack: 0.005, decay: 0.1, sustain: 0.8, release: 0.1 },
     filter: { type: 'lowpass', frequency: 12000, Q: 0.5 },
@@ -78,6 +85,7 @@ export const PRESETS = {
   },
   chip_bass: {
     name: 'Chip Bass',
+    family: 'chip',
     oscillator: { type: 'square', detune: 0 },
     envelope: { attack: 0.005, decay: 0.2, sustain: 0.5, release: 0.15 },
     filter: { type: 'lowpass', frequency: 2000, Q: 2 },
@@ -85,6 +93,7 @@ export const PRESETS = {
   },
   cyber_secks: {
     name: 'Cyber Secks',
+    family: 'chip',
     oscillator: { type: 'sine', detune: 0 },
     oscillator2: { type: 'sine', detune: 1200, gain: 0.72 },
     envelope: { attack: 0.008, decay: 0.08, sustain: 0.85, release: 0.08 },
@@ -94,6 +103,7 @@ export const PRESETS = {
   },
   heartbound: {
     name: 'Heartbound',
+    family: 'chip',
     oscillator: { type: 'square', detune: 0 },
     oscillator2: { type: 'triangle', detune: 1200, gain: 0.3 },
     envelope: { attack: 0.004, decay: 0.12, sustain: 0.65, release: 0.16 },
@@ -103,6 +113,7 @@ export const PRESETS = {
   },
   triforce: {
     name: 'Triforce',
+    family: 'chip',
     oscillator: { type: 'triangle', detune: 0 },
     envelope: { attack: 0.003, decay: 0.1, sustain: 0.78, release: 0.1 },
     filter: { type: 'lowpass', frequency: 9500, Q: 0.4 },
@@ -111,6 +122,7 @@ export const PRESETS = {
   },
   bliff: {
     name: 'Bliff',
+    family: 'chip',
     oscillator: { type: 'sawtooth', detune: -7 },
     oscillator2: { type: 'square', detune: -1200, gain: 0.28 },
     envelope: { attack: 0.004, decay: 0.18, sustain: 0.5, release: 0.12 },
@@ -122,6 +134,7 @@ export const PRESETS = {
   // --- Modern / Ambient ---
   soft_pad: {
     name: 'Soft Pad',
+    family: 'modern',
     oscillator: { type: 'sine', detune: 8 },
     envelope: { attack: 0.6, decay: 0.5, sustain: 0.7, release: 1.2 },
     filter: { type: 'lowpass', frequency: 3000, Q: 0.7 },
@@ -129,6 +142,7 @@ export const PRESETS = {
   },
   shimmer_lead: {
     name: 'Shimmer Lead',
+    family: 'modern',
     oscillator: { type: 'sawtooth', detune: 5 },
     envelope: { attack: 0.05, decay: 0.3, sustain: 0.4, release: 0.8 },
     filter: { type: 'lowpass', frequency: 5000, Q: 3 },
@@ -138,6 +152,7 @@ export const PRESETS = {
   // --- Lo-fi ---
   lofi_keys: {
     name: 'Lo-fi Keys',
+    family: 'modern',
     oscillator: { type: 'triangle', detune: 12 },
     envelope: { attack: 0.02, decay: 0.4, sustain: 0.3, release: 0.6 },
     filter: { type: 'lowpass', frequency: 2500, Q: 1.5 },
@@ -145,6 +160,7 @@ export const PRESETS = {
   },
   warm_bass: {
     name: 'Warm Bass',
+    family: 'modern',
     oscillator: { type: 'sawtooth', detune: 0 },
     envelope: { attack: 0.01, decay: 0.3, sustain: 0.4, release: 0.2 },
     filter: { type: 'lowpass', frequency: 1200, Q: 4 },
@@ -154,6 +170,7 @@ export const PRESETS = {
   // --- Classic ---
   pluck: {
     name: 'Pluck',
+    family: 'chip',
     oscillator: { type: 'triangle', detune: 0 },
     envelope: { attack: 0.003, decay: 0.25, sustain: 0.0, release: 0.3 },
     filter: { type: 'lowpass', frequency: 6000, Q: 1 },
@@ -161,10 +178,71 @@ export const PRESETS = {
   },
   organ: {
     name: 'Organ',
+    family: 'modern',
     oscillator: { type: 'sine', detune: 0 },
     envelope: { attack: 0.01, decay: 0.05, sustain: 0.9, release: 0.05 },
     filter: { type: 'lowpass', frequency: 10000, Q: 0.5 },
     gain: 0.4,
+  },
+  modern_keys: {
+    name: 'Modern Keys',
+    family: 'modern',
+    schemaVersion: 2,
+    oscillator: { type: 'triangle', detune: 0 },
+    oscillator2: { type: 'sine', detune: 1200, gain: 0.18 },
+    envelope: { attack: 0.018, decay: 0.38, sustain: 0.38, release: 0.72 },
+    filter: { type: 'lowpass', frequency: 3100, Q: 1.1 },
+    filterEnv: { attack: 0.012, decay: 0.45, sustain: 0.28, depth: 0.42 },
+    vibrato: { rate: 4.8, depth: 5, delay: 0.18 },
+    unison: { voices: 3, spread: 9 },
+    keyTrack: 0.25,
+    gain: 0.34,
+    drive: 0.035,
+  },
+  modern_pad: {
+    name: 'Modern Pad',
+    family: 'modern',
+    schemaVersion: 2,
+    oscillator: { type: 'sawtooth', detune: -3 },
+    oscillator2: { type: 'triangle', detune: 1200, gain: 0.22 },
+    envelope: { attack: 0.75, decay: 0.8, sustain: 0.74, release: 1.6 },
+    filter: { type: 'lowpass', frequency: 2200, Q: 0.8 },
+    filterEnv: { attack: 0.42, decay: 1.15, sustain: 0.62, depth: 0.56 },
+    vibrato: { rate: 4.2, depth: 7, delay: 0.35 },
+    unison: { voices: 3, spread: 14 },
+    keyTrack: 0.36,
+    gain: 0.28,
+    drive: 0.015,
+  },
+  modern_bass: {
+    name: 'Modern Bass',
+    family: 'modern',
+    schemaVersion: 2,
+    oscillator: { type: 'sawtooth', detune: 0 },
+    oscillator2: { type: 'square', detune: -1200, gain: 0.2 },
+    envelope: { attack: 0.006, decay: 0.22, sustain: 0.48, release: 0.18 },
+    filter: { type: 'lowpass', frequency: 950, Q: 5 },
+    filterEnv: { attack: 0.004, decay: 0.26, sustain: 0.18, depth: 0.68 },
+    vibrato: null,
+    unison: { voices: 2, spread: 5 },
+    keyTrack: 0.18,
+    gain: 0.46,
+    drive: 0.22,
+  },
+  modern_pluck: {
+    name: 'Modern Pluck',
+    family: 'modern',
+    schemaVersion: 2,
+    oscillator: { type: 'triangle', detune: 0 },
+    oscillator2: { type: 'sawtooth', detune: 1200, gain: 0.12 },
+    envelope: { attack: 0.004, decay: 0.24, sustain: 0.05, release: 0.52 },
+    filter: { type: 'lowpass', frequency: 4200, Q: 1.6 },
+    filterEnv: { attack: 0.002, decay: 0.22, sustain: 0.05, depth: 0.74 },
+    vibrato: { rate: 5.2, depth: 4, delay: 0.2 },
+    unison: { voices: 3, spread: 7 },
+    keyTrack: 0.42,
+    gain: 0.36,
+    drive: 0.02,
   },
 };
 
@@ -203,6 +281,8 @@ export class WebAudioSynth {
   loadPatch(patch) {
     this.patch = {
       name: patch.name || 'Custom',
+      family: patch.family || DEFAULT_PATCH.family,
+      schemaVersion: patch.schemaVersion || DEFAULT_PATCH.schemaVersion,
       type: patch.type || 'synth',
       sampleBuffer: patch.sampleBuffer || null,
       rootMidi: patch.rootMidi ?? 60,
@@ -213,6 +293,10 @@ export class WebAudioSynth {
       filter: { ...DEFAULT_PATCH.filter, ...patch.filter },
       gain: patch.gain ?? DEFAULT_PATCH.gain,
       drive: patch.drive ?? DEFAULT_PATCH.drive,
+      filterEnv: patch.filterEnv ? { ...patch.filterEnv } : null,
+      vibrato: patch.vibrato ? { ...patch.vibrato } : null,
+      unison: patch.unison ? { ...patch.unison } : null,
+      keyTrack: patch.keyTrack ?? DEFAULT_PATCH.keyTrack,
     };
     if (this._output) {
       this._output.gain.setTargetAtTime(this.patch.gain, this.engine.currentTime, 0.01);
@@ -249,6 +333,63 @@ export class WebAudioSynth {
     return Math.pow(amount, 0.68);
   }
 
+  _filterBaseFrequency(midi) {
+    const keyTrack = Math.max(0, Math.min(1, this.patch.keyTrack || 0));
+    return Math.max(40, Math.min(18000, this.patch.filter.frequency * Math.pow(2, ((midi - 60) / 12) * keyTrack)));
+  }
+
+  _scheduleFilterEnvelope(filter, baseFrequency, now) {
+    const env = this.patch.filterEnv;
+    if (!env || (env.depth || 0) <= 0) return;
+    const attack = Math.max(0.001, env.attack ?? 0.01);
+    const decay = Math.max(0.001, env.decay ?? 0.3);
+    const sustain = Math.max(0, Math.min(1, env.sustain ?? 0.5));
+    const depth = Math.max(0, Math.min(1.5, env.depth ?? 0));
+    const openFrequency = Math.max(40, Math.min(19000, baseFrequency * (1 + depth * 4)));
+    const sustainFrequency = baseFrequency + (openFrequency - baseFrequency) * sustain;
+    filter.frequency.cancelScheduledValues(now);
+    filter.frequency.setValueAtTime(baseFrequency, now);
+    filter.frequency.linearRampToValueAtTime(openFrequency, now + attack);
+    filter.frequency.linearRampToValueAtTime(sustainFrequency, now + attack + decay);
+  }
+
+  _createOscillatorStack(midi, oscPatch, gainAmount, now) {
+    const ctx = this.engine.ctx;
+    const unison = this.patch.unison || {};
+    const voices = Math.max(1, Math.min(5, Math.round(unison.voices || 1)));
+    const spread = Math.max(0, Math.min(40, unison.spread || 0));
+    const oscillators = [];
+    const oscillatorGains = [];
+    for (let i = 0; i < voices; i++) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const spreadOffset = voices === 1 ? 0 : ((i / (voices - 1)) - 0.5) * spread;
+      osc.type = oscPatch.type || this.patch.oscillator.type;
+      osc.frequency.setValueAtTime(midiToFreq(midi), now);
+      osc.detune.setValueAtTime((oscPatch.detune || 0) + spreadOffset, now);
+      gain.gain.setValueAtTime((gainAmount ?? 1) / voices, now);
+      osc.connect(gain);
+      oscillators.push(osc);
+      oscillatorGains.push(gain);
+    }
+    return { oscillators, oscillatorGains };
+  }
+
+  _createVibrato(oscillators, now) {
+    const vibrato = this.patch.vibrato;
+    if (!vibrato || !oscillators.length || (vibrato.depth || 0) <= 0) return null;
+    const ctx = this.engine.ctx;
+    const lfo = ctx.createOscillator();
+    const gain = ctx.createGain();
+    lfo.type = 'sine';
+    lfo.frequency.setValueAtTime(vibrato.rate || 5.5, now);
+    gain.gain.setValueAtTime(vibrato.depth || 0, now);
+    lfo.connect(gain);
+    for (const osc of oscillators) gain.connect(osc.detune);
+    lfo.start(now + (vibrato.delay || 0));
+    return { lfo, gain };
+  }
+
   /**
    * Trigger a note on (start playing).
    * @param {number} midi - MIDI note number
@@ -282,7 +423,9 @@ export class WebAudioSynth {
 
       const filter = ctx.createBiquadFilter();
       filter.type = p.filter.type;
-      filter.frequency.setValueAtTime(p.filter.frequency, now);
+      const baseFilterFreq = this._filterBaseFrequency(midi);
+      filter.frequency.setValueAtTime(baseFilterFreq, now);
+      this._scheduleFilterEnvelope(filter, baseFilterFreq, now);
       filter.Q.setValueAtTime(p.filter.Q, now);
 
       const env = ctx.createGain();
@@ -314,27 +457,12 @@ export class WebAudioSynth {
       return;
     }
 
-    // Oscillator
-    const osc = ctx.createOscillator();
-    osc.type = p.oscillator.type;
-    osc.frequency.setValueAtTime(midiToFreq(midi), now);
-    osc.detune.setValueAtTime(p.oscillator.detune, now);
-
-    let osc2 = null;
-    let osc2Gain = null;
-    if (p.oscillator2) {
-      osc2 = ctx.createOscillator();
-      osc2.type = p.oscillator2.type || p.oscillator.type;
-      osc2.frequency.setValueAtTime(midiToFreq(midi), now);
-      osc2.detune.setValueAtTime(p.oscillator2.detune || 0, now);
-      osc2Gain = ctx.createGain();
-      osc2Gain.gain.setValueAtTime(p.oscillator2.gain ?? 0.35, now);
-    }
-
     // Filter
     const filter = ctx.createBiquadFilter();
     filter.type = p.filter.type;
-    filter.frequency.setValueAtTime(p.filter.frequency, now);
+    const baseFilterFreq = this._filterBaseFrequency(midi);
+    filter.frequency.setValueAtTime(baseFilterFreq, now);
+    this._scheduleFilterEnvelope(filter, baseFilterFreq, now);
     filter.Q.setValueAtTime(p.filter.Q, now);
 
     const drive = p.drive > 0 ? ctx.createWaveShaper() : null;
@@ -355,24 +483,29 @@ export class WebAudioSynth {
     );
 
     // Connect: osc → filter → env → output
+    const { oscillators, oscillatorGains } = this._createOscillatorStack(midi, p.oscillator, 1, now);
+    const { oscillators: oscillators2, oscillatorGains: oscillator2Gains } = p.oscillator2
+      ? this._createOscillatorStack(midi, {
+        type: p.oscillator2.type || p.oscillator.type,
+        detune: p.oscillator2.detune || 0,
+      }, p.oscillator2.gain ?? 0.35, now)
+      : { oscillators: [], oscillatorGains: [] };
+
     const toneInput = drive || filter;
-    osc.connect(toneInput);
-    if (osc2 && osc2Gain) {
-      osc2.connect(osc2Gain);
-      osc2Gain.connect(toneInput);
-    }
+    for (const gainNode of oscillatorGains) gainNode.connect(toneInput);
+    for (const gainNode of oscillator2Gains) gainNode.connect(toneInput);
     const noise = this._createVoiceNoise(now);
     if (noise) noise.gain.connect(toneInput);
     if (drive) drive.connect(filter);
     filter.connect(env);
     env.connect(this._toneInput || this._output);
 
-    osc.start(now);
-    if (osc2) osc2.start(now);
+    const vibrato = this._createVibrato(oscillators.concat(oscillators2), now);
+    for (const osc of oscillators.concat(oscillators2)) osc.start(now);
     if (noise) noise.source.start(now);
 
     // Store voice
-    const voice = { osc, osc2, noise, filter, env, midi, startTime: now };
+    const voice = { oscillators, oscillators2, vibrato, noise, filter, env, midi, startTime: now };
     this._voices.set(midi, voice);
     this._voiceQueue.push(midi);
   }
@@ -400,6 +533,9 @@ export class WebAudioSynth {
     if (voice.source) { try { voice.source.stop(stopAt); } catch (_) {} }
     if (voice.osc) { try { voice.osc.stop(stopAt); } catch (_) {} }
     if (voice.osc2) { try { voice.osc2.stop(stopAt); } catch (_) {} }
+    for (const osc of voice.oscillators || []) { try { osc.stop(stopAt); } catch (_) {} }
+    for (const osc of voice.oscillators2 || []) { try { osc.stop(stopAt); } catch (_) {} }
+    if (voice.vibrato?.lfo) { try { voice.vibrato.lfo.stop(stopAt); } catch (_) {} }
     if (voice.noise) { try { voice.noise.source.stop(stopAt); } catch (_) {} }
 
     // Remove from map
@@ -513,16 +649,21 @@ export class WebAudioSynth {
     if (echoAmount > 0) {
       const delay = ctx.createDelay(1);
       const feedback = ctx.createGain();
+      const feedbackFilter = ctx.createBiquadFilter();
       const wet = ctx.createGain();
       delay.delayTime.value = 0.12 + echoAmount * 0.38;
       feedback.gain.value = 0.24 + echoAmount * 0.54;
+      feedbackFilter.type = 'lowpass';
+      feedbackFilter.frequency.value = 4200 - echoAmount * 1500;
+      feedbackFilter.Q.value = 0.55;
       wet.gain.value = 0.08 + echoAmount * 0.6;
       current.connect(delay);
       delay.connect(feedback);
-      feedback.connect(delay);
+      feedback.connect(feedbackFilter);
+      feedbackFilter.connect(delay);
       delay.connect(wet);
       wet.connect(this._output);
-      this._effectNodes.push(delay, feedback, wet);
+      this._effectNodes.push(delay, feedback, feedbackFilter, wet);
     }
 
     const spaceAmount = this._traitCurve('space');
@@ -553,11 +694,26 @@ export class WebAudioSynth {
     const ctx = this.engine.ctx;
     const length = Math.max(1, Math.floor(ctx.sampleRate * duration));
     const impulse = ctx.createBuffer(2, length, ctx.sampleRate);
+    const preDelay = Math.floor(ctx.sampleRate * 0.018);
+    const reflections = [0.023, 0.041, 0.067, 0.109, 0.163, 0.251];
     for (let channel = 0; channel < 2; channel++) {
       const data = impulse.getChannelData(channel);
+      let low = 0;
       for (let i = 0; i < length; i++) {
+        if (i < preDelay) {
+          data[i] = 0;
+          continue;
+        }
         const t = i / length;
-        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, decay);
+        const noise = Math.random() * 2 - 1;
+        low = low * 0.82 + noise * 0.18;
+        const bright = noise * Math.max(0, 1 - t * 2.2);
+        const tail = low * Math.pow(1 - t, decay);
+        data[i] = (tail * 0.78 + bright * 0.22) * (channel === 0 ? 1 : -0.94);
+      }
+      for (let r = 0; r < reflections.length; r++) {
+        const idx = Math.floor(reflections[r] * ctx.sampleRate * (channel ? 1.08 : 1));
+        if (idx < length) data[idx] += (0.32 / (r + 1)) * (channel ? -1 : 1);
       }
     }
     return impulse;

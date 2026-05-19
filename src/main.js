@@ -23,6 +23,12 @@ import { SettingsPanel } from './ui/SettingsPanel.js';
 import { PlaybackEngine } from './engine/PlaybackEngine.js';
 import { ModulationManager } from './engine/ModulationManager.js';
 
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  import('./dev/AudioParityHarness.js').then((harness) => {
+    window.notenotesAudioParity = harness;
+  });
+}
+
 class App {
   constructor() {
     this.engine = AudioEngine.getInstance();

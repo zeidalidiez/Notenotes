@@ -985,7 +985,7 @@ On import/migration, embedded `audioDataUrl` should always be converted into a f
 
 ## App Versioning
 
-Current App Version: `0.0.44`
+Current App Version: `0.1.0`
 
 The visible app version is displayed in Settings. Bump it for meaningful user-facing changes or architecture/storage changes, especially when AI.MD is updated for completed work.
 
@@ -1063,6 +1063,57 @@ App version `0.0.43` makes Canvas drum tracks use the same kit list as the Kit p
 - Export job objects carry `kitId`; do not read `track.instrumentId` inside the final jobs render loop because that loop only has queued `job` data.
 - MIDI export only needs to know the track is a drum track, so it now also recognizes built-in kit ids for type detection. MIDI cannot encode Notenotes kit sound design itself.
 - Custom kit instruments still appear in the Kit screen's selector, but the sample-based custom kit playback path remains scaffolded. Do not promise custom kit sound parity in Canvas until `SketchKit._activeKit` can render those sample instruments.
+
+---
+
+## Audio Upgrade Milestone 0.1.0
+
+App version `0.1.0` starts the audio/export upgrade plan with no new dependencies, no WAV impulse assets, no AudioWorklet, and no OfflineAudioContext rewrite. The design goal is audible trust: Canvas WAV export should sound like the patch and Tone choices the user heard in the app, even if live and procedural export are not bit-identical.
+
+### Patch-aware Canvas WAV export
+
+- `src/export/WavExporter.js` now imports `PRESETS` and renders MIDI notes through `renderPatchTone()` instead of the old fixed sine-plus-square fallback.
+- `projectToWavBlob()` attaches the MIDI track's built-in synth patch to each export job and passes that patch into `renderMidiWithTone()`.
+- The procedural export renderer supports the existing v1 patch shape: primary oscillator type/detune, optional `oscillator2` type/detune/gain, ADSR envelope, filter type/frequency/Q, patch gain, and drive.
+- Individual snippet WAV export still has no durable built-in patch identity unless a caller provides `options.patch`. It defaults to `chip_lead`. This is intentional for now because snippets historically stored notes, not which synth preset happened to be selected when they were recorded.
+- Custom sample instruments still use `renderMidiWithCustomInstrument()` and are not routed through `renderPatchTone()`.
+
+### Schema-v2 synth motion fields
+
+`WebAudioSynth` now accepts these optional patch fields:
+
+- `schemaVersion`: currently `1` for legacy patches and `2` for patches that deliberately use new motion fields.
+- `family`: `chip` or `modern`, used for UI grouping.
+- `filterEnv`: optional filter frequency envelope `{ attack, decay, sustain, depth }`.
+- `vibrato`: optional per-voice LFO `{ rate, depth, delay }`, with depth in cents.
+- `unison`: optional oscillator stack `{ voices, spread }`, clamped to 1-5 voices and 0-40 cents spread.
+- `keyTrack`: optional 0-1 amount that raises filter frequency on higher MIDI notes and lowers it on lower MIDI notes.
+
+Missing fields preserve old behavior. Existing presets remain valid. Sample instruments get key-tracked/filter-envelope filtering, but unison and vibrato are intentionally conservative on samples for now.
+
+The procedural exporter mirrors these fields in `renderPatchTone()` so the new Modern presets survive Canvas WAV export. This is a practical approximation of the Web Audio graph, not a sample-for-sample clone.
+
+### Tone Trait parity pass
+
+- Live synth Echo and Sketch Kit Echo now use a low-pass filter in the feedback loop before the delayed signal re-enters the delay. Export Echo uses a matching regenerative filtered delay loop.
+- Live synth Space and Sketch Kit Space now generate a stereo-decorrelated impulse with pre-delay, early reflections, a darker tail, and different left/right timing. Export Space uses a longer multi-tap tail that follows the same practical target without adding bundled IR WAVs.
+- Crush remains vanilla/procedural. Export still has sample-hold behavior; live Crush remains waveshaper-based for now. Do not add AudioWorklet until there is a clear reason.
+- Drive, Wobble, and Noise remain on the existing curves with small export/live differences. Treat this as a first parity milestone, not the end of the audio work.
+
+### Preset families
+
+- Built-in synth presets are now grouped as Chip and Modern in Create and Canvas MIDI track selectors.
+- Four new Modern presets were added: `modern_keys`, `modern_pad`, `modern_bass`, and `modern_pluck`.
+- `TRACK_INSTRUMENTS` includes these new presets so Canvas MIDI tracks can select them and Canvas WAV export can render them with their patch motion.
+
+### Follow-up testing
+
+- In dev builds, `src/main.js` exposes `window.notenotesAudioParity` from `src/dev/AudioParityHarness.js`.
+- Useful console calls: `notenotesAudioParity.presetIds()`, `notenotesAudioParity.playPatch('modern_pad')`, and `notenotesAudioParity.renderAll({ traits })`.
+- The harness renders procedural WAV blobs through `WavExporter`; it is for quick export-side listening and patch-difference checks, not a full automated live-vs-export diff runner.
+- Manual QA should compare live playback and Canvas WAV export for at least `chip_lead`, `bliff`, `lofi_keys`, `modern_keys`, `modern_pad`, and `modern_bass`.
+- Test Tone at 0%, 50%, and 100% for Echo and Space on both MIDI and drum clips. The target is "recognizably the same effect", not bit-identical output.
+- Keep future audio work additive. If a patch starts using new fields, set `schemaVersion: 2`; do not mutate old saved patches in place unless a user action explicitly saves them.
 
 ---
 

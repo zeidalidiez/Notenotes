@@ -25,6 +25,10 @@ export const TRACK_INSTRUMENTS = {
   warm_bass:    { id: 'warm_bass',    name: 'Warm Bass',    type: 'synth', preset: 'warm_bass' },
   pluck:        { id: 'pluck',        name: 'Pluck',        type: 'synth', preset: 'pluck' },
   organ:        { id: 'organ',        name: 'Organ',        type: 'synth', preset: 'organ' },
+  modern_keys:  { id: 'modern_keys',  name: 'Modern Keys',  type: 'synth', preset: 'modern_keys' },
+  modern_pad:   { id: 'modern_pad',   name: 'Modern Pad',   type: 'synth', preset: 'modern_pad' },
+  modern_bass:  { id: 'modern_bass',  name: 'Modern Bass',  type: 'synth', preset: 'modern_bass' },
+  modern_pluck: { id: 'modern_pluck', name: 'Modern Pluck', type: 'synth', preset: 'modern_pluck' },
   kit:          { id: 'kit',          name: 'Drum Kit',     type: 'kit',   preset: null },
 };
 

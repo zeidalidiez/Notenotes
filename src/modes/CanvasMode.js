@@ -8,7 +8,7 @@ import './canvas.css';
 import { TransportState } from '../engine/Transport.js';
 import { TRACK_INSTRUMENTS } from '../engine/PlaybackEngine.js';
 import { DRUM_KITS } from '../instruments/SketchKit.js';
-import { normalizeSoundTraits } from '../instruments/WebAudioSynth.js';
+import { PRESETS, normalizeSoundTraits } from '../instruments/WebAudioSynth.js';
 import { showToast } from '../ui/Toast.js';
 
 /** Pixels per bar at default zoom */
@@ -249,8 +249,13 @@ export class CanvasMode {
   }
 
   _midiInstrumentOptions(selectedId) {
-    const builtIns = Object.values(TRACK_INSTRUMENTS)
-      .filter(inst => inst.type === 'synth')
+    const builtIns = Object.values(TRACK_INSTRUMENTS).filter(inst => inst.type === 'synth');
+    const chip = builtIns
+      .filter(inst => (PRESETS[inst.preset]?.family || 'chip') === 'chip')
+      .map(inst => `<option value="${inst.id}" ${selectedId === inst.id ? 'selected' : ''}>${inst.name}</option>`)
+      .join('');
+    const modern = builtIns
+      .filter(inst => PRESETS[inst.preset]?.family === 'modern')
       .map(inst => `<option value="${inst.id}" ${selectedId === inst.id ? 'selected' : ''}>${inst.name}</option>`)
       .join('');
     const custom = this._customPatchInstruments()
@@ -260,7 +265,8 @@ export class CanvasMode {
       })
       .join('');
     return `
-      <optgroup label="Synth presets">${builtIns}</optgroup>
+      <optgroup label="Chip presets">${chip}</optgroup>
+      <optgroup label="Modern presets">${modern}</optgroup>
       ${custom ? `<optgroup label="Custom instruments">${custom}</optgroup>` : ''}
     `;
   }

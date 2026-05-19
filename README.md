@@ -84,14 +84,14 @@ Open any snippet in a piano roll for fine edits. Click to add notes, drag to mov
 | **Sketch Kit** | 10-pad synthesized drum kit. Four kit presets (Classic, 808, Electronic, Acoustic), with the same Tone controls as the synth side. |
 | **Audio In** | Record from any input device with a live waveform. New audio snippets are saved with durable audio data so backups can actually bring them back. |
 
-Plus: **12 synth presets** (Chip Lead, Chip Bass, Cyber Secks, Heartbound, Triforce, Bliff, Soft Pad, Shimmer Lead, Lo-fi Keys, Warm Bass, Pluck, Organ), **Tone** controls for shaping sound without becoming a full DAW, and the entire instrument layer is [pluggable](#-build-your-own-instrument).
+Plus: **16 synth presets** split into Chip and Modern families, **Tone** controls for shaping sound without becoming a full DAW, and the entire instrument layer is [pluggable](#-build-your-own-instrument).
 
 ### For someone who wants a different perspective into the world of music.
 
 - **Scale-locked pads** - every press is in key. You can't pick a wrong note.
 - **Beat colors** - set a different color for each beat. The background pulses in time so you can *see* the meter.
 - **Hold & arpeggio modes** - latch notes, auto-arpeggiate chords across **10 chord types**, **4 patterns**, and **4 rates**. Or sustain a drone while you explore.
-- **Tone** - simple sliders for Crush, Echo, Space, Wobble, Drive, and Noise. They work on synths and the drum kit, can be saved as presets, and are meant to be fast and playful rather than a wall of studio knobs.
+- **Tone** - simple sliders for Crush, Echo, Space, Wobble, Drive, and Noise. They work on synths and the drum kit, can be saved as presets, and are meant to be fast and playful rather than a wall of studio knobs. Echo and Space have been tightened so live playback and WAV export are chasing the same sound instead of two separate guesses.
 - **Controller triggers as sound switches or note switches** - assign LT and RT to Tone, or use them to reach related notes like 7ths and 9ths by holding the trigger before you strike the pad.
 - **Keyboard shortcuts as instrument** - number row triggers pads, letter row triggers piano keys, `ArrowUp`/`ArrowDown` shift octave.
 - **Pitch & mod via QWERTY** - Korg K25-style mod (1/4/7) and pitch (3/6/9) when keys aren't in use.
@@ -99,7 +99,7 @@ Plus: **12 synth presets** (Chip Lead, Chip Bass, Cyber Secks, Heartbound, Trifo
 
 ### Three modes
 
-- **Create: playing and capturing.** 12 synth presets, 4 drum kits, scale-locked or chromatic, hold and arpeggio modes.
+- **Create: playing and capturing.** 16 synth presets, 4 drum kits, scale-locked or chromatic, hold and arpeggio modes. Chip presets stay punchy and retro, while Modern presets start using richer synth motion like filter movement, vibrato, unison, and key tracking.
 - **Canvas: arranging.** Typed MIDI, drum, and audio tracks with drag-and-drop, per-track mute / solo, compact track instrument dropdowns, drum tracks that can pick the same built-in kits as the Kit screen, a cleaner toolbar for adding tracks and shaping selected clips, a one-click **Trim** to clean empty space, and an auto-calculated loop region. Clips will not stack on top of each other by accident. When you drag near another clip, they snap edge to edge instead of silently overlapping. Recorded **pitch-bend**, **modulation**, and Tone badges ride on clips so you can see what has movement or effects.
 - **Inspect: refining.** Click-to-add piano roll. Rename Audio In recordings from the audio preview, switch between MIDI and drum clips from the toolbar, edit selected-note velocity with clearer note-level velocity meters, use vertical zoom, set the octave range (C1-C6), split the view, use **2x** / **1/2** snippet length buttons, snap an entire snippet with **Quantize all**, and turn on a one-clip **Shadow** view so you can line up a melody against another MIDI or drum idea without merging anything. Drum clips can shadow MIDI too, as a rough timing guide.
 
@@ -115,7 +115,7 @@ Inspect also lets you make a blank MIDI or drum clip directly, so you do not hav
 - **Milestones and backups.** Save named checkpoints in the app, load them later, delete the ones you no longer need, export a full workspace JSON backup, or export just your snippet library so browser storage is not the only copy. Backup files include the app version that created them. Older backups can move forward into newer Notenotes versions, but newer backups are blocked from importing into older builds.
 - **Customizable everywhere.** 2/4, 3/4, 4/4, and 5/4 time signatures for now. Custom beat colors for the background visualizer. Configurable pad, piano-key, and drum counts.
 - **Snippets are nameable** - and auto-named ones update themselves as you edit.
-- **Exports.** Sheet music as **SVG** or **ABC**, with a **percussion clef** for drum snippets. Export the whole Canvas or individual snippets as **MIDI** or **WAV**. WAV export renders Tone; MIDI export keeps the notes and timing but not the Notenotes-specific sound shaping. Empty or unavailable exports now fail clearly instead of handing you a misleading silent or tempo-only file. MP3 is still on the [roadmap](#future-vision).
+- **Exports.** Sheet music as **SVG** or **ABC**, with a **percussion clef** for drum snippets. Export the whole Canvas or individual snippets as **MIDI** or **WAV**. Canvas WAV export now respects the MIDI track's synth patch instead of turning every preset into the same generic tone, and WAV export renders Tone. MIDI export keeps the notes and timing but not the Notenotes-specific sound shaping. Empty or unavailable exports now fail clearly instead of handing you a misleading silent or tempo-only file. MP3 is still on the [roadmap](#future-vision).
 
 ---
 

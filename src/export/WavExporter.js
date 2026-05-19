@@ -1,7 +1,24 @@
-const TICKS_PER_BEAT = 480;
 import { DRUM_KITS } from '../instruments/SketchKit.js';
+import { PRESETS } from '../instruments/WebAudioSynth.js';
 
+const TICKS_PER_BEAT = 480;
 const SAMPLE_RATE = 44100;
+const TWO_PI = Math.PI * 2;
+
+const DEFAULT_EXPORT_PATCH = {
+  name: 'Default',
+  oscillator: { type: 'triangle', detune: 0 },
+  oscillator2: null,
+  envelope: { attack: 0.01, decay: 0.15, sustain: 0.6, release: 0.3 },
+  filter: { type: 'lowpass', frequency: 8000, Q: 1 },
+  gain: 0.5,
+  drive: 0,
+  filterEnv: null,
+  vibrato: null,
+  unison: null,
+  keyTrack: 0,
+  schemaVersion: 1,
+};
 
 function secondsPerTick(bpm = 120) {
   return 60 / Math.max(1, bpm) / TICKS_PER_BEAT;
@@ -14,6 +31,88 @@ function ticksPerBar(projectOrSnippet = {}) {
 
 function midiToFreq(midi) {
   return 440 * Math.pow(2, (midi - 69) / 12);
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function normalizeExportPatch(patch = {}) {
+  return {
+    ...DEFAULT_EXPORT_PATCH,
+    ...patch,
+    oscillator: { ...DEFAULT_EXPORT_PATCH.oscillator, ...(patch.oscillator || {}) },
+    oscillator2: patch.oscillator2 ? { ...patch.oscillator2 } : null,
+    envelope: { ...DEFAULT_EXPORT_PATCH.envelope, ...(patch.envelope || {}) },
+    filter: { ...DEFAULT_EXPORT_PATCH.filter, ...(patch.filter || {}) },
+    filterEnv: patch.filterEnv ? { ...patch.filterEnv } : null,
+    vibrato: patch.vibrato ? { ...patch.vibrato } : null,
+    unison: patch.unison ? { ...patch.unison } : null,
+    keyTrack: Number(patch.keyTrack) || 0,
+    schemaVersion: patch.schemaVersion || 1,
+  };
+}
+
+function oscillatorValue(type = 'sine', phaseCycles = 0) {
+  const phase = phaseCycles - Math.floor(phaseCycles);
+  if (type === 'square') return phase < 0.5 ? 1 : -1;
+  if (type === 'sawtooth') return 2 * phase - 1;
+  if (type === 'triangle') return 1 - 4 * Math.abs(Math.round(phase - 0.25) - (phase - 0.25));
+  return Math.sin(phase * TWO_PI);
+}
+
+function envelopeValue(t, durationSec, env) {
+  const attack = Math.max(0.001, env.attack || 0.001);
+  const decay = Math.max(0.001, env.decay || 0.001);
+  const sustain = clamp(env.sustain ?? 0.6, 0, 1);
+  const release = Math.max(0.001, env.release || 0.001);
+  if (t < attack) return t / attack;
+  if (t < attack + decay) {
+    const d = (t - attack) / decay;
+    return 1 + (sustain - 1) * d;
+  }
+  if (t <= durationSec) return sustain;
+  return Math.max(0, sustain * (1 - ((t - durationSec) / release)));
+}
+
+function filterFrequencyForPatch(patch, midi, t) {
+  const base = clamp(
+    (patch.filter.frequency || DEFAULT_EXPORT_PATCH.filter.frequency)
+      * Math.pow(2, ((midi - 60) / 12) * clamp(patch.keyTrack || 0, 0, 1)),
+    40,
+    18000,
+  );
+  const env = patch.filterEnv;
+  if (!env || (env.depth || 0) <= 0) return base;
+  const attack = Math.max(0.001, env.attack ?? 0.01);
+  const decay = Math.max(0.001, env.decay ?? 0.3);
+  const sustain = clamp(env.sustain ?? 0.5, 0, 1);
+  const depth = clamp(env.depth ?? 0, 0, 1.5);
+  const opened = clamp(base * (1 + depth * 4), 40, 19000);
+  if (t < attack) return base + (opened - base) * (t / attack);
+  if (t < attack + decay) {
+    const d = (t - attack) / decay;
+    return opened + ((base + (opened - base) * sustain) - opened) * d;
+  }
+  return base + (opened - base) * sustain;
+}
+
+function filterStep(input, state, type, cutoffHz) {
+  const alpha = clamp((TWO_PI * cutoffHz) / (TWO_PI * cutoffHz + SAMPLE_RATE), 0.001, 0.99);
+  state.low += (input - state.low) * alpha;
+  if (type === 'highpass') return input - state.low;
+  if (type === 'bandpass') {
+    const high = input - state.low;
+    state.band += (high - state.band) * Math.min(0.45, alpha * 3);
+    return state.band;
+  }
+  return state.low;
+}
+
+function driveSample(sample, amount = 0) {
+  if (!amount) return sample;
+  const k = Math.max(0, amount) * 70;
+  return ((1 + k) * sample) / (1 + k * Math.abs(sample));
 }
 
 function ensureLength(samples, seconds) {
@@ -100,23 +199,33 @@ function applyToneTraits(input, traits = {}) {
     const delay = Math.floor((0.12 + echo * 0.38) * SAMPLE_RATE);
     const feedback = 0.24 + echo * 0.54;
     const wet = 0.1 + echo * 0.68;
+    const cutoff = 4200 - echo * 1500;
+    const alpha = clamp((TWO_PI * cutoff) / (TWO_PI * cutoff + SAMPLE_RATE), 0.001, 0.99);
+    let fbLow = 0;
     for (let i = delay; i < out.length; i++) {
-      out[i] += out[i - delay] * feedback * wet;
+      fbLow += (out[i - delay] - fbLow) * alpha;
+      out[i] += fbLow * feedback * wet;
     }
   }
 
   const space = traitCurve(traits, 'space');
   if (space > 0) {
     const taps = [
-      [0.045, 0.22],
-      [0.083, 0.16],
-      [0.137, 0.11],
-      [0.211, 0.08],
+      [0.023, 0.18],
+      [0.041, 0.14],
+      [0.067, 0.12],
+      [0.109, 0.09],
+      [0.163, 0.07],
+      [0.251, 0.05],
+      [0.377, 0.035],
+      [0.521, 0.025],
     ];
+    let tail = 0;
     for (const [sec, gain] of taps) {
       const delay = Math.floor(sec * SAMPLE_RATE);
       for (let i = delay; i < out.length; i++) {
-        out[i] += out[i - delay] * gain * (0.75 + space * 1.65);
+        tail = tail * (0.72 + space * 0.08) + out[i - delay] * gain;
+        out[i] += tail * (0.7 + space * 1.25);
       }
     }
   }
@@ -136,24 +245,51 @@ function mixBuffer(target, source, startSec = 0, gain = 1) {
   }
 }
 
-function renderTone(buffer, startSec, durationSec, midi, velocity = 0.8) {
+function renderPatchTone(buffer, startSec, durationSec, midi, velocity = 0.8, patchInput = null) {
+  const patch = normalizeExportPatch(patchInput || PRESETS.chip_lead || DEFAULT_EXPORT_PATCH);
   const start = Math.max(0, Math.floor(startSec * SAMPLE_RATE));
-  const end = Math.min(buffer.length, Math.ceil((startSec + durationSec + 0.18) * SAMPLE_RATE));
-  const freq = midiToFreq(midi);
-  const amp = 0.22 * velocity;
-  const attack = Math.max(1, Math.floor(0.008 * SAMPLE_RATE));
-  const release = Math.max(1, Math.floor(0.12 * SAMPLE_RATE));
-  const noteSamples = Math.max(1, Math.floor(durationSec * SAMPLE_RATE));
+  const release = Math.max(0.02, patch.envelope.release || 0.02);
+  const end = Math.min(buffer.length, Math.ceil((startSec + durationSec + release + 0.02) * SAMPLE_RATE));
+  const baseFreq = midiToFreq(midi);
+  const amp = 0.58 * clamp(velocity, 0, 1.25) * clamp(patch.gain ?? 0.5, 0, 1.5);
+  const unison = patch.unison || {};
+  const unisonVoices = clamp(Math.round(unison.voices || 1), 1, 5);
+  const spread = clamp(unison.spread || 0, 0, 40);
+  const osc2Gain = patch.oscillator2 ? clamp(patch.oscillator2.gain ?? 0.35, 0, 1.5) : 0;
+  const filterState = { low: 0, band: 0 };
+  const phases = Array.from({ length: unisonVoices }, () => 0);
+  const phases2 = Array.from({ length: unisonVoices }, () => 0);
 
   for (let i = start; i < end; i++) {
     const n = i - start;
-    const phase = (n / SAMPLE_RATE) * freq;
-    const wave = Math.sin(phase * Math.PI * 2) * 0.65 + Math.sign(Math.sin(phase * Math.PI * 4)) * 0.18;
-    const attackGain = Math.min(1, n / attack);
-    const releaseStart = noteSamples;
-    const releaseGain = n <= releaseStart ? 1 : Math.max(0, 1 - ((n - releaseStart) / release));
-    mixSample(buffer, i, wave * amp * attackGain * releaseGain);
+    const t = n / SAMPLE_RATE;
+    const vibrato = patch.vibrato && t >= (patch.vibrato.delay || 0)
+      ? Math.sin(TWO_PI * (patch.vibrato.rate || 5.5) * (t - (patch.vibrato.delay || 0))) * (patch.vibrato.depth || 0)
+      : 0;
+    let wave = 0;
+    for (let v = 0; v < unisonVoices; v++) {
+      const spreadOffset = unisonVoices === 1 ? 0 : ((v / (unisonVoices - 1)) - 0.5) * spread;
+      const cents = (patch.oscillator.detune || 0) + spreadOffset + vibrato;
+      const freq = baseFreq * Math.pow(2, cents / 1200);
+      phases[v] += freq / SAMPLE_RATE;
+      wave += oscillatorValue(patch.oscillator.type, phases[v]);
+      if (patch.oscillator2) {
+        const cents2 = (patch.oscillator2.detune || 0) + spreadOffset + vibrato;
+        const freq2 = baseFreq * Math.pow(2, cents2 / 1200);
+        phases2[v] += freq2 / SAMPLE_RATE;
+        wave += oscillatorValue(patch.oscillator2.type || patch.oscillator.type, phases2[v]) * osc2Gain;
+      }
+    }
+    wave /= unisonVoices * (1 + osc2Gain);
+    wave = driveSample(wave, patch.drive || 0);
+    const cutoff = filterFrequencyForPatch(patch, midi, t);
+    const filtered = filterStep(wave, filterState, patch.filter.type, cutoff);
+    mixSample(buffer, i, filtered * amp * envelopeValue(t, durationSec, patch.envelope));
   }
+}
+
+function renderTone(buffer, startSec, durationSec, midi, velocity = 0.8) {
+  renderPatchTone(buffer, startSec, durationSec, midi, velocity, PRESETS.chip_lead);
 }
 
 function renderKick(buffer, startSec, velocity = 0.9, params = null) {
@@ -229,15 +365,17 @@ function renderSnippetEvents(buffer, snippet, startSec, bpm, options = {}) {
 function renderMidiWithTone(target, snippet, startSec, bpm, baseTraits = {}, gain = 1, options = {}) {
   const secPerTick = secondsPerTick(options.useSnippetBpm === false ? bpm : (snippet.bpm || bpm));
   const renderGain = clampGain(gain);
+  const patch = normalizeExportPatch(options.patch || PRESETS.chip_lead);
   for (const note of snippet.notes || []) {
     const noteTraits = note.soundTraits || baseTraits;
     const noteSamples = ensureLength(null, target.length / SAMPLE_RATE);
-    renderTone(
+    renderPatchTone(
       noteSamples,
       startSec + (note.startTick || 0) * secPerTick,
       Math.max(secPerTick, (note.durationTick || TICKS_PER_BEAT) * secPerTick),
       note.pitch || 60,
       (note.velocity || 0.8) * renderGain,
+      patch,
     );
     mixBuffer(target, applyToneTraits(noteSamples, noteTraits));
   }
@@ -418,11 +556,27 @@ export async function snippetToWavBlob(snippet, project = {}, options = {}) {
   const samples = ensureLength(null, durationSec);
   if (decoded) mixAudioBuffer(samples, decoded, 0);
   else if (snippet?.type === 'midi') {
-    renderMidiWithTone(samples, snippet || {}, 0, bpm, traits);
+    renderMidiWithTone(samples, snippet || {}, 0, bpm, traits, 1, { patch: options.patch || PRESETS.chip_lead });
   } else {
     renderSnippetEvents(samples, snippet || {}, 0, bpm, { toneTraits: traits });
   }
   return encodeWav(samples);
+}
+
+export function debugRenderBuiltInPatchWav(presetId = 'chip_lead', options = {}) {
+  const patch = PRESETS[presetId] || PRESETS.chip_lead;
+  const midi = options.midi || 60;
+  const durationSec = options.durationSec || 1.5;
+  const traits = options.traits || {};
+  const samples = ensureLength(null, durationSec + 2.2);
+  renderPatchTone(samples, 0, durationSec, midi, options.velocity || 0.85, patch);
+  return encodeWav(applyToneTraits(samples, traits));
+}
+
+export function debugRenderAllBuiltInPatchWavs(options = {}) {
+  return Object.fromEntries(
+    Object.keys(PRESETS).map(id => [id, debugRenderBuiltInPatchWav(id, options)])
+  );
 }
 
 export async function projectToWavBlob(project, options = {}) {
@@ -458,7 +612,8 @@ export async function projectToWavBlob(project, options = {}) {
       const durationSec = (snippet.durationTicks || barTicks) * secPerTick;
       const traits = clip.soundTraits || snippet.soundTraits || project?.settings?.soundTraits || {};
       const customInstrument = trackType === 'midi' ? customInstrumentForTrack(project, track) : null;
-      const job = { trackType, snippet, startSec, durationSec, gain, traits, customInstrument, kitId };
+      const patch = trackType === 'midi' && !customInstrument ? (PRESETS[track.instrumentId] || PRESETS.chip_lead) : null;
+      const job = { trackType, snippet, startSec, durationSec, gain, traits, customInstrument, patch, kitId };
 
       if (snippet.type === 'audio') {
         job.decoded = await decodeAudioSnippet(snippet, options);
@@ -495,7 +650,7 @@ export async function projectToWavBlob(project, options = {}) {
           renderMidiWithCustomInstrument(samples, snippet, job.customDecoded, job.customInstrument, startSec, bpm, gain, { useSnippetBpm: false });
         }
       } else {
-        renderMidiWithTone(samples, snippet, startSec, bpm, traits, gain, { useSnippetBpm: false });
+        renderMidiWithTone(samples, snippet, startSec, bpm, traits, gain, { useSnippetBpm: false, patch: job.patch });
       }
     } else {
       renderSnippetEvents(samples, snippet, startSec, bpm, { includeMidi: false, toneTraits: traits, gain, useSnippetBpm: false, kitId: job.kitId });

@@ -375,12 +375,14 @@ export class CreativeMode {
 
   _renderPatchOptions() {
     const custom = this._customInstruments().filter(instrument => instrument.type === 'patch');
+    const chipPresets = Object.entries(PRESETS).filter(([, p]) => (p.family || 'chip') === 'chip');
+    const modernPresets = Object.entries(PRESETS).filter(([, p]) => p.family === 'modern');
+    const renderOptions = entries => entries.map(([key, p]) =>
+      `<option value="${key}" ${key === this._activePatchId ? 'selected' : ''}>${p.name}</option>`
+    ).join('');
     return `
-      <optgroup label="Synth presets">
-        ${Object.entries(PRESETS).map(([key, p]) =>
-          `<option value="${key}" ${key === this._activePatchId ? 'selected' : ''}>${p.name}</option>`
-        ).join('')}
-      </optgroup>
+      <optgroup label="Chip presets">${renderOptions(chipPresets)}</optgroup>
+      <optgroup label="Modern presets">${renderOptions(modernPresets)}</optgroup>
       ${custom.length ? `
         <optgroup label="Custom instruments">
           ${custom.map(instrument =>

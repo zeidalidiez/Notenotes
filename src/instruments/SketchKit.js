@@ -709,16 +709,21 @@ export class SketchKit {
     if (echoAmount > 0) {
       const delay = ctx.createDelay(1.2);
       const feedback = ctx.createGain();
+      const feedbackFilter = ctx.createBiquadFilter();
       const wet = ctx.createGain();
       delay.delayTime.value = 0.09 + echoAmount * 0.42;
       feedback.gain.value = 0.28 + echoAmount * 0.58;
+      feedbackFilter.type = 'lowpass';
+      feedbackFilter.frequency.value = 4200 - echoAmount * 1500;
+      feedbackFilter.Q.value = 0.55;
       wet.gain.value = 0.12 + echoAmount * 0.72;
       current.connect(delay);
       delay.connect(feedback);
-      feedback.connect(delay);
+      feedback.connect(feedbackFilter);
+      feedbackFilter.connect(delay);
       delay.connect(wet);
       wet.connect(this._output);
-      this._effectNodes.push(delay, feedback, wet);
+      this._effectNodes.push(delay, feedback, feedbackFilter, wet);
     }
 
     const spaceAmount = this._traitCurve('space');
@@ -776,11 +781,26 @@ export class SketchKit {
     const ctx = this.engine.ctx;
     const length = Math.max(1, Math.floor(ctx.sampleRate * duration));
     const impulse = ctx.createBuffer(2, length, ctx.sampleRate);
+    const preDelay = Math.floor(ctx.sampleRate * 0.018);
+    const reflections = [0.023, 0.041, 0.067, 0.109, 0.163, 0.251];
     for (let channel = 0; channel < 2; channel++) {
       const data = impulse.getChannelData(channel);
+      let low = 0;
       for (let i = 0; i < length; i++) {
+        if (i < preDelay) {
+          data[i] = 0;
+          continue;
+        }
         const t = i / length;
-        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, decay);
+        const noise = Math.random() * 2 - 1;
+        low = low * 0.82 + noise * 0.18;
+        const bright = noise * Math.max(0, 1 - t * 2.2);
+        const tail = low * Math.pow(1 - t, decay);
+        data[i] = (tail * 0.78 + bright * 0.22) * (channel === 0 ? 1 : -0.94);
+      }
+      for (let r = 0; r < reflections.length; r++) {
+        const idx = Math.floor(reflections[r] * ctx.sampleRate * (channel ? 1.08 : 1));
+        if (idx < length) data[idx] += (0.32 / (r + 1)) * (channel ? -1 : 1);
       }
     }
     return impulse;

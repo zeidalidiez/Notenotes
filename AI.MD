@@ -1054,6 +1054,7 @@ App version `0.0.43` makes Canvas drum tracks use the same kit list as the Kit p
 - `_normalizeTrackType()` treats `kit`, built-in drum kit ids, and custom kit ids as drum instruments so older projects and newer selected-kit tracks keep their lane type.
 - `PlaybackEngine` recognizes built-in drum kit ids as `type: 'kit'` instrument definitions and calls `SketchKit.loadKit()` before firing hits for that drum track.
 - Canvas WAV export passes the selected built-in kit id into the offline drum renderer so exported Canvas WAVs roughly follow the selected kit instead of always sounding like Classic.
+- Export job objects carry `kitId`; do not read `track.instrumentId` inside the final jobs render loop because that loop only has queued `job` data.
 - MIDI export only needs to know the track is a drum track, so it now also recognizes built-in kit ids for type detection. MIDI cannot encode Notenotes kit sound design itself.
 - Custom kit instruments still appear in the Kit screen's selector, but the sample-based custom kit playback path remains scaffolded. Do not promise custom kit sound parity in Canvas until `SketchKit._activeKit` can render those sample instruments.
 

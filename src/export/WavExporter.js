@@ -435,7 +435,8 @@ export async function projectToWavBlob(project, options = {}) {
   let maxSec = barTicks * secPerTick;
 
   for (const track of audibleTracks) {
-  const trackType = track.type || (track.instrumentId === 'kit' || DRUM_KITS[track.instrumentId] ? 'drum' : 'midi');
+    const trackType = track.type || (track.instrumentId === 'kit' || DRUM_KITS[track.instrumentId] ? 'drum' : 'midi');
+    const kitId = trackType === 'drum' && DRUM_KITS[track.instrumentId] ? track.instrumentId : 'classic';
     const gain = clampGain(track.volume, 1);
     for (const clip of track.clips || []) {
       const snippet = clip.snippet;
@@ -457,7 +458,7 @@ export async function projectToWavBlob(project, options = {}) {
       const durationSec = (snippet.durationTicks || barTicks) * secPerTick;
       const traits = clip.soundTraits || snippet.soundTraits || project?.settings?.soundTraits || {};
       const customInstrument = trackType === 'midi' ? customInstrumentForTrack(project, track) : null;
-      const job = { trackType, snippet, startSec, durationSec, gain, traits, customInstrument };
+      const job = { trackType, snippet, startSec, durationSec, gain, traits, customInstrument, kitId };
 
       if (snippet.type === 'audio') {
         job.decoded = await decodeAudioSnippet(snippet, options);
@@ -497,8 +498,7 @@ export async function projectToWavBlob(project, options = {}) {
         renderMidiWithTone(samples, snippet, startSec, bpm, traits, gain, { useSnippetBpm: false });
       }
     } else {
-      const kitId = DRUM_KITS[track.instrumentId] ? track.instrumentId : 'classic';
-      renderSnippetEvents(samples, snippet, startSec, bpm, { includeMidi: false, toneTraits: traits, gain, useSnippetBpm: false, kitId });
+      renderSnippetEvents(samples, snippet, startSec, bpm, { includeMidi: false, toneTraits: traits, gain, useSnippetBpm: false, kitId: job.kitId });
     }
   }
 

@@ -448,13 +448,15 @@ export class ProjectStore {
     };
     await this._db.add(STORE_VERSIONS, snapshot);
 
-    // Prune old versions beyond the project setting
+    await this.pruneVersions(project);
+  }
+
+  async pruneVersions(project) {
     const maxVersions = versionHistoryLimit(project);
     const tx = this._db.transaction(STORE_VERSIONS, 'readwrite');
     const index = tx.store.index('projectId');
     const versions = await index.getAll(project.id);
     if (versions.length > maxVersions) {
-      // Sort by timestamp ascending, delete oldest
       versions.sort((a, b) => a.timestamp - b.timestamp);
       const toDelete = versions.slice(0, versions.length - maxVersions);
       for (const v of toDelete) {

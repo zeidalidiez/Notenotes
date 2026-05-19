@@ -1175,13 +1175,16 @@ export class SettingsPanel {
       this._loadStorageStatus();
     });
 
-    body.querySelector('#version-history-limit')?.addEventListener('change', (e) => {
+    body.querySelector('#version-history-limit')?.addEventListener('change', async (e) => {
       if (!this.project) return;
       const limit = parseInt(e.target.value, 10);
       if (!VERSION_HISTORY_LIMITS.includes(limit)) return;
       this.project.settings ||= {};
       this.project.settings.versionHistoryLimit = limit;
-      this.store?.scheduleAutoSave(this.project);
+      await this.store?.save(this.project);
+      await this.store?.pruneVersions?.(this.project);
+      await this._loadVersionHistory();
+      await this._loadStorageStatus();
       showToast(`Keeping up to ${limit} versions`);
     });
 

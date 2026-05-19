@@ -104,7 +104,7 @@ Expected:
 - The exported WAV contains the recorded sound.
 - The clip does not become silent after export.
 
-### 2.4 Audio In Duration Sanity
+### 2.4 Audio In Playback Length Matches What You Recorded
 
 Steps:
 
@@ -118,7 +118,7 @@ Expected:
 - The audible recording length feels like the clip you recorded.
 - The start is not padded with surprise silence.
 - The export does not cut off the end or add a long empty tail.
-- You do not need to calculate decoded duration manually. This test is just checking that the browser's decoded audio and the stored snippet timing behave like the same clip.
+- This is a listening test. You are checking whether playback/export sounds like the recording you made, not measuring browser audio metadata.
 
 ## 3. Canvas Tracks And Clip Placement
 

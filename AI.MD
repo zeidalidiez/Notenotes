@@ -985,7 +985,7 @@ On import/migration, embedded `audioDataUrl` should always be converted into a f
 
 ## App Versioning
 
-Current App Version: `0.0.43`
+Current App Version: `0.0.44`
 
 The visible app version is displayed in Settings. Bump it for meaningful user-facing changes or architecture/storage changes, especially when AI.MD is updated for completed work.
 
@@ -1041,7 +1041,13 @@ App version `0.0.42` addresses a QA pass around Canvas arrangement safety, audio
 
 ### QA note wording
 
-The manual QA item about "decoded duration differs from stored snippet duration" means: record real Audio In, place it on Canvas, export/play it, and confirm the audible clip length matches the actual recording even if metadata says a slightly different tick duration. It is not asking the user to calculate the mismatch manually.
+The old manual QA wording "decoded duration differs from stored snippet duration" was removed because it asked the tester to reason about browser internals. The current QA wording is a plain listening test: record real Audio In, place it on Canvas, export/play it, and confirm the audible length sounds like what was recorded without surprise leading silence, cutoff, or a long empty tail.
+
+### Version history limit behavior
+
+- App version `0.0.44` changes Settings -> Save -> Version History -> Keep so it calls `ProjectStore.pruneVersions(project)` immediately.
+- The project is saved, old version snapshots beyond the selected limit are deleted, the history list is reloaded, and storage status refreshes in the same interaction.
+- Do not rely on a later autosave or page refresh to make the selected limit visible.
 
 ---
 

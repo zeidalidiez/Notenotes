@@ -7,7 +7,7 @@
  */
 
 import { WebAudioSynth, PRESETS } from '../instruments/WebAudioSynth.js';
-import { SketchKit } from '../instruments/SketchKit.js';
+import { DRUM_KITS, SketchKit } from '../instruments/SketchKit.js';
 import { AudioEngine } from './AudioEngine.js';
 import { TransportState } from './Transport.js';
 
@@ -139,9 +139,24 @@ export class PlaybackEngine {
   }
 
   _instrumentDef(instId) {
+    if (instId === 'kit') {
+      return { id: 'classic', name: DRUM_KITS.classic.name, type: 'kit', kitId: 'classic' };
+    }
+    if (DRUM_KITS[instId]) {
+      return { id: instId, name: DRUM_KITS[instId].name, type: 'kit', kitId: instId };
+    }
     if (instId?.startsWith?.('custom:')) {
       const instrument = (this.project?.settings?.customInstruments || [])
-        .find(item => item.id === instId.slice(7) && item.type === 'patch');
+        .find(item => item.id === instId.slice(7));
+      if (instrument?.type === 'kit') {
+        return {
+          id: instId,
+          name: instrument.name,
+          type: 'kit',
+          kitId: instId,
+          customInstrument: instrument,
+        };
+      }
       return instrument ? {
         id: instId,
         name: instrument.name,
@@ -222,8 +237,8 @@ export class PlaybackEngine {
       if (track.muted) continue;
       if (hasSolo && !track.solo) continue;
 
-      const trackType = track.type || (track.instrumentId === 'kit' ? 'drum' : 'midi');
-      const instId = trackType === 'drum' ? 'kit' : (track.instrumentId || 'chip_lead');
+      const trackType = track.type || (track.instrumentId === 'kit' || DRUM_KITS[track.instrumentId] ? 'drum' : 'midi');
+      const instId = trackType === 'drum' ? (track.instrumentId || 'classic') : (track.instrumentId || 'chip_lead');
       const instDef = this._instrumentDef(instId);
       if (trackType !== 'audio' && !instDef) continue;
 
@@ -265,6 +280,7 @@ export class PlaybackEngine {
 
         // Play drum hits
         if (instDef?.type === 'kit' && snippet.hits && this._kit) {
+          this._kit.loadKit(instDef.kitId || 'classic');
           for (const hit of snippet.hits) {
             if (hit.startTick === localTick) {
               this._kit.setSoundTraits(hit.soundTraits || clip.soundTraits || snippet.soundTraits || this.project?.settings?.soundTraits);

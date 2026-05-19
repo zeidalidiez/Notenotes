@@ -985,7 +985,7 @@ On import/migration, embedded `audioDataUrl` should always be converted into a f
 
 ## App Versioning
 
-Current App Version: `0.0.42`
+Current App Version: `0.0.43`
 
 The visible app version is displayed in Settings. Bump it for meaningful user-facing changes or architecture/storage changes, especially when AI.MD is updated for completed work.
 
@@ -1042,6 +1042,20 @@ App version `0.0.42` addresses a QA pass around Canvas arrangement safety, audio
 ### QA note wording
 
 The manual QA item about "decoded duration differs from stored snippet duration" means: record real Audio In, place it on Canvas, export/play it, and confirm the audible clip length matches the actual recording even if metadata says a slightly different tick duration. It is not asking the user to calculate the mismatch manually.
+
+---
+
+## Canvas Drum Kit Parity
+
+App version `0.0.43` makes Canvas drum tracks use the same kit list as the Kit playing screen.
+
+- `CanvasMode` imports `DRUM_KITS` from `SketchKit` and renders built-in kit options (`Classic`, `808`, `Electronic`, `Acoustic`) in the drum track instrument dropdown.
+- Drum tracks now store the selected built-in kit id directly, such as `classic` or `eight08`. Legacy `kit` still aliases to `classic`.
+- `_normalizeTrackType()` treats `kit`, built-in drum kit ids, and custom kit ids as drum instruments so older projects and newer selected-kit tracks keep their lane type.
+- `PlaybackEngine` recognizes built-in drum kit ids as `type: 'kit'` instrument definitions and calls `SketchKit.loadKit()` before firing hits for that drum track.
+- Canvas WAV export passes the selected built-in kit id into the offline drum renderer so exported Canvas WAVs roughly follow the selected kit instead of always sounding like Classic.
+- MIDI export only needs to know the track is a drum track, so it now also recognizes built-in kit ids for type detection. MIDI cannot encode Notenotes kit sound design itself.
+- Custom kit instruments still appear in the Kit screen's selector, but the sample-based custom kit playback path remains scaffolded. Do not promise custom kit sound parity in Canvas until `SketchKit._activeKit` can render those sample instruments.
 
 ---
 

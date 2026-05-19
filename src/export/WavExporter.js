@@ -1,4 +1,6 @@
 const TICKS_PER_BEAT = 480;
+import { DRUM_KITS } from '../instruments/SketchKit.js';
+
 const SAMPLE_RATE = 44100;
 
 function secondsPerTick(bpm = 120) {
@@ -154,37 +156,45 @@ function renderTone(buffer, startSec, durationSec, midi, velocity = 0.8) {
   }
 }
 
-function renderKick(buffer, startSec, velocity = 0.9) {
+function renderKick(buffer, startSec, velocity = 0.9, params = null) {
   const start = Math.max(0, Math.floor(startSec * SAMPLE_RATE));
-  const len = Math.floor(0.42 * SAMPLE_RATE);
+  const decay = params?.decay || 0.42;
+  const len = Math.floor(decay * SAMPLE_RATE);
+  const freq0 = params?.freq0 || 140;
+  const freq1 = params?.freq1 || 45;
+  const vol = params?.vol || 0.9;
   for (let i = 0; i < len; i++) {
     const t = i / SAMPLE_RATE;
-    const env = Math.exp(-t * 9);
-    const freq = 45 + 95 * Math.exp(-t * 22);
-    mixSample(buffer, start + i, Math.sin(2 * Math.PI * freq * t) * env * 0.9 * velocity);
+    const env = Math.exp(-t * (4.5 / Math.max(0.08, decay)));
+    const freq = freq1 + (freq0 - freq1) * Math.exp(-t * 22);
+    mixSample(buffer, start + i, Math.sin(2 * Math.PI * freq * t) * env * vol * velocity);
   }
 }
 
-function renderNoiseHit(buffer, startSec, kind = 'snare', velocity = 0.75) {
+function renderNoiseHit(buffer, startSec, kind = 'snare', velocity = 0.75, params = null) {
   const start = Math.max(0, Math.floor(startSec * SAMPLE_RATE));
-  const lenSec = kind === 'hihat' ? 0.11 : kind === 'cymbal' ? 0.45 : 0.22;
+  const lenSec = params?.decay || params?.noiseDecay || (kind === 'hihat' ? 0.11 : kind === 'cymbal' ? 0.45 : 0.22);
   const len = Math.floor(lenSec * SAMPLE_RATE);
   let last = 0;
+  const vol = params?.vol || 0.75;
+  const bodyFreq = params?.bodyFreq || params?.rimFreq || 190;
   for (let i = 0; i < len; i++) {
     const t = i / SAMPLE_RATE;
     const env = Math.exp(-t * (kind === 'cymbal' ? 7 : 16));
     const noise = (Math.random() * 2 - 1);
     last = kind === 'snare' || kind === 'clap' ? (last * 0.55 + noise * 0.45) : noise;
-    const body = kind === 'snare' ? Math.sin(2 * Math.PI * 190 * t) * 0.25 : 0;
-    mixSample(buffer, start + i, (last * 0.55 + body) * env * velocity);
+    const body = kind === 'snare' || kind === 'rim' ? Math.sin(2 * Math.PI * bodyFreq * t) * 0.25 : 0;
+    mixSample(buffer, start + i, (last * 0.55 + body) * env * vol * velocity);
   }
 }
 
-function renderHit(buffer, hit, startSec, secPerTick) {
+function renderHit(buffer, hit, startSec, secPerTick, kitId = 'classic') {
   const time = startSec + (hit.startTick || 0) * secPerTick;
   const velocity = hit.velocity || 0.8;
-  if (hit.type === 'kick') renderKick(buffer, time, velocity);
-  else renderNoiseHit(buffer, time, hit.type || 'snare', velocity);
+  const kit = DRUM_KITS[kitId] || DRUM_KITS.classic;
+  const params = kit.sounds?.[hit.type] || null;
+  if (hit.type === 'kick' || hit.type === 'tomlo' || hit.type === 'tommid' || hit.type === 'tomhi') renderKick(buffer, time, velocity, params);
+  else renderNoiseHit(buffer, time, hit.type || 'snare', velocity, params);
 }
 
 function renderSnippetEvents(buffer, snippet, startSec, bpm, options = {}) {
@@ -207,10 +217,10 @@ function renderSnippetEvents(buffer, snippet, startSec, bpm, options = {}) {
       const traits = hit.soundTraits || options.toneTraits || snippet.soundTraits;
       if (hasToneTraits(traits)) {
         const hitSamples = ensureLength(null, buffer.length / SAMPLE_RATE);
-        renderHit(hitSamples, hitWithGain, startSec, secPerTick);
+        renderHit(hitSamples, hitWithGain, startSec, secPerTick, options.kitId);
         mixBuffer(buffer, applyToneTraits(hitSamples, traits));
       } else {
-        renderHit(buffer, hitWithGain, startSec, secPerTick);
+        renderHit(buffer, hitWithGain, startSec, secPerTick, options.kitId);
       }
     }
   }
@@ -425,7 +435,7 @@ export async function projectToWavBlob(project, options = {}) {
   let maxSec = barTicks * secPerTick;
 
   for (const track of audibleTracks) {
-    const trackType = track.type || (track.instrumentId === 'kit' ? 'drum' : 'midi');
+  const trackType = track.type || (track.instrumentId === 'kit' || DRUM_KITS[track.instrumentId] ? 'drum' : 'midi');
     const gain = clampGain(track.volume, 1);
     for (const clip of track.clips || []) {
       const snippet = clip.snippet;
@@ -487,7 +497,8 @@ export async function projectToWavBlob(project, options = {}) {
         renderMidiWithTone(samples, snippet, startSec, bpm, traits, gain, { useSnippetBpm: false });
       }
     } else {
-      renderSnippetEvents(samples, snippet, startSec, bpm, { includeMidi: false, toneTraits: traits, gain, useSnippetBpm: false });
+      const kitId = DRUM_KITS[track.instrumentId] ? track.instrumentId : 'classic';
+      renderSnippetEvents(samples, snippet, startSec, bpm, { includeMidi: false, toneTraits: traits, gain, useSnippetBpm: false, kitId });
     }
   }
 

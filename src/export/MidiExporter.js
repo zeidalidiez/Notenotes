@@ -1,3 +1,5 @@
+import { DRUM_KITS } from '../instruments/SketchKit.js';
+
 const PPQ = 480;
 const DRUM_MIDI = {
   kick: 36,
@@ -96,7 +98,7 @@ export function projectToMidiBlob(project, options = {}) {
   const audibleTracks = (project?.tracks || []).filter(track => !track.muted && (!hasSolo || track.solo));
 
   for (const track of audibleTracks) {
-    const trackType = track.type || (track.instrumentId === 'kit' ? 'drum' : 'midi');
+    const trackType = track.type || (track.instrumentId === 'kit' || DRUM_KITS[track.instrumentId] ? 'drum' : 'midi');
     for (const clip of (track.clips || [])) {
       const snippet = clip.snippet;
       if (!snippet) continue;

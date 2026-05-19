@@ -7,6 +7,7 @@
 import './canvas.css';
 import { TransportState } from '../engine/Transport.js';
 import { TRACK_INSTRUMENTS } from '../engine/PlaybackEngine.js';
+import { DRUM_KITS } from '../instruments/SketchKit.js';
 import { normalizeSoundTraits } from '../instruments/WebAudioSynth.js';
 import { showToast } from '../ui/Toast.js';
 
@@ -219,14 +220,14 @@ export class CanvasMode {
   _normalizeTrackType(track) {
     const clips = track.clips || [];
     if (clips.some(c => c.snippet?.type === 'audio')) track.type = 'audio';
-    else if (track.instrumentId === 'kit' && !clips.some(c => c.snippet?.type === 'midi')) track.type = 'drum';
+    else if (this._isDrumInstrumentId(track.instrumentId) && !clips.some(c => c.snippet?.type === 'midi')) track.type = 'drum';
     else if (!track.type) {
       if (clips.some(c => c.snippet?.type === 'drum')) track.type = 'drum';
       else track.type = 'midi';
     }
-    if (track.type === 'drum') track.instrumentId = 'kit';
+    if (track.type === 'drum' && !this._isDrumInstrumentId(track.instrumentId)) track.instrumentId = 'classic';
     if (track.type === 'audio') track.instrumentId = 'audio';
-    if (track.type === 'midi' && (!track.instrumentId || track.instrumentId === 'kit' || track.instrumentId === 'audio')) {
+    if (track.type === 'midi' && (!track.instrumentId || this._isDrumInstrumentId(track.instrumentId) || track.instrumentId === 'audio')) {
       track.instrumentId = 'chip_lead';
     }
     if (!Array.isArray(track.clips)) track.clips = [];
@@ -235,6 +236,16 @@ export class CanvasMode {
 
   _customPatchInstruments() {
     return (this.project?.settings?.customInstruments || []).filter(instrument => instrument.type === 'patch');
+  }
+
+  _customKitInstruments() {
+    return (this.project?.settings?.customInstruments || []).filter(instrument => instrument.type === 'kit');
+  }
+
+  _isDrumInstrumentId(instrumentId) {
+    return instrumentId === 'kit'
+      || !!DRUM_KITS[instrumentId]
+      || this._customKitInstruments().some(instrument => `custom:${instrument.id}` === instrumentId);
   }
 
   _midiInstrumentOptions(selectedId) {
@@ -255,16 +266,31 @@ export class CanvasMode {
   }
 
   _drumInstrumentOptions(selectedId = 'kit') {
-    return Object.values(TRACK_INSTRUMENTS)
-      .filter(inst => inst.type === 'kit')
-      .map(inst => `<option value="${inst.id}" ${selectedId === inst.id ? 'selected' : ''}>${inst.name}</option>`)
+    const normalizedSelected = selectedId === 'kit' ? 'classic' : selectedId;
+    const builtIns = Object.entries(DRUM_KITS)
+      .map(([id, kit]) => `<option value="${id}" ${normalizedSelected === id ? 'selected' : ''}>${kit.name}</option>`)
       .join('');
+    const custom = this._customKitInstruments()
+      .map(instrument => {
+        const id = `custom:${instrument.id}`;
+        return `<option value="${id}" ${normalizedSelected === id ? 'selected' : ''}>${instrument.name}</option>`;
+      })
+      .join('');
+    return `
+      <optgroup label="Drum kits">${builtIns}</optgroup>
+      ${custom ? `<optgroup label="Custom instruments">${custom}</optgroup>` : ''}
+    `;
   }
 
   _instrumentName(instrumentId) {
     if (instrumentId?.startsWith?.('custom:')) {
-      return this._customPatchInstruments().find(instrument => instrument.id === instrumentId.slice(7))?.name || 'Custom instrument';
+      const id = instrumentId.slice(7);
+      return this._customPatchInstruments().find(instrument => instrument.id === id)?.name
+        || this._customKitInstruments().find(instrument => instrument.id === id)?.name
+        || 'Custom instrument';
     }
+    if (instrumentId === 'kit') return DRUM_KITS.classic.name;
+    if (DRUM_KITS[instrumentId]) return DRUM_KITS[instrumentId].name;
     return TRACK_INSTRUMENTS[instrumentId]?.name || instrumentId;
   }
 
@@ -945,7 +971,7 @@ export class CanvasMode {
       id: crypto.randomUUID(),
       name: `${typeLabel} ${trackNum}`,
       type,
-      instrumentId: type === 'drum' ? 'kit' : type === 'audio' ? 'audio' : 'chip_lead',
+      instrumentId: type === 'drum' ? 'classic' : type === 'audio' ? 'audio' : 'chip_lead',
       clips: [],
       muted: false,
       solo: false,

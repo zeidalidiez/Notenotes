@@ -461,6 +461,10 @@ export class SketchKit {
     return Math.pow(amount, 0.68);
   }
 
+  panic() {
+    if (this._toneInput && this._output) this._rebuildEffects();
+  }
+
   _toggleTonePopover() {
     const existing = this.el?.querySelector('#sk-tone-popover');
     if (existing) {
@@ -520,10 +524,12 @@ export class SketchKit {
           </select>
           <button class="btn btn--ghost" id="sk-tone-preset-apply" type="button">Apply</button>
           <button class="btn btn--ghost" id="sk-tone-preset-delete" type="button">Delete</button>
+          <button class="btn btn--ghost" id="sk-tone-reset" type="button">Reset</button>
         </div>
         <div class="tone-preset__row">
           <input class="tone-preset__input" id="sk-tone-preset-name" type="text" placeholder="Preset name" aria-label="Tone preset name">
           <button class="btn btn--ghost" id="sk-tone-preset-save" type="button">Save</button>
+          <button class="btn btn--ghost" id="sk-tone-preset-save-new" type="button">Save as new</button>
         </div>
       </div>
     `;
@@ -550,13 +556,37 @@ export class SketchKit {
       showToast(`Tone preset deleted: ${preset.name}`);
     });
 
+    popover.querySelector('#sk-tone-preset-select')?.addEventListener('change', () => {
+      const preset = this._selectedTonePreset(popover);
+      const input = popover.querySelector('#sk-tone-preset-name');
+      if (input) input.value = preset?.name || '';
+    });
+
+    popover.querySelector('#sk-tone-reset')?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this.setSoundTraits(normalizeSoundTraits({}));
+      this._syncToneSliders();
+      if (this.onSoundTraitsChanged) this.onSoundTraitsChanged(this.soundTraits);
+      showToast('Tone reset');
+    });
+
     popover.querySelector('#sk-tone-preset-save')?.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       const input = popover.querySelector('#sk-tone-preset-name');
       const name = input?.value?.trim();
       if (!name) return showToast('Name the Tone preset first');
-      this._saveTonePreset(name);
-      if (input) input.value = '';
+      const selected = this._selectedTonePreset(popover);
+      this._saveTonePreset(name, { id: selected?.id });
+      this._refreshTonePresetControls();
+      showToast(`Tone preset saved: ${name}`);
+    });
+
+    popover.querySelector('#sk-tone-preset-save-new')?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const input = popover.querySelector('#sk-tone-preset-name');
+      const name = input?.value?.trim();
+      if (!name) return showToast('Name the Tone preset first');
+      this._saveTonePreset(name, { forceNew: true });
       this._refreshTonePresetControls();
       showToast(`Tone preset saved: ${name}`);
     });
@@ -573,9 +603,9 @@ export class SketchKit {
     return this._tonePresets().find(preset => preset.id === id) || null;
   }
 
-  _saveTonePreset(name) {
+  _saveTonePreset(name, { id = null, forceNew = false } = {}) {
     const presets = this._tonePresets();
-    const existing = presets.find(p => p.name.toLowerCase() === name.toLowerCase());
+    const existing = !forceNew && (presets.find(p => p.id === id) || presets.find(p => p.name.toLowerCase() === name.toLowerCase()));
     const preset = {
       id: existing?.id || crypto.randomUUID(),
       name,
@@ -712,11 +742,11 @@ export class SketchKit {
       const feedbackFilter = ctx.createBiquadFilter();
       const wet = ctx.createGain();
       delay.delayTime.value = 0.09 + echoAmount * 0.42;
-      feedback.gain.value = 0.28 + echoAmount * 0.58;
+      feedback.gain.value = 0.18 + echoAmount * 0.42;
       feedbackFilter.type = 'lowpass';
       feedbackFilter.frequency.value = 4200 - echoAmount * 1500;
       feedbackFilter.Q.value = 0.55;
-      wet.gain.value = 0.12 + echoAmount * 0.72;
+      wet.gain.value = 0.08 + echoAmount * 0.48;
       current.connect(delay);
       delay.connect(feedback);
       feedback.connect(feedbackFilter);

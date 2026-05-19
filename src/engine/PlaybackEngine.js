@@ -273,7 +273,7 @@ export class PlaybackEngine {
         if (instDef?.type === 'synth' && synth && snippet.notes) {
           for (const note of snippet.notes) {
             if (note.startTick === localTick) {
-              synth.setSoundTraits(note.soundTraits || clip.soundTraits || snippet.soundTraits || this.project?.settings?.soundTraits);
+              synth.setSoundTraits(clip.soundTraits || note.soundTraits || snippet.soundTraits || this.project?.settings?.soundTraits);
               synth.noteOn(note.pitch, note.velocity || 0.8, nextTickTime);
               const noteOffTick = tick + (note.durationTick || 240);
               const key = `${track.id}-${note.pitch}`;
@@ -287,7 +287,7 @@ export class PlaybackEngine {
           this._kit.loadKit(instDef.kitId || 'classic');
           for (const hit of snippet.hits) {
             if (hit.startTick === localTick) {
-              this._kit.setSoundTraits(hit.soundTraits || clip.soundTraits || snippet.soundTraits || this.project?.settings?.soundTraits);
+              this._kit.setSoundTraits(clip.soundTraits || hit.soundTraits || snippet.soundTraits || this.project?.settings?.soundTraits);
               this._kit._triggerSound(hit.type || 'kick', nextTickTime);
             }
           }
@@ -326,6 +326,14 @@ export class PlaybackEngine {
     for (const [, entry] of this._trackSynths) {
       entry.synth.allNotesOff();
     }
+  }
+
+  panic() {
+    this._releaseActiveNotes();
+    for (const [, entry] of this._trackSynths) {
+      entry.synth.panic?.();
+    }
+    this._kit?.panic?.();
   }
 
   _releaseActiveNotes(time = null) {

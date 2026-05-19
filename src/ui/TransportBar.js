@@ -20,8 +20,10 @@ export class TransportBar {
     this.onArpClick = null;
     this.onKeysClick = null;
     this.onModResetClick = null;
+    this.onPanicClick = null;
     this.onMoreOpen = null;
     this._lastMoreToggle = 0;
+    this._lastStopPress = 0;
   }
 
   /**
@@ -110,7 +112,11 @@ export class TransportBar {
     // Stop
     this.el.querySelector('#btn-stop').addEventListener('pointerdown', (e) => {
       e.preventDefault();
+      const now = Date.now();
+      const isDoubleStop = now - this._lastStopPress < 650;
+      this._lastStopPress = now;
       this.transport.stop();
+      if (isDoubleStop && this.onPanicClick) this.onPanicClick();
     });
 
     // Record

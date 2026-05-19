@@ -165,6 +165,12 @@ class App {
       this.transportBar.setModDisplay(this.modManager.pitchPercent, this.modManager.modPercent);
     };
 
+    this.transportBar.onPanicClick = () => {
+      this.creativeMode?.panic?.();
+      this.playbackEngine?.panic?.();
+      showToast('Audio stopped');
+    };
+
     window.addEventListener('project-time-signature-changed', () => {
       this.transportBar.updateTimeSignature();
       this.canvasMode?.refresh();

@@ -985,7 +985,7 @@ On import/migration, embedded `audioDataUrl` should always be converted into a f
 
 ## App Versioning
 
-Current App Version: `0.1.0`
+Current App Version: `0.1.1`
 
 The visible app version is displayed in Settings. Bump it for meaningful user-facing changes or architecture/storage changes, especially when AI.MD is updated for completed work.
 
@@ -1114,6 +1114,67 @@ The procedural exporter mirrors these fields in `renderPatchTone()` so the new M
 - Manual QA should compare live playback and Canvas WAV export for at least `chip_lead`, `bliff`, `lofi_keys`, `modern_keys`, `modern_pad`, and `modern_bass`.
 - Test Tone at 0%, 50%, and 100% for Echo and Space on both MIDI and drum clips. The target is "recognizably the same effect", not bit-identical output.
 - Keep future audio work additive. If a patch starts using new fields, set `schemaVersion: 2`; do not mutate old saved patches in place unless a user action explicitly saves them.
+
+---
+
+## Audio Upgrade Milestone 0.1.1
+
+App version `0.1.1` is a tightening pass after the first audio upgrade. It focuses on places where QA showed live sound, Tone presets, and WAV export could still feel inconsistent.
+
+### Recorded patch identity
+
+- New MIDI snippets created by `RecordingManager` are stamped in `CreativeMode._stampRecordedPatch(snippet)`.
+- The snippet receives:
+  - `instrumentId`: the active patch id at record time, such as `modern_pad`.
+  - `patchRecorded`: `{ instrumentId, patchSnapshot, capturedAt }`.
+  - `schemaVersion`: at least `2`.
+- For built-in synth presets, `patchSnapshot` is a JSON copy of the selected preset. Custom sample instruments currently store the selected id but do not embed sample data in the snippet.
+- Canvas track instrument selection still overrides the recorded patch during Canvas playback/export. The recorded patch is only the standalone snippet fallback.
+- `WavExporter.snippetToWavBlob()` now resolves MIDI snippet export patch in this order:
+  1. explicit `options.patch`
+  2. `snippet.patchRecorded.patchSnapshot`
+  3. `snippet.patchRecorded.instrumentId`, `snippet.instrumentId`, or `snippet.patchId`
+  4. `PRESETS.chip_lead`
+
+### Canvas Tone override behavior
+
+- Canvas clip `soundTraits` now deliberately override per-note/per-hit `soundTraits`.
+- This fixes the QA case where applying a Tone preset to a MIDI clip seemed partial or missing because recorded notes already carried their own Tone snapshots.
+- Playback order is now `clip.soundTraits || note.soundTraits || snippet.soundTraits || project.settings.soundTraits` for MIDI, and the same shape for drum hits.
+- WAV export mirrors this by checking whether the clip/base Tone has active traits before falling back to note/hit traits.
+
+### Tone preset controls
+
+- Create Tone and Kit Tone now include a `Reset` button that sets every Tone amount back to `0`.
+- Selecting a Tone preset fills the preset name field.
+- `Save` updates the selected preset, including renaming it. If nothing is selected, it updates by matching name or creates a new preset.
+- `Save as new` always creates a separate preset.
+- Delete remains destructive with confirmation.
+
+### Panic / kill audio tails
+
+- Double-pressing Stop within 650ms calls a panic handler.
+- `TransportBar` exposes `onPanicClick`; `main.js` wires it to `creativeMode.panic()` and `playbackEngine.panic()`.
+- `WebAudioSynth.panic()` immediately stops active sources/oscillators/noise/vibrato, clears voice state, and rebuilds the Tone chain so delay/reverb tails are cut.
+- `SketchKit.panic()` rebuilds the Tone chain to cut kit effect tails.
+- `PlaybackEngine.panic()` releases active track notes, panics cached track synths, and panics the shared kit.
+
+### Tone tail safety and parity
+
+- Live synth, live kit, and export Echo feedback/wet amounts were reduced so high Echo settings do not run away as easily.
+- Export Wobble now follows the live synth's cutoff/rate target more closely: `0.8 + amount * 6.5` Hz and a cutoff centered around `650 + (1 - amount) * 6800` with LFO depth `450 + amount * 2700`.
+- Export unison normalization now matches the live formulation: the primary oscillator group is normalized by voice count, and the secondary oscillator group is normalized separately then multiplied by `oscillator2.gain`.
+- Custom sample instrument export now applies key-tracked/filter-envelope style filtering when those optional fields exist on an instrument. Vibrato and unison remain intentionally skipped for sample export in this pass.
+
+### QA notes
+
+- The direct "apply Tone preset from snippet library" checklist item was inaccurate. The current mechanism applies Tone to a selected Canvas clip. A future direct snippet edit belongs in Inspect, not the tray.
+- The next manual QA pass should include:
+  - Record with `modern_pad`, export the standalone snippet WAV, confirm it does not fall back to Chip Lead.
+  - Apply Echo/Space Tone preset to a one-note MIDI clip at bar start and confirm it is audible.
+  - Apply the same Tone preset to a drum clip and confirm it still works.
+  - Set Echo high, trigger a note or drum hit, press Stop twice, confirm ringing tails are killed.
+  - Select a Tone preset, rename it through the name field, save, close/reopen Tone, and confirm the new name persists.
 
 ---
 

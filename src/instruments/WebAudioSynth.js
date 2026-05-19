@@ -553,6 +553,22 @@ export class WebAudioSynth {
     }
   }
 
+  panic() {
+    const now = this.engine.currentTime;
+    for (const voice of this._voices.values()) {
+      if (voice.source) { try { voice.source.stop(now); } catch (_) {} }
+      if (voice.osc) { try { voice.osc.stop(now); } catch (_) {} }
+      if (voice.osc2) { try { voice.osc2.stop(now); } catch (_) {} }
+      for (const osc of voice.oscillators || []) { try { osc.stop(now); } catch (_) {} }
+      for (const osc of voice.oscillators2 || []) { try { osc.stop(now); } catch (_) {} }
+      if (voice.vibrato?.lfo) { try { voice.vibrato.lfo.stop(now); } catch (_) {} }
+      if (voice.noise) { try { voice.noise.source.stop(now); } catch (_) {} }
+    }
+    this._voices.clear();
+    this._voiceQueue = [];
+    if (this._toneInput && this._output) this._rebuildEffects();
+  }
+
   /**
    * Set the synth output volume.
    * @param {number} value - 0–1
@@ -652,11 +668,11 @@ export class WebAudioSynth {
       const feedbackFilter = ctx.createBiquadFilter();
       const wet = ctx.createGain();
       delay.delayTime.value = 0.12 + echoAmount * 0.38;
-      feedback.gain.value = 0.24 + echoAmount * 0.54;
+      feedback.gain.value = 0.18 + echoAmount * 0.42;
       feedbackFilter.type = 'lowpass';
       feedbackFilter.frequency.value = 4200 - echoAmount * 1500;
       feedbackFilter.Q.value = 0.55;
-      wet.gain.value = 0.08 + echoAmount * 0.6;
+      wet.gain.value = 0.06 + echoAmount * 0.42;
       current.connect(delay);
       delay.connect(feedback);
       feedback.connect(feedbackFilter);

@@ -181,6 +181,7 @@ export class CreativeMode {
 
     // When snippets are created
     this.recordingManager.onSnippetCreated((snippet) => {
+      this._stampRecordedPatch(snippet);
       this.snippetTray.addSnippet(snippet);
 
       // Also save to project
@@ -1145,6 +1146,13 @@ export class CreativeMode {
     this.synth?.setSoundTraits(traits || this._currentToneTraits || {});
   }
 
+  panic() {
+    this.synth?.panic?.();
+    this.sketchKit?.panic?.();
+    this.voiceEngine?.allNotesOff?.();
+    this.arpManager?.setMode?.(ARP_MODES.OFF);
+  }
+
   _currentSoundTraitsSnapshot() {
     const traits = this.controllerMode?.currentSoundTraits(this._currentToneTraits || this._ensureSoundTraits())
       || this.synth.soundTraits
@@ -1154,6 +1162,19 @@ export class CreativeMode {
 
   _baseSoundTraitsSnapshot() {
     return JSON.parse(JSON.stringify(normalizeSoundTraits(this._currentToneTraits || this._ensureSoundTraits())));
+  }
+
+  _stampRecordedPatch(snippet) {
+    if (!snippet || snippet.type !== 'midi') return;
+    const instrumentId = this._activePatchId || 'chip_lead';
+    const patch = PRESETS[instrumentId] ? JSON.parse(JSON.stringify(PRESETS[instrumentId])) : null;
+    snippet.instrumentId = instrumentId;
+    snippet.patchRecorded = {
+      instrumentId,
+      patchSnapshot: patch,
+      capturedAt: Date.now(),
+    };
+    snippet.schemaVersion = Math.max(snippet.schemaVersion || 1, 2);
   }
 
   _updateToneTriggerIndicator(labels = []) {
@@ -1237,13 +1258,36 @@ export class CreativeMode {
       showToast(`Tone preset deleted: ${preset.name}`);
     });
 
+    popover.querySelector('#tone-preset-select')?.addEventListener('change', () => {
+      const preset = this._selectedTonePreset(popover);
+      const input = popover.querySelector('#tone-preset-name');
+      if (input) input.value = preset?.name || '';
+    });
+
+    popover.querySelector('#tone-reset')?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this._applyProjectSoundTraits(normalizeSoundTraits({}));
+      this._syncTonePopover();
+      showToast('Tone reset');
+    });
+
     popover.querySelector('#tone-preset-save')?.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       const input = popover.querySelector('#tone-preset-name');
       const name = input?.value?.trim();
       if (!name) return showToast('Name the Tone preset first');
-      this._saveTonePreset(name);
-      if (input) input.value = '';
+      const selected = this._selectedTonePreset(popover);
+      this._saveTonePreset(name, { id: selected?.id });
+      this._refreshTonePresetControls();
+      showToast(`Tone preset saved: ${name}`);
+    });
+
+    popover.querySelector('#tone-preset-save-new')?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const input = popover.querySelector('#tone-preset-name');
+      const name = input?.value?.trim();
+      if (!name) return showToast('Name the Tone preset first');
+      this._saveTonePreset(name, { forceNew: true });
       this._refreshTonePresetControls();
       showToast(`Tone preset saved: ${name}`);
     });
@@ -1260,10 +1304,12 @@ export class CreativeMode {
           </select>
           <button class="btn btn--ghost" id="tone-preset-apply" type="button">Apply</button>
           <button class="btn btn--ghost" id="tone-preset-delete" type="button">Delete</button>
+          <button class="btn btn--ghost" id="tone-reset" type="button">Reset</button>
         </div>
         <div class="tone-preset__row">
           <input class="tone-preset__input" id="tone-preset-name" type="text" placeholder="Preset name" aria-label="Tone preset name">
           <button class="btn btn--ghost" id="tone-preset-save" type="button">Save</button>
+          <button class="btn btn--ghost" id="tone-preset-save-new" type="button">Save as new</button>
         </div>
       </div>
     `;
@@ -1280,9 +1326,9 @@ export class CreativeMode {
     return this._tonePresets().find(preset => preset.id === id) || null;
   }
 
-  _saveTonePreset(name) {
+  _saveTonePreset(name, { id = null, forceNew = false } = {}) {
     const presets = this._tonePresets();
-    const existing = presets.find(p => p.name.toLowerCase() === name.toLowerCase());
+    const existing = !forceNew && (presets.find(p => p.id === id) || presets.find(p => p.name.toLowerCase() === name.toLowerCase()));
     const preset = {
       id: existing?.id || crypto.randomUUID(),
       name,

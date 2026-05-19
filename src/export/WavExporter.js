@@ -133,7 +133,7 @@ function traitAmount(traits, id) {
 
 function traitCurve(traits, id) {
   const amount = traitAmount(traits, id);
-  if (id === 'wobble') return Math.pow(amount, 0.55);
+  if (id === 'wobble') return Math.pow(amount, 0.72);
   if (id === 'space') return Math.pow(amount, 0.5);
   return Math.pow(amount, 0.68);
 }
@@ -168,8 +168,8 @@ function applyToneTraits(input, traits = {}) {
     let low = 0;
     for (let i = 0; i < out.length; i++) {
       const t = i / SAMPLE_RATE;
-      const lfo = Math.sin(TWO_PI * (0.8 + wobble * 6.5) * t);
-      const cutoff = clamp(650 + (1 - wobble) * 6800 + lfo * (450 + wobble * 2700), 90, 14000);
+      const lfo = Math.sin(TWO_PI * (0.35 + wobble * 4.2) * t);
+      const cutoff = clamp(1100 + (1 - wobble) * 5200 + lfo * (180 + wobble * 1300), 500, 12000);
       const alpha = clamp((TWO_PI * cutoff) / (TWO_PI * cutoff + SAMPLE_RATE), 0.001, 0.99);
       low += (out[i] - low) * alpha;
       out[i] = low;

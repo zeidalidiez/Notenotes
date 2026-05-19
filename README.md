@@ -329,6 +329,10 @@ Notenotes stands on the shoulders of generous people who share their work freely
 
 If you spot anything in this repo that's missing a credit it deserves, please [open an issue](https://github.com/zeidalidiez/Notenotes/issues/new) - we'll fix it fast.
 
+### Audio asset rule
+
+Anything bundled into Notenotes that can end up in a user's exported audio needs to be obligation-free for the user. CC0 / public domain is the cleanest fit. MIT-style permissive code is fine for libraries, but audio samples, impulse responses, voice data, and textures need extra care. No CC-BY, no CC-BY-SA, no noncommercial assets, no "free but unclear" packs, and no runtime CDN sounds. I want people to make things without wondering what they owe anyone afterward.
+
 ---
 
 ## License

@@ -17,7 +17,7 @@ export const SOUND_TRAITS = {
   crush: { id: 'crush', name: 'Crush', hint: 'Blocky bitcrush edge', defaultAmount: 0.35 },
   echo: { id: 'echo', name: 'Echo', hint: 'Repeating delay tail', defaultAmount: 0.3 },
   space: { id: 'space', name: 'Space', hint: 'Small room reverb', defaultAmount: 0.25 },
-  wobble: { id: 'wobble', name: 'Wobble', hint: 'Moving filter pulse', defaultAmount: 0.3 },
+  wobble: { id: 'wobble', name: 'Wobble', hint: 'Smooth filter motion', defaultAmount: 0.3 },
   drive: { id: 'drive', name: 'Drive', hint: 'Warm saturation', defaultAmount: 0.35 },
   noise: { id: 'noise', name: 'Noise', hint: 'Breathy note texture', defaultAmount: 0.2 },
 };
@@ -328,7 +328,7 @@ export class WebAudioSynth {
 
   _traitCurve(id) {
     const amount = this._traitAmount(id);
-    if (id === 'wobble') return Math.pow(amount, 0.55);
+    if (id === 'wobble') return Math.pow(amount, 0.72);
     if (id === 'space') return Math.pow(amount, 0.5);
     return Math.pow(amount, 0.68);
   }
@@ -639,12 +639,12 @@ export class WebAudioSynth {
     if (wobbleAmount > 0) {
       const filter = ctx.createBiquadFilter();
       filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(650 + (1 - wobbleAmount) * 6800, ctx.currentTime);
-      filter.Q.setValueAtTime(1 + wobbleAmount * 11, ctx.currentTime);
+      filter.frequency.setValueAtTime(1100 + (1 - wobbleAmount) * 5200, ctx.currentTime);
+      filter.Q.setValueAtTime(0.7 + wobbleAmount * 3.2, ctx.currentTime);
       const lfo = ctx.createOscillator();
       const lfoGain = ctx.createGain();
-      lfo.frequency.value = 0.8 + wobbleAmount * 6.5;
-      lfoGain.gain.value = 450 + wobbleAmount * 2700;
+      lfo.frequency.value = 0.35 + wobbleAmount * 4.2;
+      lfoGain.gain.value = 180 + wobbleAmount * 1300;
       lfo.connect(lfoGain);
       lfoGain.connect(filter.frequency);
       lfo.start();

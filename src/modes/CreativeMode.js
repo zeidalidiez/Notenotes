@@ -485,6 +485,7 @@ export class CreativeMode {
       return;
     }
 
+    const customInstruments = this._customInstruments();
     const editingInstrument = this._selectedCustomInstrument();
     const defaultType = editingInstrument?.type || (this.activeInstrument === INSTRUMENTS.KIT ? 'kit' : 'patch');
     const audioSnippets = (this.project?.snippets || []).filter(snippet => snippet.type === 'audio' && snippet.audioAssetId);
@@ -493,9 +494,22 @@ export class CreativeMode {
     popover.id = 'custom-instrument-popover';
     popover.innerHTML = `
       <div class="tone-popover__header">
-        <span>${editingInstrument ? 'Edit Instrument' : 'Create Instrument'}</span>
+        <span id="ci-title">${editingInstrument ? 'Edit Instrument' : 'Create Instrument'}</span>
       </div>
-      <div class="custom-instrument-form">
+      <div class="custom-instrument-form" data-editing-id="${this._escapeAttr(editingInstrument?.id || '')}">
+        ${customInstruments.length ? `
+          <label class="custom-instrument-field">
+            <span>Instrument</span>
+            <select id="ci-existing" aria-label="Instrument to edit">
+              <option value="">New instrument</option>
+              ${customInstruments.map(instrument => `
+                <option value="${this._escapeAttr(instrument.id)}" ${instrument.id === editingInstrument?.id ? 'selected' : ''}>
+                  ${this._escapeHtml(instrument.type === 'kit' ? 'Kit' : 'Patch')}: ${this._escapeHtml(instrument.name || 'Untitled')}
+                </option>
+              `).join('')}
+            </select>
+          </label>
+        ` : ''}
         <label class="custom-instrument-field">
           <span>Name</span>
           <input id="ci-name" type="text" placeholder="My sample patch" value="${this._escapeAttr(editingInstrument?.name || '')}" aria-label="Instrument name">
@@ -561,6 +575,33 @@ export class CreativeMode {
       const label = popover.querySelector(`#ci-${id}-value`);
       if (slider && label) label.textContent = `${slider.value}%`;
     };
+    const loadInstrumentIntoForm = (instrument) => {
+      const form = popover.querySelector('.custom-instrument-form');
+      if (form) form.dataset.editingId = instrument?.id || '';
+      const title = popover.querySelector('#ci-title');
+      if (title) title.textContent = instrument ? 'Edit Instrument' : 'Create Instrument';
+      const save = popover.querySelector('#ci-save');
+      if (save) save.textContent = instrument ? 'Update Instrument' : 'Save Instrument';
+      const name = popover.querySelector('#ci-name');
+      if (name) name.value = instrument?.name || '';
+      const type = popover.querySelector('#ci-type');
+      if (type) type.value = instrument?.type || (this.activeInstrument === INSTRUMENTS.KIT ? 'kit' : 'patch');
+      const snippet = popover.querySelector('#ci-snippet');
+      if (snippet) snippet.value = instrument?.sourceSnippetId || '';
+      const file = popover.querySelector('#ci-file');
+      if (file) file.value = '';
+      const root = popover.querySelector('#ci-root');
+      if (root) root.value = String(instrument?.rootMidi ?? 60);
+      const playback = popover.querySelector('#ci-playback');
+      if (playback) playback.value = instrument?.playbackMode || 'gated';
+      const brightness = popover.querySelector('#ci-brightness');
+      if (brightness) brightness.value = String(Math.round((instrument?.brightness ?? 0.7) * 100));
+      const gain = popover.querySelector('#ci-gain');
+      if (gain) gain.value = String(Math.round((instrument?.gain ?? 0.55) * 100));
+      syncType();
+      syncSlider('brightness');
+      syncSlider('gain');
+    };
 
     const handleOutside = (e) => {
       if (!this._instrumentPopover) return;
@@ -570,6 +611,10 @@ export class CreativeMode {
     };
     queueMicrotask(() => document.addEventListener('pointerdown', handleOutside, true));
     this._instrumentClickOutsideHandler = handleOutside;
+    popover.querySelector('#ci-existing')?.addEventListener('change', (event) => {
+      const instrument = customInstruments.find(item => item.id === event.target.value) || null;
+      loadInstrumentIntoForm(instrument);
+    });
     popover.querySelector('#ci-type')?.addEventListener('change', syncType);
     popover.querySelector('#ci-brightness')?.addEventListener('input', () => syncSlider('brightness'));
     popover.querySelector('#ci-gain')?.addEventListener('input', () => syncSlider('gain'));
@@ -605,7 +650,10 @@ export class CreativeMode {
       let audioMimeType = '';
       let audioSize = 0;
 
-      const editingInstrument = this._selectedCustomInstrument();
+      const editingId = root.querySelector('.custom-instrument-form')?.dataset.editingId || '';
+      const editingInstrument = editingId
+        ? this._customInstruments().find(item => item.id === editingId) || null
+        : null;
       if (editingInstrument && editingInstrument.type !== type) {
         const usage = this._customInstrumentUsage(editingInstrument.id);
         if (usage.count > 0) {
@@ -689,9 +737,12 @@ export class CreativeMode {
   }
 
   _escapeAttr(value = '') {
+    return this._escapeHtml(value).replace(/"/g, '&quot;');
+  }
+
+  _escapeHtml(value = '') {
     return String(value)
       .replace(/&/g, '&amp;')
-      .replace(/"/g, '&quot;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
   }

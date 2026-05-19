@@ -985,7 +985,7 @@ On import/migration, embedded `audioDataUrl` should always be converted into a f
 
 ## App Versioning
 
-Current App Version: `0.1.1`
+Current App Version: `0.1.2`
 
 The visible app version is displayed in Settings. Bump it for meaningful user-facing changes or architecture/storage changes, especially when AI.MD is updated for completed work.
 
@@ -1175,6 +1175,46 @@ App version `0.1.1` is a tightening pass after the first audio upgrade. It focus
   - Apply the same Tone preset to a drum clip and confirm it still works.
   - Set Echo high, trigger a note or drum hit, press Stop twice, confirm ringing tails are killed.
   - Select a Tone preset, rename it through the name field, save, close/reopen Tone, and confirm the new name persists.
+
+---
+
+## Audio / Instrument Polish 0.1.2
+
+App version `0.1.2` is a small polish pass after the audio upgrade. It does not change project storage schema, but it changes how users manage custom sample instruments and how the Wobble Tone trait behaves.
+
+### Custom instrument edit flow
+
+- The Create/Edit Instrument popover now has an `Instrument` selector when custom instruments exist.
+- `New instrument` clears the form and saves a separate custom instrument.
+- Choosing an existing Patch or Kit instrument loads that instrument into the form and sets `data-editing-id` on `.custom-instrument-form`.
+- `CreativeMode._saveCustomInstrument(root)` now uses that form `data-editing-id` instead of assuming the currently selected patch/kit behind the popover is what the user meant to edit.
+- This keeps the old behavior available while making the hidden state explicit. Editing an existing instrument still preserves its `audioAssetId` when the user does not pick a new snippet or file.
+- Type changes are still blocked when the instrument is already used by tracks/snippets, using the existing `_customInstrumentUsage()` guard.
+
+### Wobble retune
+
+- Wobble remains the user-facing name, but internally it should be treated as smooth filter motion, not an extreme resonant special effect.
+- Live synth Wobble now uses a gentler curve and filter target:
+  - trait curve: `amount ** 0.72`
+  - cutoff center: `1100 + (1 - amount) * 5200`
+  - Q: `0.7 + amount * 3.2`
+  - LFO rate: `0.35 + amount * 4.2`
+  - LFO depth: `180 + amount * 1300`
+- Live kit Wobble uses the same curve with a slightly safer drum target:
+  - cutoff center: `1300 + (1 - amount) * 4800`
+  - Q: `0.7 + amount * 2.8`
+  - LFO rate: `0.45 + amount * 4.5`
+  - LFO depth: `160 + amount * 1150`
+- WAV export Wobble mirrors the synth target with a procedural one-pole low-pass approximation. Export parity remains "audibly trustworthy", not bit-identical.
+- The old Wobble settings pushed a resonant low-pass too hard into low cutoffs, which could become crackly or brittle on sustained sounds and mobile speakers. Future Tone work should prefer musical movement over dramatic resonance unless it is a separate, clearly named trait.
+
+### Audio asset policy
+
+- Built-in audible assets must not create obligations for users who export music from Notenotes.
+- Preferred asset licenses are CC0 / public domain. MIT/BSD/Apache-style permissive licenses are acceptable for code libraries, but audio assets need per-asset legal review before bundling.
+- Do not bundle CC-BY, CC-BY-SA, CC-BY-NC, "royalty free" packs with unclear terms, or anything that requires attribution/share-alike/noncommercial restrictions on exported user WAV/MP3 files.
+- No runtime CDN audio assets. Offline-first PWA behavior remains non-negotiable.
+- If future audio assets are bundled, add a `CREDITS.md` entry with source URL, author, exact license, license URL, modifications, and date added even when attribution is not required.
 
 ---
 

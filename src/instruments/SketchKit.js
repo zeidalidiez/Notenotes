@@ -456,7 +456,7 @@ export class SketchKit {
 
   _traitCurve(id) {
     const amount = this._traitAmount(id);
-    if (id === 'wobble') return Math.pow(amount, 0.55);
+    if (id === 'wobble') return Math.pow(amount, 0.72);
     if (id === 'space') return Math.pow(amount, 0.5);
     return Math.pow(amount, 0.68);
   }
@@ -713,12 +713,12 @@ export class SketchKit {
     if (wobbleAmount > 0) {
       const filter = ctx.createBiquadFilter();
       filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(520 + (1 - wobbleAmount) * 7800, ctx.currentTime);
-      filter.Q.setValueAtTime(1 + wobbleAmount * 12, ctx.currentTime);
+      filter.frequency.setValueAtTime(1300 + (1 - wobbleAmount) * 4800, ctx.currentTime);
+      filter.Q.setValueAtTime(0.7 + wobbleAmount * 2.8, ctx.currentTime);
       const lfo = ctx.createOscillator();
       const lfoGain = ctx.createGain();
-      lfo.frequency.value = 0.8 + wobbleAmount * 7;
-      lfoGain.gain.value = 650 + wobbleAmount * 3600;
+      lfo.frequency.value = 0.45 + wobbleAmount * 4.5;
+      lfoGain.gain.value = 160 + wobbleAmount * 1150;
       lfo.connect(lfoGain);
       lfoGain.connect(filter.frequency);
       lfo.start();

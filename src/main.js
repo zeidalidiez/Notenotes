@@ -146,6 +146,10 @@ class App {
     // Wire metronome button to also show settings on long-press
     this.transportBar.onSettingsClick = () => this.settingsPanel.toggle();
     this.transportBar.onMoreOpen = () => this.settingsPanel.close();
+    window.addEventListener('notenotes-open-settings', (event) => {
+      this.transportBar.closeMore?.();
+      this.settingsPanel.openTo(event.detail?.section || 'settings', event.detail || {});
+    });
 
     // Wire modulation manager to creative mode synth (after synth init)
     this.modManager._synth = this.creativeMode.synth;

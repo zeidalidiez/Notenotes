@@ -669,7 +669,7 @@ export class EditMode {
       const pct = 100 / DRUM_TYPES.length;
       y = `${(DRUM_TYPES.length - 1 - typeIdx) * pct}%`;
       h = `${pct - 0.5}%`;
-      width = '10px';
+      width = `${this._drumHitVisualWidth()}px`;
     } else {
       const pitchMap = { kick: 36, snare: 40, clap: 40, hihat: 44, cymbal: 46, tomlo: 43, tommid: 45, tomhi: 48, rim: 37, shaker: 44 };
       const pitch = pitchMap[hit.type] || 38;
@@ -804,8 +804,7 @@ export class EditMode {
     el.style.left = `${x}px`;
     el.style.top = y;
     el.style.height = h;
-    el.style.width = isDrum ? '8px' : `${this._noteHeight - 2}px`;
-    el.style.borderRadius = isDrum ? '4px' : '';
+    el.style.width = isDrum ? `${this._drumHitVisualWidth()}px` : `${this._noteHeight - 2}px`;
     el.style.setProperty('--note-velocity', velocity);
     el.style.setProperty('--note-fill-alpha', 0.3 + velocity * 0.5);
     el.style.setProperty('--note-fill-alpha-soft', 0.2 + velocity * 0.3);
@@ -825,6 +824,10 @@ export class EditMode {
     });
 
     return el;
+  }
+
+  _drumHitVisualWidth() {
+    return Math.max(18, this._gridSize * TICK_WIDTH - 2);
   }
 
   _normalizedVelocity(value) {

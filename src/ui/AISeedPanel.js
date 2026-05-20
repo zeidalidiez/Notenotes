@@ -56,14 +56,16 @@ export class AISeedPanel {
    *   is false, the panel renders a disabled state with a message keyed
    *   off `reason`. Defaults to always-available.
    * @param {() => void} [deps.onClose]  Called when the user wants to close the popover (e.g., Escape).
+   * @param {() => void} [deps.onOpenSettings] Called when the user wants to change AI settings.
    */
-  constructor({ controller, getProject, onSnippetCreated, getActiveInstrumentId, getAvailability, onClose }) {
+  constructor({ controller, getProject, onSnippetCreated, getActiveInstrumentId, getAvailability, onClose, onOpenSettings }) {
     this.controller = controller;
     this._getProject = getProject;
     this._onSnippetCreated = onSnippetCreated;
     this._getActiveInstrumentId = getActiveInstrumentId;
     this._getAvailability = getAvailability || (() => ({ available: true }));
     this._onClose = onClose;
+    this._onOpenSettings = onOpenSettings;
 
     this.el = null;
     this._lengthBars = 4;
@@ -164,7 +166,7 @@ export class AISeedPanel {
         <h3 class="ai-seed-panel__title">AI seed</h3>
       </header>
       <div class="ai-seed-panel__row ai-seed-panel__row--meta">
-        <span class="ai-seed-panel__chip ai-seed-panel__chip--readonly" title="Set in Settings → AI Seed">${escapeHtml(providerLabel)}</span>
+        <button class="ai-seed-panel__chip ai-seed-panel__chip--action" id="ai-provider-settings" type="button" title="Open Settings to change AI provider">${escapeHtml(providerLabel)}</button>
         <span class="ai-seed-panel__chip ai-seed-panel__chip--readonly" title="Switch instruments below to retarget">${escapeHtml(instrumentLabel)}</span>
         <div class="ai-seed-panel__lengths" role="radiogroup" aria-label="Sequence length in bars">
           ${ALLOWED_LENGTHS_BARS.map(n => `
@@ -196,6 +198,11 @@ export class AISeedPanel {
 
   _bindEvents() {
     if (!this.el) return;
+    this.el.querySelector('#ai-provider-settings')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      this._onOpenSettings?.();
+    });
+
     this.el.querySelectorAll('.ai-seed-panel__length').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();

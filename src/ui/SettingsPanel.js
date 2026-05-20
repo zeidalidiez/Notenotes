@@ -1325,9 +1325,20 @@ export class SettingsPanel {
   }
 
   open() {
+    this.openTo(this._activeSection);
+  }
+
+  openTo(section = 'settings', options = {}) {
     this._isOpen = true;
     this.el.classList.add('is-open');
-    this._switchSection(this._activeSection);
+    this._switchSection(section);
+    if (options.focus === 'ai') {
+      requestAnimationFrame(() => {
+        const provider = this.el?.querySelector('#setting-ai-provider');
+        provider?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        try { provider?.focus(); } catch (_) {}
+      });
+    }
     this._dumpDebugSnapshot('settings-open');
   }
 

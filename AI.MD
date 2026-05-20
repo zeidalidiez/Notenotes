@@ -990,7 +990,7 @@ On import/migration, embedded `audioDataUrl` should always be converted into a f
 
 ## App Versioning
 
-Current App Version: `0.1.10`
+Current App Version: `0.1.11`
 
 The visible app version is displayed in Settings. Bump it for meaningful user-facing changes or architecture/storage changes, especially when AI.MD is updated for completed work.
 
@@ -1868,3 +1868,27 @@ App version `0.1.10` moves more creation-specific controls out of Settings and a
 ### Settings version row
 
 - `.settings-row--version` now aligns its label and value/button group on the same center line. The GitHub status message remains a separate help line below the row.
+
+---
+
+## AI Provider Shortcut / Drum Inspect Blocks 0.1.11
+
+App version `0.1.11` is a small usability pass around the AI Seed panel and drum editing in Inspect.
+
+### AI provider shortcut
+
+- `AISeedPanel` now accepts an optional `onOpenSettings` callback.
+- The provider label chip in the AI Seed panel is now a real button instead of a read-only span. It keeps the same compact chip styling, but uses `.ai-seed-panel__chip--action` so it reads as clickable.
+- `CreativeMode._toggleAISeedPopover()` closes the AI popover and dispatches `notenotes-open-settings` with `{ section: 'settings', focus: 'ai' }` when the provider chip is clicked.
+- `main.js` listens for `notenotes-open-settings`, closes the transport `...` menu if it is open, and calls `SettingsPanel.openTo(...)`.
+- `SettingsPanel.openTo(section, options)` opens the drawer to the requested tab. When `options.focus === 'ai'`, it scrolls and focuses `#setting-ai-provider` after the Settings body has rendered.
+- This does not change AI provider persistence. Provider/model settings still live in the project settings, while API keys remain session-memory only.
+
+### Drum Inspect visual model
+
+- Drum snippets still store hits as instantaneous events at `hit.startTick`; the timing model did not change.
+- The Inspect drum editor now draws each drum hit as a grid-width block using `EditMode._drumHitVisualWidth()` instead of an 8px vertical pill.
+- The width follows the current Inspect grid size (`1/2`, `1/4`, `1/8`, `1/16`) and has an 18px minimum so tiny grids remain touchable and visible.
+- Drum shadow hits use the same width rule, so a shadow drum clip and the edited drum clip speak the same visual language.
+- CSS changed `.piano-roll__note--drum` and `.piano-roll__shadow-note--drum` from rounded dots/pills to 4px-radius rectangular blocks with a subtle inset edge.
+- The intent is user-facing clarity: clicking a drum cell should visually produce a block in that cell, closer to MIDI note rectangles, while playback/export still treat the event as a drum hit at the block's left edge.

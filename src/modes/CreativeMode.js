@@ -1222,6 +1222,12 @@ export class CreativeMode {
       getAvailability: () => this._isAISeedAvailable(),
       onSnippetCreated: (snippet) => this._onAISnippetCreated(snippet),
       onClose: () => this._closeAISeedPopover(),
+      onOpenSettings: () => {
+        this._closeAISeedPopover();
+        window.dispatchEvent(new CustomEvent('notenotes-open-settings', {
+          detail: { section: 'settings', focus: 'ai' },
+        }));
+      },
     });
     popover.appendChild(this._aiSeedPanelInstance.render());
 

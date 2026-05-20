@@ -83,8 +83,29 @@
   border: 1px solid var(--surface-4);
 }
 
+button.ai-seed-panel__chip {
+  font-family: var(--font-family);
+  cursor: pointer;
+  min-height: 24px;
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
 .ai-seed-panel__chip--readonly {
   cursor: default;
+}
+
+.ai-seed-panel__chip--action {
+  color: var(--accent-light);
+  border-color: var(--accent-dim);
+}
+
+.ai-seed-panel__chip--action:hover,
+.ai-seed-panel__chip--action:focus-visible {
+  background: var(--surface-4);
+  color: var(--text-primary);
+  outline: none;
 }
 
 .ai-seed-panel__lengths {

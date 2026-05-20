@@ -333,6 +333,7 @@ This also creates a version history snapshot. Max 5 versions kept per project.
 - `root` pad mode hides the Scale selector, shows the existing Root dropdown as `Root Note`, renders 12 chromatic pads for the current octave, and each pad plays a dyad: the pad note plus the selected root note in the octave nearest to that pad. Example: with root `C`, the `B4` pad plays `B4 + C5`, while the `D4` pad plays `D4 + C4`.
 - In `single`/`chords` pad modes, pad count equals the scale's interval count (`SCALES[name].intervals.length`): Major → 7, Pentatonic → 5, Blues → 6.
 - App version `0.1.3` adds an `Extensions` toggle for `single` and `chords` pad modes. When enabled, ScaleBoard continues the current scale naturally instead of stopping after the scale's first octave. Seven-note scales show degrees 1-13; five-note scales such as Pentatonic show 10 pads; six-note scales such as Blues show 12 pads. This is not a modifier/chord-color system: pad 9 is a real higher scale-degree pad, not a hold/toggle that changes another pad.
+- The Extensions toast should report the actual rendered pad count (`Extensions: 10 scale pads`, `12 scale pads`, or `13 scale pads`) instead of hard-coding `1-13`.
 - In Chords mode with Extensions enabled, extended pads are chord roots in the continued scale. Example in C major: pad 2 plays a D chord; pad 9 plays a D chord one octave higher. This keeps mouse/touch use direct and avoids hidden "current chord" state.
 - The persisted setting is `project.settings.scaleExtensionsEnabled`. `CreativeMode` schedules autosave through `scaleBoard.onExtensionsChanged`.
 - Keyboard mapping for Scale pads now supports up to 13 visible pads with `1-9`, `0`, `-`, `=`, and `` ` `` left-to-right. The mapping still ignores pads that are not currently visible.
@@ -989,7 +990,7 @@ On import/migration, embedded `audioDataUrl` should always be converted into a f
 
 ## App Versioning
 
-Current App Version: `0.1.3`
+Current App Version: `0.1.4`
 
 The visible app version is displayed in Settings. Bump it for meaningful user-facing changes or architecture/storage changes, especially when AI.MD is updated for completed work.
 
@@ -1219,6 +1220,35 @@ App version `0.1.2` is a small polish pass after the audio upgrade. It does not 
 - Do not bundle CC-BY, CC-BY-SA, CC-BY-NC, "royalty free" packs with unclear terms, or anything that requires attribution/share-alike/noncommercial restrictions on exported user WAV/MP3 files.
 - No runtime CDN audio assets. Offline-first PWA behavior remains non-negotiable.
 - If future audio assets are bundled, add a `CREDITS.md` entry with source URL, author, exact license, license URL, modifications, and date added even when attribution is not required.
+
+---
+
+## Canvas / iOS Audio Polish 0.1.4
+
+App version `0.1.4` addresses a small Canvas interaction pass and another iOS audio-unlock hardening pass.
+
+### Canvas ruler seeking
+
+- Canvas ruler beat cells now include `data-seek-bar`.
+- Clicking/tapping a ruler number calls `transport.seekToBar(bar)` and immediately updates the Canvas playhead.
+- A manually moved playhead can be shown while transport is stopped. The playhead animation still follows `transport.currentTick` during playback.
+- `.canvas-ruler__beat` has pointer affordance styling; keep the ruler as the canonical place for timeline seek gestures.
+
+### Audio clip preview
+
+- Canvas audio clips no longer render a fake seeded waveform with tall random bars.
+- The preview is now a neutral content indicator: a center line, a low rounded band, and small ticks. This intentionally says "audio lives here" without pretending to show real amplitude.
+- If an audio snippet has no durable audio source (`audioAssetId`, `audioUrl`, or `audioDataUrl`), the preview uses a dashed band.
+- Do not reintroduce fake amplitude unless real decoded peak data is generated and stored.
+
+### iOS unlock hardening
+
+- `AudioEngine.unlockGesture()` is a repeat-safe helper that resumes a suspended context and plays a one-sample silent buffer nudge.
+- `AudioEngine.initSync()` now calls `unlockGesture()`.
+- `WebAudioSynth.noteOn()` ensures its graph exists and calls `engine.unlockGesture()` right before scheduling a note. This gives iOS WebKit another same-gesture opportunity when the user presses a pad/key.
+- `SketchKit.triggerPad()` does the same for drum hits.
+- `WebAudioSynth.init()` and `SketchKit.init()` are idempotent, so these defensive calls do not rebuild already-live graphs.
+- If iOS still makes chords sound like a single voice, suspect context unlock timing first, then inspect device CPU/polyphony pressure. There is no intentional iOS-specific monophonic path.
 
 ---
 

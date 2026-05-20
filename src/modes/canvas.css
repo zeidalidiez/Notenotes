@@ -168,6 +168,13 @@
   border-right: 1px solid var(--surface-4);
   box-sizing: border-box;
   font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  user-select: none;
+}
+
+.canvas-ruler__beat:hover {
+  background: rgba(255,255,255,0.06);
+  color: var(--text-primary);
 }
 
 .canvas-ruler__bar:nth-child(4n+1) {

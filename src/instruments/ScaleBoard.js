@@ -450,7 +450,7 @@ export class ScaleBoard {
         this._project.settings.scaleExtensionsEnabled = this.extensionsEnabled;
       }
       this._refreshLayout();
-      showToast(this.extensionsEnabled ? 'Extensions: scale degrees 1-13' : 'Extensions off');
+      showToast(this.extensionsEnabled ? `Extensions: ${this._notes.length} scale pads` : 'Extensions off');
       if (this.onExtensionsChanged) this.onExtensionsChanged(this.extensionsEnabled);
     });
 

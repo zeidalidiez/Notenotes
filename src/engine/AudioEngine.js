@@ -51,17 +51,7 @@ export class AudioEngine {
       this.ctx.resume();
     }
 
-    // Force-unlock iOS Safari: create a silent oscillator burst
-    // (iOS requires actual AudioContext usage, not just resume())
-    try {
-      const uo = this.ctx.createOscillator();
-      const ug = this.ctx.createGain();
-      ug.gain.value = 0.001;
-      uo.connect(ug);
-      ug.connect(this.ctx.destination);
-      uo.start(0);
-      uo.stop(0.01);
-    } catch (e) { /* non-critical */ }
+    this.unlockGesture();
 
     // Master output chain: source → masterGain → limiter → destination
     this.masterGain = this.ctx.createGain();
@@ -88,6 +78,28 @@ export class AudioEngine {
     if (this.ctx && this.ctx.state === 'suspended') {
       await this.ctx.resume();
     }
+  }
+
+  /**
+   * Best-effort browser audio unlock. iOS WebKit sometimes needs real graph
+   * activity on the same gesture as the user's note press, not only context
+   * creation. Safe to call repeatedly from pointer/touch handlers.
+   */
+  unlockGesture() {
+    if (!this.ctx) return;
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
+    try {
+      const source = this.ctx.createBufferSource();
+      source.buffer = this.ctx.createBuffer(1, 1, this.ctx.sampleRate);
+      const gain = this.ctx.createGain();
+      gain.gain.value = 0.0001;
+      source.connect(gain);
+      gain.connect(this.ctx.destination);
+      source.start(0);
+      source.stop(this.ctx.currentTime + 0.01);
+    } catch (e) { /* non-critical unlock nudge */ }
   }
 
   /**

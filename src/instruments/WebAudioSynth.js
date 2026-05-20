@@ -268,6 +268,8 @@ export class WebAudioSynth {
    * Initialize audio nodes. Call after AudioEngine.init().
    */
   init() {
+    if (this._output && this._toneInput) return;
+    if (!this.engine.ctx) this.engine.initSync();
     this._output = this.engine.createTrackBus();
     this._output.gain.value = this.patch.gain;
     this._toneInput = this.engine.ctx.createGain();
@@ -397,6 +399,8 @@ export class WebAudioSynth {
    * @param {number} [atTime] - AudioContext time to schedule the note
    */
   noteOn(midi, velocity = 0.8, atTime) {
+    if (!this._output || !this._toneInput) this.init();
+    this.engine.unlockGesture?.();
     if (!this._output) return;
 
     // If this note is already playing, stop it first

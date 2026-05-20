@@ -133,6 +133,8 @@ export class SketchKit {
   setHitCallback(onHit) { this._onHit = onHit; }
 
   init() {
+    if (this._output && this._toneInput) return;
+    if (!this.engine.ctx) this.engine.initSync();
     this._output = this.engine.createTrackBus();
     this._output.gain.value = 0.7;
     this._toneInput = this.engine.ctx.createGain();
@@ -300,6 +302,8 @@ export class SketchKit {
   }
 
   triggerPad(sid) {
+    if (!this._output || !this._toneInput) this.init();
+    this.engine.unlockGesture?.();
     const pad = this.el?.querySelector(`.sketchkit__pad[data-pad="${sid}"]`);
     this._triggerSound(sid);
     if (pad) {

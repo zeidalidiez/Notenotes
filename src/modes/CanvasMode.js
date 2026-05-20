@@ -38,6 +38,7 @@ export class CanvasMode {
     this.beatWidth = DEFAULT_BAR_WIDTH / this._beatsPerBar();
     this._selectedClip = null;
     this._playheadEl = null;
+    this._manualPlayheadVisible = false;
     this._animFrame = null;
     this._tracksContainer = null;
     this._rulerEl = null;
@@ -313,7 +314,7 @@ export class CanvasMode {
       const beatInBar = (beat % beatsPerBar) + 1;
       const label = beatInBar === 1 ? `${bar}` : `${bar}.${beatInBar}`;
       const isBar = beatInBar === 1;
-      html += `<div class="canvas-ruler__beat" style="width:${this.beatWidth}px;${isBar ? 'font-weight:var(--font-weight-semibold);color:var(--accent-light);' : ''}">${label}</div>`;
+      html += `<div class="canvas-ruler__beat" data-seek-bar="${(beat / beatsPerBar).toFixed(6)}" title="Move playhead to ${label}" style="width:${this.beatWidth}px;${isBar ? 'font-weight:var(--font-weight-semibold);color:var(--accent-light);' : ''}">${label}</div>`;
     }
     this._rulerEl.innerHTML = html;
   }
@@ -483,23 +484,23 @@ export class CanvasMode {
 
   _renderAudioClipPreview(snippet, width, height) {
     const svgWidth = Math.max(24, width - 4);
-    const seed = [...(snippet.id || snippet.name || 'audio')]
-      .reduce((acc, char) => (acc * 31 + char.charCodeAt(0)) >>> 0, 2166136261);
-    const bars = Math.max(10, Math.min(56, Math.floor(svgWidth / 5)));
-    const gap = 2;
-    const barWidth = Math.max(2, (svgWidth - gap * (bars - 1)) / bars);
     const center = height / 2;
-    let state = seed || 1;
-    let svgContent = `<line x1="0" y1="${center}" x2="${svgWidth}" y2="${center}" stroke="rgba(255,255,255,0.22)" stroke-width="1"/>`;
+    const hasAudio = !!(snippet.audioAssetId || snippet.audioUrl || snippet.audioDataUrl);
+    const markerCount = Math.max(4, Math.min(28, Math.floor(svgWidth / 12)));
+    let svgContent = `<line x1="0" y1="${center}" x2="${svgWidth}" y2="${center}" stroke="rgba(255,255,255,0.24)" stroke-width="1"/>`;
 
-    for (let i = 0; i < bars; i++) {
-      state = (state * 1664525 + 1013904223) >>> 0;
-      const noise = state / 0xffffffff;
-      const envelope = Math.sin((i / Math.max(1, bars - 1)) * Math.PI);
-      const barHeight = Math.max(4, (0.25 + noise * 0.55) * envelope * (height - 8));
-      const x = i * (barWidth + gap);
-      const y = center - barHeight / 2;
-      svgContent += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${barHeight.toFixed(1)}" rx="1.5" fill="rgba(255,255,255,0.58)"/>`;
+    if (!hasAudio) {
+      svgContent += `<rect x="1" y="${center - 6}" width="${Math.max(2, svgWidth - 2)}" height="12" rx="6" fill="none" stroke="rgba(255,255,255,0.34)" stroke-width="1" stroke-dasharray="4 4"/>`;
+      return `<svg width="${svgWidth}" height="${height}" class="canvas-clip__audio-preview" style="display:block;">${svgContent}</svg>`;
+    }
+
+    svgContent += `<rect x="1" y="${center - 7}" width="${Math.max(2, svgWidth - 2)}" height="14" rx="7" fill="rgba(255,255,255,0.13)" stroke="rgba(255,255,255,0.30)" stroke-width="1"/>`;
+    for (let i = 0; i < markerCount; i++) {
+      const x = 4 + (i / Math.max(1, markerCount - 1)) * Math.max(1, svgWidth - 8);
+      const phase = i / Math.max(1, markerCount - 1);
+      const markerHeight = 5 + Math.sin(phase * Math.PI) * 6;
+      const y = center - markerHeight / 2;
+      svgContent += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="2" height="${markerHeight.toFixed(1)}" rx="1" fill="rgba(255,255,255,0.50)"/>`;
     }
 
     return `<svg width="${svgWidth}" height="${height}" class="canvas-clip__audio-preview" style="display:block;">${svgContent}</svg>`;
@@ -1094,6 +1095,17 @@ export class CanvasMode {
       showToast(`${track.name}: ${instName}`);
     });
 
+    this._rulerEl?.addEventListener('pointerdown', (e) => {
+      const beatEl = e.target.closest('.canvas-ruler__beat');
+      if (!beatEl?.dataset.seekBar) return;
+      e.preventDefault();
+      const bar = parseFloat(beatEl.dataset.seekBar);
+      if (!Number.isFinite(bar)) return;
+      this.transport.seekToBar(bar);
+      this._manualPlayheadVisible = true;
+      this._updatePlayheadPosition(true);
+    });
+
     // Double-click to rename track
     this.el.addEventListener('dblclick', (e) => {
       const nameEl = e.target.closest('.canvas-lane__name');
@@ -1211,21 +1223,25 @@ export class CanvasMode {
   _startPlayheadAnimation() {
     const animate = () => {
       this._animFrame = requestAnimationFrame(animate);
-      if (!this._playheadEl) return;
-
-      if (this.transport.state === TransportState.STOPPED) {
-        this._playheadEl.style.display = 'none';
-        return;
-      }
-
-      this._playheadEl.style.display = 'block';
-      const tick = this.transport.currentTick;
-      const ticksPerBar = this.transport.ticksPerBar;
-      const barPosition = tick / ticksPerBar;
-      const x = 140 + barPosition * this.barWidth; // 140px offset for track headers
-      this._playheadEl.style.left = `${x}px`;
+      this._updatePlayheadPosition();
     };
     animate();
+  }
+
+  _updatePlayheadPosition(force = false) {
+    if (!this._playheadEl) return;
+
+    if (this.transport.state === TransportState.STOPPED && !force && !this._manualPlayheadVisible) {
+      this._playheadEl.style.display = 'none';
+      return;
+    }
+
+    this._playheadEl.style.display = 'block';
+    const tick = this.transport.currentTick;
+    const ticksPerBar = this.transport.ticksPerBar;
+    const barPosition = tick / ticksPerBar;
+    const x = 140 + barPosition * this.barWidth; // 140px offset for track headers
+    this._playheadEl.style.left = `${x}px`;
   }
 
   /** Refresh the view (call after project changes) */

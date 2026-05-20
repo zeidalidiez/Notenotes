@@ -68,6 +68,10 @@ export class SnippetTray {
       usage.onBlocked?.(usage);
       return;
     }
+    const snippet = this.snippets.find(s => s.id === id);
+    const name = String(snippet?.name || 'this snippet').slice(0, 80);
+    if (!window.confirm(`Delete "${name}"? This also removes it from Canvas.`)) return;
+
     this.snippets = this.snippets.filter(s => s.id !== id);
     this._renderSnippets();
     if (this._onSnippetDeleted) {
@@ -100,7 +104,7 @@ export class SnippetTray {
       // AI-seeded snippets get a small badge so the user can see at a glance
       // which were generated. Hovering surfaces the original prompt.
       const aiBadge = s.aiSeeded
-        ? `<span class="snippet-tray__badge snippet-tray__badge--ai" title="${this._escapeAttr(s.aiPrompt || 'AI-seeded snippet')}">🤖 AI</span>`
+        ? `<span class="snippet-tray__badge snippet-tray__badge--ai" title="${this._escapeAttr(s.aiPrompt || 'AI-seeded snippet')}">AI</span>`
         : '';
 
       return `

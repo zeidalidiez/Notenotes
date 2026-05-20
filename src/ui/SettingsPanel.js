@@ -39,6 +39,8 @@ const BACKUP_CONTENT_OPTIONS = [
   { id: 'archive', label: 'Full archive' },
 ];
 
+const LATEST_VERSION_URL = 'https://raw.githubusercontent.com/zeidalidiez/Notenotes/main/package.json';
+
 function byteLength(text = '') {
   return new TextEncoder().encode(text).length;
 }
@@ -59,6 +61,17 @@ function formatBytes(bytes = 0) {
 function percent(value, total) {
   if (!Number.isFinite(value) || !Number.isFinite(total) || total <= 0) return 0;
   return Math.max(0, Math.min(100, (value / total) * 100));
+}
+
+function compareVersions(a, b) {
+  const left = String(a || '').split('.').map(part => parseInt(part, 10) || 0);
+  const right = String(b || '').split('.').map(part => parseInt(part, 10) || 0);
+  const length = Math.max(left.length, right.length);
+  for (let i = 0; i < length; i++) {
+    if ((left[i] || 0) > (right[i] || 0)) return 1;
+    if ((left[i] || 0) < (right[i] || 0)) return -1;
+  }
+  return 0;
 }
 
 function escapeHtml(s) {
@@ -178,10 +191,14 @@ export class SettingsPanel {
               }).join('')}
             </select>
           </div>
-          <div class="settings-row">
+          <div class="settings-row settings-row--version">
             <label class="settings-label">App Version</label>
-            <span class="settings-value">${APP_VERSION}</span>
+            <div class="settings-version">
+              <span class="settings-value">${APP_VERSION}</span>
+              <button class="btn btn--ghost btn--sm" id="setting-version-check" type="button">Check latest</button>
+            </div>
           </div>
+          <p class="settings-desc settings-version__status" id="setting-version-status">Checks GitHub for the newest public build.</p>
           <div class="settings-row" style="justify-content: flex-start; gap: 10px;">
             <input type="checkbox" id="setting-debug-logging" ${this.project?.settings?.debugLogging ? 'checked' : ''} />
             <label class="settings-label" for="setting-debug-logging">Debug logs</label>
@@ -590,6 +607,11 @@ export class SettingsPanel {
         return;
       }
       showToast('Chrome: three-dot menu > Cast, save, and share > Install page as app', 7000);
+    });
+
+    body.querySelector('#setting-version-check')?.addEventListener('pointerdown', async (e) => {
+      e.preventDefault();
+      await this._checkLatestVersion();
     });
 
     body.querySelector('#setting-debug-logging')?.addEventListener('change', async (e) => {
@@ -1005,6 +1027,38 @@ export class SettingsPanel {
       if (audioEl) audioEl.textContent = 'Could not check audio storage';
       if (backupEl) backupEl.textContent = 'Could not estimate';
       if (adviceEl) adviceEl.textContent = 'Save workspace backups outside the browser for anything important.';
+    }
+  }
+
+  async _checkLatestVersion() {
+    const body = this.el?.querySelector('#settings-body');
+    const statusEl = body?.querySelector('#setting-version-status');
+    const button = body?.querySelector('#setting-version-check');
+    if (!statusEl) return;
+
+    if (button) button.disabled = true;
+    statusEl.textContent = 'Checking GitHub...';
+
+    try {
+      const response = await fetch(LATEST_VERSION_URL, { cache: 'no-store' });
+      if (!response.ok) throw new Error(`GitHub returned ${response.status}`);
+      const data = await response.json();
+      const latest = String(data?.version || '').trim();
+      if (!latest) throw new Error('No version field found');
+
+      const comparison = compareVersions(latest, APP_VERSION);
+      if (comparison > 0) {
+        statusEl.textContent = `Latest public version is ${latest}. This browser is on ${APP_VERSION}; clear cache or press Ctrl+Shift+R to load the newest build.`;
+      } else if (comparison < 0) {
+        statusEl.textContent = `This browser is on ${APP_VERSION}, which is newer than GitHub's public ${latest}.`;
+      } else {
+        statusEl.textContent = `You are on the latest public version (${APP_VERSION}).`;
+      }
+    } catch (err) {
+      console.warn('[Settings] Version check failed:', err);
+      statusEl.textContent = 'Could not check GitHub. If the app feels stale, clear cache or press Ctrl+Shift+R after you are back online.';
+    } finally {
+      if (button) button.disabled = false;
     }
   }
 

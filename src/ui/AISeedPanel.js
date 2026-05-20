@@ -140,7 +140,6 @@ export class AISeedPanel {
     }
     return `
       <header class="ai-seed-panel__header">
-        <span class="ai-seed-panel__icon" aria-hidden="true">🤖</span>
         <h3 class="ai-seed-panel__title">AI seed</h3>
       </header>
       <div class="ai-seed-panel__unavailable">
@@ -162,7 +161,6 @@ export class AISeedPanel {
     const providerLabel = providerLabelFor(settings.provider);
     return `
       <header class="ai-seed-panel__header">
-        <span class="ai-seed-panel__icon" aria-hidden="true">🤖</span>
         <h3 class="ai-seed-panel__title">AI seed</h3>
       </header>
       <div class="ai-seed-panel__row ai-seed-panel__row--meta">

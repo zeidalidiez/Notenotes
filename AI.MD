@@ -453,7 +453,7 @@ This also creates a version history snapshot. Max 5 versions kept per project.
 - Empty state text updated: "Select a MIDI snippet to view and edit its notes in the piano roll."
 
 **Canvas Integration**
-- Tracks with audio clips hide the instrument dropdown, showing "🎤 Audio" label instead.
+- Tracks with audio clips hide the instrument dropdown, showing a "LINE Audio" label instead.
 - Check: `track.clips.some(c => c.snippet?.type === 'audio')`.
 
 ---
@@ -546,7 +546,7 @@ This also creates a version history snapshot. Max 5 versions kept per project.
 - Added: `pianoCount: 1, pianoKeys: 12, drumPads: 10, arpRate: '1/8', arpChordType: 'major', arpPattern: 'up', holdDuration: 3000`.
 
 **CSS**
-- Canvas: `.canvas-lane__inst-label` for "🎤 Audio" instrument display on audio tracks.
+- Canvas: `.canvas-lane__inst-label` for "LINE Audio" instrument display on audio tracks.
 - Edit/Inspect: `.piano-roll-pane` for split view, `.edit-audio` for audio player, `.edit-toolbar .btn.is-active` for split button state.
 
 <!-- --- NEW CONTEXT ADDED 2026-05-03 (SESSION 2) --- -->
@@ -990,7 +990,7 @@ On import/migration, embedded `audioDataUrl` should always be converted into a f
 
 ## App Versioning
 
-Current App Version: `0.1.8`
+Current App Version: `0.1.9`
 
 The visible app version is displayed in Settings. Bump it for meaningful user-facing changes or architecture/storage changes, especially when AI.MD is updated for completed work.
 
@@ -1634,11 +1634,11 @@ AI-seeded snippets are normal MIDI/drum snippets with extra metadata fields:
   aiProvider: "openai" | "anthropic" | "ollama" | "mock",
   aiInstrument: "scaleboard" | "piano" | "kit",
   aiLengthBars: 1 | 2 | 4 | 8,
-  name: "🤖 N notes" | "🤖 N hits",
+  name: "AI N notes" | "AI N hits",
 }
 ```
 
-`SnippetTray` looks for `aiSeeded` and renders a `🤖 AI` badge with the original prompt as the hover title.
+`SnippetTray` looks for `aiSeeded` and renders an `AI` badge with the original prompt as the hover title.
 
 The AI metadata travels with the snippet through workspace backups and is preserved across export/import.
 
@@ -1797,3 +1797,37 @@ The mobile transport should feel like a compact hardware control surface:
 2. Add the provider to `AIController._resolveProvider`.
 3. Add an option to the Settings AI section's provider dropdown (in `SettingsPanel._renderAISection`) and a `case` in `providerModelsForUi`.
 4. If credentials are required, read them via `readApiKey('<providerId>')`. Keys live in the in-memory Map only — do not write a custom credential store, and do not persist them.
+
+---
+
+## Snippet Delete Confirmation / Track Colors / Version Check 0.1.9
+
+App version `0.1.9` is a small safety and polish pass after the snippet cleanup work.
+
+### Snippet deletion
+
+- `SnippetTray.removeSnippet(id)` now asks for browser confirmation before deleting a snippet.
+- The confirmation message explicitly says the delete also removes the snippet from Canvas. This matches `App._handleSnippetDeleted()` plus `CanvasMode.removeSnippetReferences(snippetId)`, which clears any placed clips that reference the deleted snippet.
+- The existing custom-instrument usage blocker still runs before the confirmation. If a snippet is backing a custom instrument, deletion remains blocked with the existing blocked-use path.
+
+### Canvas track colors
+
+- Canvas tracks now expose a native color input in each lane header.
+- The selected color is stored as `track.color` using a `#rrggbb` hex value. Invalid or missing values fall back to the rotating `LANE_COLORS` palette.
+- `CanvasMode._trackColor(track, idx)` is the single resolver for user-set colors versus fallback colors.
+- `hexToRgba(hex, alpha)` converts the stored hex into the translucent lane/clip color already used by `_renderClipsForTrack(content, track, color)`, so changing a track color changes both the lane accent and the snippets shown on that track.
+- Color changes schedule autosave and rerender Canvas immediately. No migration is needed because `track.color` is additive.
+
+### AI label cleanup
+
+- The AI Seed toolbar buttons, snippet badge, generated snippet default names, and seeded-snippet toast no longer use the robot emoji. This keeps AI controls consistent with the rest of the app's plainer icon/text language.
+- `AISeedPanel` no longer renders the header robot icon. The unused `.ai-seed-panel__icon` CSS can be removed later if desired, but it is harmless.
+
+### GitHub latest-version check
+
+- Settings now shows the local `APP_VERSION` with a `Check latest` button.
+- `SettingsPanel._checkLatestVersion()` fetches `https://raw.githubusercontent.com/zeidalidiez/Notenotes/main/package.json` with `cache: 'no-store'`, reads the `version` field, compares it to the local app version, and displays one of three states:
+  - newer GitHub version exists: tells the user to clear cache or press `Ctrl+Shift+R`
+  - same version: confirms the browser is on the latest public version
+  - local is newer than GitHub: useful while testing local builds before the repo is updated
+- If the fetch fails, Settings tells the user the GitHub check could not run and still gives the stale-cache advice. This preserves offline-first behavior; the app does not require the network to run.

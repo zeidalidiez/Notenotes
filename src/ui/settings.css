@@ -155,6 +155,22 @@
   text-align: right;
 }
 
+.settings-row--version {
+  align-items: flex-start;
+}
+
+.settings-version {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.settings-version__status {
+  margin-top: calc(-1 * var(--space-xs));
+}
+
 .settings-input {
   background: var(--surface-3);
   border: var(--border-subtle);

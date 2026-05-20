@@ -169,7 +169,7 @@ export class SketchKit {
         <button class="tone-button" id="sk-create-instrument-button" type="button">${this.selectedCustomInstrumentId ? 'Edit Instrument' : 'Create Instrument'}</button>
         <button class="tone-button" id="sk-delete-instrument-button" type="button">Delete</button>
         <button class="tone-button" id="sk-tone-button" type="button" aria-expanded="false" aria-controls="sk-tone-popover">Tone</button>
-        <button class="tone-button ai-seed-button" id="sk-ai-seed-button" type="button" aria-expanded="false" aria-controls="ai-seed-popover" title="Seed a snippet with AI">🤖 AI</button>
+        <button class="tone-button ai-seed-button" id="sk-ai-seed-button" type="button" aria-expanded="false" aria-controls="ai-seed-popover" title="Seed a snippet with AI">AI</button>
       </div>
       <div class="sketchkit__pads" id="sk-pads" style="grid-template-columns:${this._gridColumns()};">
         ${this._renderPads()}

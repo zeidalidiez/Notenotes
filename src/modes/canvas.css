@@ -250,6 +250,26 @@
   text-transform: uppercase;
 }
 
+.canvas-lane__color {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--surface-4);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.canvas-lane__color::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.canvas-lane__color::-webkit-color-swatch {
+  border: 0;
+  border-radius: 3px;
+}
+
 .canvas-lane__name-input {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);

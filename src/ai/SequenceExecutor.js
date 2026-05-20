@@ -130,7 +130,7 @@ export function buildSnippetFromSequence(sequence, context) {
 }
 
 function defaultSnippetName(instrumentId, eventCount) {
-  const prefix = '🤖';
+  const prefix = 'AI';
   switch (instrumentId) {
     case 'kit':
       return `${prefix} ${eventCount} hit${eventCount === 1 ? '' : 's'}`;

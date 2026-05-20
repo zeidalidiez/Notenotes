@@ -362,7 +362,7 @@ export class CreativeMode {
       <button class="tone-button" id="create-instrument-button" type="button">${this._activePatchId.startsWith('custom:') ? 'Edit Instrument' : 'Create Instrument'}</button>
       <button class="tone-button" id="delete-instrument-button" type="button">Delete</button>
       <button class="tone-button" id="tone-button" type="button" aria-expanded="false" aria-controls="tone-popover">Tone</button>
-      <button class="tone-button ai-seed-button" id="ai-seed-button" type="button" aria-expanded="false" aria-controls="ai-seed-popover" title="Seed a snippet with AI">🤖 AI</button>
+      <button class="tone-button ai-seed-button" id="ai-seed-button" type="button" aria-expanded="false" aria-controls="ai-seed-popover" title="Seed a snippet with AI">AI</button>
       <span class="tone-trigger-indicator" id="tone-trigger-indicator" aria-live="polite"></span>
     `;
     patchSel.querySelector('#patch-select').addEventListener('change', async (e) => {
@@ -905,7 +905,7 @@ export class CreativeMode {
     }
     window.dispatchEvent(new CustomEvent('project-snippets-changed', { detail: { snippetId: snippet.id, action: 'created' } }));
     const eventCount = (snippet.notes?.length || 0) + (snippet.hits?.length || 0);
-    showToast(`🤖 Snippet seeded (${eventCount} event${eventCount === 1 ? '' : 's'})`);
+    showToast(`Snippet seeded (${eventCount} event${eventCount === 1 ? '' : 's'})`);
   }
 
   _customInstrumentUsage(id) {

@@ -13,11 +13,15 @@ import { showToast } from '../ui/Toast.js';
 
 /** Pixels per bar at default zoom */
 const DEFAULT_BAR_WIDTH = 120;
-const LANE_COLORS = [
-  'rgba(106,140,175,0.35)', 'rgba(138,106,175,0.35)',
-  'rgba(175,138,106,0.35)', 'rgba(106,175,138,0.35)',
-  'rgba(175,106,138,0.35)', 'rgba(138,175,106,0.35)',
-];
+const LANE_COLORS = ['#6a8caf', '#8a6aaf', '#af8a6a', '#6aaf8a', '#af6a8a', '#8aaf6a'];
+
+function hexToRgba(hex, alpha = 0.35) {
+  const clean = /^#[0-9a-f]{6}$/i.test(hex || '') ? hex : '#6a8caf';
+  const r = parseInt(clean.slice(1, 3), 16);
+  const g = parseInt(clean.slice(3, 5), 16);
+  const b = parseInt(clean.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 
 export class CanvasMode {
   /**
@@ -302,6 +306,10 @@ export class CanvasMode {
     return TRACK_INSTRUMENTS[instrumentId]?.name || instrumentId;
   }
 
+  _trackColor(track, idx = 0) {
+    return /^#[0-9a-f]{6}$/i.test(track?.color || '') ? track.color : LANE_COLORS[idx % LANE_COLORS.length];
+  }
+
   /** Render the time ruler (bar numbers) */
   _renderRuler() {
     if (!this._rulerEl) return;
@@ -338,21 +346,23 @@ export class CanvasMode {
       // Header
       const header = document.createElement('div');
       header.className = 'canvas-lane__header';
-      const color = LANE_COLORS[idx % LANE_COLORS.length];
-      header.style.borderLeft = `3px solid ${color.replace('0.35', '0.8')}`;
+      const trackColor = this._trackColor(track, idx);
+      const color = hexToRgba(trackColor, 0.35);
+      header.style.borderLeft = `3px solid ${hexToRgba(trackColor, 0.8)}`;
 
       // Build instrument options
       this._normalizeTrackType(track);
       const trackTypeLabel = this._trackTypeLabel(track.type);
       const instOptions = track.type === 'midi' ? this._midiInstrumentOptions(track.instrumentId) : '';
       const instSelect = track.type === 'drum' ? `<select class="canvas-lane__instrument" data-track-inst="${track.id}" aria-label="Drum kit">${this._drumInstrumentOptions(track.instrumentId)}</select>` : track.type !== 'midi'
-        ? `<span class="canvas-lane__inst-label">🎤 Audio</span>`
+        ? `<span class="canvas-lane__inst-label">LINE Audio</span>`
         : `<select class="canvas-lane__instrument" data-track-inst="${track.id}" aria-label="Track instrument">${instOptions}</select>`;
 
       header.innerHTML = `
         <div class="canvas-lane__name-row">
           <span class="canvas-lane__name" data-track-id="${track.id}" title="Double-click to rename">${track.name}</span>
           <span class="canvas-lane__type">${trackTypeLabel}</span>
+          <input class="canvas-lane__color" type="color" value="${trackColor}" data-track-color="${track.id}" title="Track color" aria-label="Track color" />
           <button class="canvas-lane__remove-btn" data-remove-track="${track.id}" title="Remove track" aria-label="Remove track">✕</button>
         </div>
         ${instSelect}
@@ -1216,6 +1226,19 @@ export class CanvasMode {
 
     // Instrument selector change (event delegation)
     this.el.addEventListener('change', (e) => {
+      const colorInput = e.target.closest('[data-track-color]');
+      if (colorInput) {
+        const trackId = colorInput.dataset.trackColor;
+        const track = this.project?.tracks.find(t => t.id === trackId);
+        if (!track) return;
+
+        track.color = /^#[0-9a-f]{6}$/i.test(colorInput.value) ? colorInput.value : this._trackColor(track);
+        this.store?.scheduleAutoSave(this.project);
+        this._renderTracks();
+        showToast(`${track.name}: color updated`);
+        return;
+      }
+
       const select = e.target.closest('[data-track-inst]');
       if (!select) return;
 

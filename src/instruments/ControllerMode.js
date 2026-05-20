@@ -6,6 +6,7 @@
 
 import { getScaleNotes, midiToNoteName, SCALES, NOTE_NAMES } from '../engine/MusicTheory.js';
 import { SOUND_TRAITS, normalizeSoundTraits } from './WebAudioSynth.js';
+import { gamepadButtonInfo } from '../engine/GamepadInputManager.js';
 
 const POLL_INTERVAL = 30;
 const TRIGGER_NOTE_MODIFIERS = {
@@ -18,10 +19,11 @@ const TRIGGER_NOTE_MODIFIERS = {
 };
 
 export class ControllerMode {
-  constructor(synth, project, modManager) {
+  constructor(synth, project, modManager, gamepadInput = null) {
     this.synth = synth;
     this._project = project;
     this._modManager = modManager;
+    this._gamepadInput = gamepadInput;
     this.el = null;
     this._animFrame = null;
     this._activeMidis = new Map();
@@ -42,6 +44,7 @@ export class ControllerMode {
     this._gamepadIndex = -1;
     this._lastPoll = 0;
     this._prevButtons = new Set();
+    this._inputUnsubscribers = [];
 
     this._pitchBend = 0;
     this._modulation = 0;
@@ -139,8 +142,8 @@ export class ControllerMode {
         <span class="ctrlmode__status" id="ct-status">No controller detected</span>
       </div>
       <div class="ctrlmode__body">
-        <div class="ctrlmode__pads" id="ct-pads">
-          ${this._renderPads()}
+          <div class="ctrlmode__bindings" id="ct-bindings">
+          ${this._renderBindings()}
         </div>
         <div class="ctrlmode__controller" id="ct-controller">
           <div class="ctrlmode__trigger-assignments" aria-label="Trigger assignments">
@@ -188,21 +191,39 @@ export class ControllerMode {
 
     this._bindEvents();
     this._updateTriggerHelp();
-    this._startPolling();
+    this._attachGamepadInput();
 
     return this.el;
   }
 
-  _renderPads() {
-    return this._notes.map((midi, i) => {
+  _renderBindings() {
+    const bindings = this.project?.settings?.controllerBindings || {};
+    const entries = Object.entries(bindings)
+      .filter(([, binding]) => binding)
+      .sort(([a], [b]) => Number(a) - Number(b));
+
+    const fallback = this._notes.slice(0, 7).map((midi, i) => {
       const info = midiToNoteName(midi);
-      const active = this._activePadNotes.has(i);
-      return `<button class="ctrlmode__pad" data-index="${i}" data-midi="${midi}"
-                style="background:${active ? 'var(--accent-dim)' : 'var(--surface-3)'}">
-                <span class="ctrlmode__pad-degree">${i + 1}</span>
-                <span class="ctrlmode__pad-label">${info.display}</span>
-              </button>`;
+      return `<div class="ctrlmode__binding-row ctrlmode__binding-row--fallback">
+        <span class="ctrlmode__binding-button">${i + 1}</span>
+        <span class="ctrlmode__binding-target">${info.display}</span>
+      </div>`;
     }).join('');
+
+    return `
+      <div class="ctrlmode__binding-head">
+        <span>Controller bindings</span>
+        <span>${entries.length ? `${entries.length} set` : 'Fallback scale'}</span>
+      </div>
+      ${entries.length ? entries.map(([index, binding]) => {
+        const info = gamepadButtonInfo(Number(index));
+        return `<div class="ctrlmode__binding-row">
+          <span class="ctrlmode__binding-button">${info.short}</span>
+          <span class="ctrlmode__binding-target">${this._escapeHtml(binding.label || this._bindingLabel(binding))}</span>
+        </div>`;
+      }).join('') : fallback}
+      <p class="ctrlmode__binding-note">Use the Controller button near AI to learn or clear bindings. Unbound buttons use the fallback scale layout.</p>
+    `;
   }
 
   _renderToneAssignmentOptions(key) {
@@ -281,15 +302,20 @@ export class ControllerMode {
     if (pads) pads.innerHTML = this._renderPads();
   }
 
-  _startPolling() {
-    const poll = () => {
-      this._animFrame = requestAnimationFrame(poll);
-      const now = performance.now();
-      if (now - this._lastPoll < POLL_INTERVAL) return;
-      this._lastPoll = now;
-      this._pollGamepad();
-    };
-    this._animFrame = requestAnimationFrame(poll);
+  _attachGamepadInput() {
+    if (!this._gamepadInput || this._inputUnsubscribers.length) return;
+    this._inputUnsubscribers = [
+      this._gamepadInput.on('state', ({ label }) => {
+        const status = this.el?.querySelector('#ct-status');
+        if (status) status.textContent = label || 'No controller detected';
+      }),
+      this._gamepadInput.on('buttonDown', ({ index }) => this._highlightButton(index, true)),
+      this._gamepadInput.on('buttonUp', ({ index }) => this._highlightButton(index, false)),
+      this._gamepadInput.on('triggers', ({ buttons, axes }) => this._mapAnalogTriggers(buttons, axes)),
+      this._gamepadInput.on('axes', ({ axes }) => this._mapAxes(axes)),
+    ];
+    const status = this.el?.querySelector('#ct-status');
+    if (status) status.textContent = this._gamepadInput.state().label;
   }
 
   _pollGamepad() {
@@ -348,6 +374,25 @@ export class ControllerMode {
       else if (deg === -4) this._setTriggerTone('rightTrigger', 0);
       this._highlightButton(idx, false);
     }
+  }
+
+  handleFallbackButtonDown(idx) {
+    const map = { 12: 0, 13: 1, 14: 2, 15: 3, 0: 4, 1: 5, 2: 6, 3: 0, 4: -1, 5: -2 };
+    const deg = map[idx];
+    if (deg === -1) this.shiftOctave(-1);
+    else if (deg === -2) this.shiftOctave(1);
+    else if (deg !== undefined && deg >= 0 && deg < this._notes.length) this._triggerPad(deg);
+  }
+
+  handleFallbackButtonUp(idx) {
+    const map = { 12: 0, 13: 1, 14: 2, 15: 3, 0: 4, 1: 5, 2: 6, 3: 0 };
+    const deg = map[idx];
+    if (deg !== undefined && deg >= 0 && deg < this._notes.length) this._releasePad(deg);
+  }
+
+  refreshBindings() {
+    const panel = this.el?.querySelector('#ct-bindings');
+    if (panel) panel.innerHTML = this._renderBindings();
   }
 
   _controllerToneAssignments() {
@@ -602,5 +647,18 @@ export class ControllerMode {
     };
     const el = this.el?.querySelector(ids[idx]);
     if (el) el.classList.toggle('is-active', on);
+  }
+
+  _bindingLabel(binding) {
+    if (binding?.type === 'drum') return binding.padId || 'Drum';
+    if (binding?.type === 'midi' && Number.isFinite(binding.midi)) return midiToNoteName(binding.midi).display;
+    return 'Unknown';
+  }
+
+  _escapeHtml(value = '') {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
   }
 }

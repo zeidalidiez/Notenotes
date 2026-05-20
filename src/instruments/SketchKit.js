@@ -84,6 +84,23 @@ const SOUNDS = [
   { id: 'shaker',  icon: '🪇', label: 'SHAKER' },
 ];
 
+const GM_DRUM_NOTES = {
+  kick: 36,
+  snare: 38,
+  clap: 39,
+  hihat: 42,
+  cymbal: 49,
+  tomlo: 45,
+  tommid: 47,
+  tomhi: 50,
+  rim: 37,
+  shaker: 82,
+};
+
+function titleCase(value = '') {
+  return String(value).toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
+}
+
 export class SketchKit {
   constructor(project) {
     this.engine = AudioEngine.getInstance();
@@ -98,11 +115,13 @@ export class SketchKit {
     this._kitId = 'classic';
     this._onHit = null;
     this._onBeforeHit = null;
+    this._onControllerLearnTarget = null;
     this.onSoundTraitsChanged = null;
     this.onKitChanged = null;
     this.onCreateInstrument = null;
     this.onDeleteInstrument = null;
     this.onAISeedClick = null;
+    this.onControllerMapperClick = null;
     this._activePadTimers = new Map();
     this._toneClickOutsideHandler = null;
 
@@ -133,6 +152,7 @@ export class SketchKit {
 
   setHitCallback(onHit) { this._onHit = onHit; }
   setBeforeHitCallback(fn) { this._onBeforeHit = fn; }
+  setControllerLearnCallback(fn) { this._onControllerLearnTarget = fn; }
 
   init() {
     if (this._output && this._toneInput) return;
@@ -172,6 +192,7 @@ export class SketchKit {
         <button class="tone-button" id="sk-delete-instrument-button" type="button">Delete</button>
         <button class="tone-button" id="sk-tone-button" type="button" aria-expanded="false" aria-controls="sk-tone-popover">Tone</button>
         <button class="tone-button ai-seed-button" id="sk-ai-seed-button" type="button" aria-expanded="false" aria-controls="ai-seed-popover" title="Seed a snippet with AI">AI</button>
+        <button class="tone-button controller-map-button" id="sk-controller-map-button" type="button" aria-expanded="false" aria-controls="controller-map-popover" title="Learn gamepad bindings">Controller</button>
       </div>
       <div class="sketchkit__pads" id="sk-pads" style="grid-template-columns:${this._gridColumns()};">
         ${this._renderPads()}
@@ -235,6 +256,12 @@ export class SketchKit {
         this.onAISeedClick(this.el.querySelector('#sk-kit-selector'), this.el.querySelector('#sk-ai-seed-button'));
       }
     });
+    this.el.querySelector('#sk-controller-map-button')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (this.onControllerMapperClick) {
+        this.onControllerMapperClick(this.el.querySelector('#sk-kit-selector'), this.el.querySelector('#sk-controller-map-button'));
+      }
+    });
     this._syncInstrumentButtons();
     this._bindPadEvents();
   }
@@ -287,6 +314,8 @@ export class SketchKit {
       pad.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         const sid = pad.dataset.pad;
+        const target = this._controllerLearnTargetForPad(sid);
+        if (target && this._onControllerLearnTarget?.(target)) return;
         this.triggerPad(sid);
       });
     });
@@ -466,6 +495,17 @@ export class SketchKit {
     if (id === 'wobble') return Math.pow(amount, 0.72);
     if (id === 'space') return Math.pow(amount, 0.5);
     return Math.pow(amount, 0.68);
+  }
+
+  _controllerLearnTargetForPad(sid) {
+    const sound = SOUNDS.find(s => s.id === sid);
+    return {
+      type: 'drum',
+      padId: sid,
+      gmNote: GM_DRUM_NOTES[sid] || null,
+      label: sound?.label ? titleCase(sound.label) : sid,
+      source: 'kit',
+    };
   }
 
   panic() {

@@ -63,6 +63,7 @@ export class ScaleBoard {
     this._onNoteOn = null;
     this._onNoteOff = null;
     this._onBeforeNoteOn = null;
+    this._onControllerLearnTarget = null;
 
     this._onResize = () => {
       if (this.el) {
@@ -147,6 +148,10 @@ export class ScaleBoard {
 
   setBeforeNoteCallback(fn) {
     this._onBeforeNoteOn = fn;
+  }
+
+  setControllerLearnCallback(fn) {
+    this._onControllerLearnTarget = fn;
   }
 
   /** Recalculate scale notes */
@@ -557,6 +562,9 @@ export class ScaleBoard {
           return;
         }
 
+        const learnTarget = this._controllerLearnTargetForPad(i, midi);
+        if (learnTarget && this._onControllerLearnTarget?.(learnTarget)) return;
+
         pad.setPointerCapture(e.pointerId);
         this.pressPad(i);
       });
@@ -606,6 +614,18 @@ export class ScaleBoard {
     } else {
       this._noteOn(midi);
     }
+  }
+
+  _controllerLearnTargetForPad(index, midi) {
+    if (this.padMode === 'voices') return null;
+    const info = midiToNoteName(midi);
+    return {
+      type: 'midi',
+      midi,
+      label: info.display,
+      source: 'scale',
+      padIndex: index,
+    };
   }
 
   releasePad(index) {

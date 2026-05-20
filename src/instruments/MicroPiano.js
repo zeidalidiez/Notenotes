@@ -14,6 +14,7 @@ export class MicroPiano {
     this._onNoteOn = null;
     this._onNoteOff = null;
     this._onBeforeNoteOn = null;
+    this._onControllerLearnTarget = null;
 
     window.addEventListener('settings-piano-changed', () => {
       if (this.el) this._refreshAll();
@@ -59,6 +60,10 @@ export class MicroPiano {
 
   setBeforeNoteCallback(fn) {
     this._onBeforeNoteOn = fn;
+  }
+
+  setControllerLearnCallback(fn) {
+    this._onControllerLearnTarget = fn;
   }
 
   render() {
@@ -162,8 +167,9 @@ export class MicroPiano {
     keys.forEach(key => {
       key.addEventListener('pointerdown', (e) => {
         e.preventDefault();
-        key.setPointerCapture(e.pointerId);
         const midi = parseInt(key.dataset.midi, 10);
+        if (this._onControllerLearnTarget?.(this._controllerLearnTargetForMidi(midi))) return;
+        key.setPointerCapture(e.pointerId);
         this.pressMidi(midi);
       });
 
@@ -218,6 +224,17 @@ export class MicroPiano {
     key.classList.add('is-active');
     this._activeKeys.add(midi);
     if (this._onNoteOn) this._onNoteOn(midi, 0.8);
+  }
+
+  _controllerLearnTargetForMidi(midi) {
+    const name = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][midi % 12];
+    const oct = Math.floor(midi / 12) - 1;
+    return {
+      type: 'midi',
+      midi,
+      label: `${name}${oct}`,
+      source: 'piano',
+    };
   }
 
   releaseMidi(midi) {

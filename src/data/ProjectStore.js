@@ -56,6 +56,7 @@ export function createProject(name = 'Untitled Sketch') {
         leftTrigger: 'none',
         rightTrigger: 'none'
       },
+      controllerBindings: {},
       versionHistoryLimit: DEFAULT_VERSION_HISTORY_LIMIT,
       backupContents: 'current',
       debugLogging: false,

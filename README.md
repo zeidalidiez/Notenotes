@@ -56,7 +56,7 @@ Pick a scale. Mash the pads. Switch instruments mid-loop. Press record, jam, pre
 
 <sub>Controller artwork by [nicefrog](https://opengameart.org/users/nicefrog) - [Generic Gamepad Template](https://opengameart.org/content/generic-gamepad-template), released under [CC0](https://creativecommons.org/publicdomain/zero/1.0/). Thank you, nicefrog.</sub>
 
-Plug in any USB or Bluetooth controller. D-pad and face buttons map to the scale. Analog sticks bend pitch and add modulation. Triggers can punch in Tone effects, or turn the next note into a 7th, 9th, octave jump, and other related-note choices. Pass the controller to a friend who's never touched a keyboard - watch what happens.
+Plug in any USB or Bluetooth controller. D-pad and face buttons map to the scale by default, or you can teach buttons to trigger exact notes and drum sounds. Learned buttons are global in Create, so a Kick button can still fire while you are looking at Piano, and a C4 button can still fire while you are looking at Kit. Analog sticks bend pitch and add modulation. Triggers can punch in Tone effects, or turn the next note into a 7th, 9th, octave jump, and other related-note choices. Pass the controller to a friend who's never touched a keyboard - watch what happens.
 
 ### Canvas - composition as collage
 
@@ -79,7 +79,7 @@ Open any snippet in a piano roll for fine edits. Click to add notes, drag to mov
 | Instrument | What it is |
 |---|---|
 | **Scale Board** | Pads locked to any scale (Major, Minor, Pentatonic, Blues, Dorian, Mixolydian, Chromatic). Pad count follows the scale, Extensions can continue it into the next octave, or go fully custom. |
-| **Controller** | Gamepad-as-instrument via the Web Gamepad API. D-pad + face buttons play notes; analog sticks bend pitch and modulation. Live on-screen overlay shows what you're pressing. |
+| **Controller** | Gamepad-as-instrument via the Web Gamepad API. The Controller button near AI opens a learnable mapper, while the Controller screen shows connection state, trigger assignments, live highlights, and current bindings. |
 | **Micro Piano** | Configurable chromatic keyboard (1 or 2 stacked, 10–32 keys each) with octave shifting. |
 | **Sketch Kit** | 10-pad synthesized drum kit. Four kit presets (Classic, 808, Electronic, Acoustic), with the same Tone controls as the synth side. |
 | **Audio In** | Record from any input device with a live waveform. New audio snippets are saved with durable audio data so backups can actually bring them back. |
@@ -92,7 +92,7 @@ Plus: **16 synth presets** split into Chip and Modern families, **Tone** control
 - **Beat colors** - set a different color for each beat. The background pulses in time so you can *see* the meter.
 - **Hold & arpeggio modes** - latch notes, auto-arpeggiate chords across **10 chord types**, **4 patterns**, and **4 rates**. Or sustain a drone while you explore.
 - **Tone** - simple sliders for Crush, Echo, Space, Wobble, Drive, and Noise. They work on synths and the drum kit, can be saved as presets, reset back to zero, and are meant to be fast and playful rather than a wall of studio knobs. Echo and Space have been tightened so live playback and WAV export are chasing the same sound instead of two separate guesses.
-- **Controller triggers as sound switches or note switches** - assign LT and RT to Tone, or use them to reach related notes like 7ths and 9ths by holding the trigger before you strike the pad.
+- **Controller triggers as sound switches or note switches** - assign LT and RT to Tone, or use them to reach related notes like 7ths and 9ths by holding the trigger before you strike the pad. Regular controller buttons can also be learned to exact MIDI notes or drum sounds. Triggers and sticks stay reserved for expression.
 - **Keyboard shortcuts as instrument** - number row triggers pads, letter row triggers piano keys, `ArrowUp`/`ArrowDown` shift octave.
 - **Pitch & mod via QWERTY** - Korg K25-style mod (1/4/7) and pitch (3/6/9) when keys aren't in use.
 - **Mobile and desktop focus, including iOS Safari** - touch drag-and-drop everywhere, a cleaner labeled transport menu on narrow screens, and extra audio unlock nudges when a real note or drum hit happens.

@@ -990,7 +990,7 @@ On import/migration, embedded `audioDataUrl` should always be converted into a f
 
 ## App Versioning
 
-Current App Version: `0.1.12`
+Current App Version: `0.1.13`
 
 The visible app version is displayed in Settings. Bump it for meaningful user-facing changes or architecture/storage changes, especially when AI.MD is updated for completed work.
 
@@ -1924,3 +1924,99 @@ App version `0.1.12` tightens the Inspect drum editor so it follows the same bro
 
 - Drum add toasts now call `EditMode._drumLabel(id)` instead of showing raw ids.
 - Raw ids such as `tommid` remain the stored data model, but UI messages show readable labels such as `Tom Mid`.
+
+---
+
+## Global Controller Bindings 0.1.13
+
+App version `0.1.13` begins the controller redesign without deleting the existing Controller screen. The important design rule is that learned controller bindings are **sound targets**, not screen targets.
+
+### Shared gamepad input
+
+- New file: `src/engine/GamepadInputManager.js`.
+- `GamepadInputManager` owns Web Gamepad API polling at the old 30ms cadence and emits:
+  - `state`
+  - `buttonDown`
+  - `buttonUp`
+  - `buttons`
+  - `triggers`
+  - `axes`
+- `BINDABLE_GAMEPAD_BUTTONS` intentionally excludes LT/RT. Triggers stay reserved for Tone / Trigger Note behavior, and analog sticks stay reserved for pitch/modulation.
+- `gamepadButtonInfo(index)` is the shared display-label resolver for mapper UI and Controller screen status.
+
+### Controller screen role
+
+- `ControllerMode` now receives the shared `GamepadInputManager`.
+- It no longer owns polling as the primary source of truth. It subscribes to the shared manager for connection state, button highlights, trigger values, and stick movement.
+- The old top-left note list has been replaced with a current bindings/fallback panel:
+  - if bindings exist, it lists button -> target
+  - if no bindings exist, it shows the old fallback scale shape
+- The Controller tab remains available as a setup/status surface. It is no longer the only way controller input can make sound.
+
+### Binding storage
+
+Controller bindings live in project settings:
+
+```js
+project.settings.controllerBindings = {
+  "0": {
+    type: "midi",
+    midi: 60,
+    label: "C4",
+    source: "piano"
+  },
+  "1": {
+    type: "drum",
+    padId: "kick",
+    gmNote: 36,
+    label: "Kick",
+    source: "kit"
+  }
+}
+```
+
+- This is additive and defaults to `{}` in `createProject()`.
+- Existing projects without the field keep working. Unbound buttons use fallback behavior.
+- Do not collapse this back to `{ buttonIndex: midi }`; the richer object is needed so drum sounds, labels, source, and future metadata can survive backups and reloads.
+
+### Learn hooks
+
+Three instruments now expose controller-learn hooks:
+
+- `ScaleBoard.setControllerLearnCallback(fn)`
+- `MicroPiano.setControllerLearnCallback(fn)`
+- `SketchKit.setControllerLearnCallback(fn)`
+
+When the mapper is waiting for a target:
+
+- Scale Board reports `{ type: "midi", midi, label, source: "scale", padIndex }`.
+- MicroPiano reports `{ type: "midi", midi, label, source: "piano" }`.
+- SketchKit reports `{ type: "drum", padId, gmNote, label, source: "kit" }`.
+- Voice Sketch mode reports no target. The mapper button is hidden while Scale Board is in Voice Sketch.
+- Returning `true` from the callback means the note/pad press was consumed for learning and should not play.
+
+### Mapper UI
+
+- Creative Mode now renders a `Controller` button near `AI` in the synth toolbar.
+- SketchKit renders the same button next to its AI button.
+- The mapper is a compact `tone-popover` sibling, not a full Settings drawer.
+- Learn flow:
+  1. hold a bindable controller button
+  2. click `Set`
+  3. click a Scale pad, Piano key, or Kit pad
+  4. binding is saved and the modal stays open
+- The list view supports per-binding `Unbind` and `Clear All Bindings`.
+
+### Playback routing
+
+- Global controller playback is active only while Create Mode is active.
+- Bound MIDI targets play through the current synth patch and current Tone settings, even if the visible Create tab is Kit.
+- Bound drum targets call `SketchKit.triggerPad(padId)`, so they use the currently selected kit and current Tone settings, even if the visible Create tab is Scale/Piano/Controller.
+- MIDI bindings call `RecordingManager.noteOn/noteOff` so Create recording captures them as normal notes.
+- Drum bindings call the existing `SketchKit.triggerPad()` path, so drum recording captures them through the normal hit callback.
+- Unbound buttons use fallback behavior based on the currently visible Create tab:
+  - Scale: old degree-style pad mapping
+  - Piano: visible-key mapping
+  - Kit: visible-pad mapping
+  - Controller: old Controller Mode scale/chord fallback via `handleFallbackButtonDown/Up`
+- Canvas has no controller mapper or controller playback in this version by design.

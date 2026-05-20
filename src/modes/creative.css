@@ -216,3 +216,73 @@
   font-size: var(--font-size-xs);
   line-height: 1.4;
 }
+
+.controller-map-popover {
+  min-width: min(380px, calc(100vw - 32px));
+}
+
+.controller-map {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.controller-map__headline {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.controller-map__status,
+.controller-map__hint,
+.controller-map__empty {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  line-height: 1.45;
+}
+
+.controller-map__status strong {
+  color: var(--accent-light);
+}
+
+.controller-map__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.controller-map__binding {
+  display: grid;
+  grid-template-columns: minmax(66px, 0.7fr) auto minmax(80px, 1fr) auto;
+  gap: var(--space-xs);
+  align-items: center;
+  padding: var(--space-xs);
+  background: var(--surface-2);
+  border: 1px solid var(--surface-4);
+  border-radius: var(--radius-sm);
+}
+
+.controller-map__button {
+  color: var(--accent-light);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.controller-map__arrow {
+  color: var(--text-tertiary);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.controller-map__target {
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

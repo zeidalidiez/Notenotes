@@ -836,15 +836,27 @@
   min-height: 0;
 }
 
-.ctrlmode__pads {
+.ctrlmode__bindings {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
   flex: 0 0 auto;
-  min-width: 100px;
+  width: min(220px, 100%);
 }
 
-.ctrlmode__pad {
+.ctrlmode__binding-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ctrlmode__binding-row {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
@@ -853,21 +865,33 @@
   border: 1px solid var(--surface-4);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
-  font-family: var(--font-family);
-  cursor: default;
   min-height: 28px;
 }
 
-.ctrlmode__pad-degree {
+.ctrlmode__binding-row--fallback {
+  opacity: 0.74;
+}
+
+.ctrlmode__binding-button {
   font-weight: var(--font-weight-bold);
   font-size: var(--font-size-sm);
   color: var(--accent);
-  min-width: 16px;
+  min-width: 38px;
 }
 
-.ctrlmode__pad-label {
+.ctrlmode__binding-target {
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ctrlmode__binding-note {
+  margin: var(--space-xs) 0 0;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
 }
 
 .ctrlmode__controller {

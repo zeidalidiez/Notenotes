@@ -1328,7 +1328,7 @@ export class CreativeMode {
       const isScale = this.activeInstrument === INSTRUMENTS.SCALEBOARD;
       const isPiano = this.activeInstrument === INSTRUMENTS.PIANO;
       layoutBtn.style.display = '';
-      layoutBtn.textContent = isScale ? 'Pads' : (isPiano ? 'Keys' : 'Layout');
+      layoutBtn.textContent = 'Layout';
       layoutBtn.disabled = !(isScale || isPiano);
       layoutBtn.setAttribute('aria-disabled', String(layoutBtn.disabled));
       layoutBtn.title = isScale ? 'Pad layout and degree colors' : (isPiano ? 'Keyboard layout and degree colors' : 'Layout controls are available on Scale and Piano');

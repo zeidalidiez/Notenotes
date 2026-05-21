@@ -2151,3 +2151,13 @@ This is a UI correction pass after the shared project key/scale landed.
 
 - `SketchKit`'s selector row now uses the same surface background and bottom border treatment as the synth toolbar row.
 - This keeps Kit from looking like its kit dropdown / Tone / AI / Controller controls are floating loose under the tab bar.
+
+## Layout Button Label Cleanup 0.1.16
+
+- The Create toolbar `Layout` button now always says `Layout`.
+- It no longer changes its visible label to `Pads` on Scale Board or `Keys` on MicroPiano.
+- Behavior remains context-aware:
+  - Scale Board opens the Pads layout / Degree Colors popover.
+  - MicroPiano opens the Keys layout / Degree Colors popover.
+  - Unsupported Create surfaces show the same button disabled.
+- Reason: changing the button text per instrument made the toolbar feel visually unstable. Consistent labeling is preferred even if the panel contents differ by active instrument.

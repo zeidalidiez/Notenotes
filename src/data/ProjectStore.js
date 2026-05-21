@@ -62,6 +62,7 @@ export function createProject(name = 'Untitled Sketch') {
       degreeHighlighting: {
         enabled: DEFAULT_DEGREE_HIGHLIGHTING.enabled,
         showLabels: DEFAULT_DEGREE_HIGHLIGHTING.showLabels,
+        intensity: DEFAULT_DEGREE_HIGHLIGHTING.intensity,
         colors: { ...DEFAULT_DEGREE_HIGHLIGHTING.colors }
       },
       versionHistoryLimit: DEFAULT_VERSION_HISTORY_LIMIT,

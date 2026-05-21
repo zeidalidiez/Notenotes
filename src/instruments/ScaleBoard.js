@@ -292,8 +292,10 @@ export class ScaleBoard {
       const voiceLabel = isVoice ? this._previewSyllableForPad(i) : null;
       const voiceClass = isVoice ? ' scaleboard__pad--voice' : '';
       const degreeMeta = this._degreeMetaForMidi(midi);
-      const degreeClass = degreeMeta ? ' scaleboard__pad--degree' : '';
-      const degreeStyle = degreeMeta ? ` style="--degree-color: ${this._escapeAttr(degreeMeta.color)};"` : '';
+      const degreeClass = degreeMeta
+        ? `${degreeMeta.colorEnabled ? ' scaleboard__pad--degree-color' : ''}${degreeMeta.label ? ' scaleboard__pad--degree-label' : ''}`
+        : '';
+      const degreeStyle = degreeMeta ? ` style="--degree-color: ${this._escapeAttr(degreeMeta.color)}; --degree-intensity: ${this._escapeAttr(degreeMeta.intensityPercent)};"` : '';
       const degreeLabel = degreeMeta?.label || '';
       return `
         <button class="scaleboard__pad${voiceClass}${degreeClass} ${this.isEditingLayout ? 'is-editing' : ''}"${degreeStyle} data-index="${i}" data-midi="${midi}"
@@ -317,6 +319,8 @@ export class ScaleBoard {
     if (!meta) return null;
     return {
       color: degree.colors[meta.interval],
+      colorEnabled: degree.enabled,
+      intensityPercent: `${Math.round((degree.intensity ?? 0.22) * 100)}%`,
       label: degree.showLabels ? meta.label : ''
     };
   }
@@ -727,7 +731,7 @@ export class ScaleBoard {
   }
 
   shiftOctave(delta) {
-    const next = Math.max(2, Math.min(6, this.octave + delta));
+    const next = Math.max(1, Math.min(6, this.octave + delta));
     if (next === this.octave) return;
     this.releaseAllPads();
     this.octave = next;

@@ -126,8 +126,10 @@ export class MicroPiano {
         ? `C${oct}`
         : key.name;
       const degreeMeta = this._degreeMetaForMidi(midi);
-      const degreeClass = degreeMeta ? ' micropiano__key--degree' : '';
-      const degreeStyle = degreeMeta ? ` style="--degree-color: ${this._escapeAttr(degreeMeta.color)};"` : '';
+      const degreeClass = degreeMeta
+        ? `${degreeMeta.colorEnabled ? ' micropiano__key--degree-color' : ''}${degreeMeta.label ? ' micropiano__key--degree-label' : ''}`
+        : '';
+      const degreeStyle = degreeMeta ? ` style="--degree-color: ${this._escapeAttr(degreeMeta.color)}; --degree-intensity: ${this._escapeAttr(degreeMeta.intensityPercent)};"` : '';
       html += `<button class="micropiano__key ${cls}${degreeClass}"${degreeStyle} data-midi="${midi}"
                 aria-label="${key.name}${oct}">
                 <span class="micropiano__key-label">${label}</span>
@@ -144,6 +146,8 @@ export class MicroPiano {
     if (!meta) return null;
     return {
       color: degree.colors[meta.interval],
+      colorEnabled: degree.enabled,
+      intensityPercent: `${Math.round((degree.intensity ?? 0.22) * 100)}%`,
       label: degree.showLabels ? meta.label : ''
     };
   }

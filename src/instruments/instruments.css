@@ -401,14 +401,14 @@
   box-shadow: 0 0 20px var(--accent-glow-strong);
 }
 
-.scaleboard__pad--degree {
+.scaleboard__pad--degree-color {
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--degree-color) 20%, transparent), transparent 72%),
+    linear-gradient(180deg, color-mix(in srgb, var(--degree-color) var(--degree-intensity), transparent), transparent 72%),
     var(--surface-3);
   border-color: color-mix(in srgb, var(--degree-color) 44%, var(--surface-5));
 }
 
-.scaleboard__pad--degree:hover {
+.scaleboard__pad--degree-color:hover {
   border-color: color-mix(in srgb, var(--degree-color) 68%, var(--accent-dim));
 }
 
@@ -442,10 +442,14 @@
 }
 
 .scaleboard__pad-degree-name {
-  color: color-mix(in srgb, var(--degree-color) 78%, var(--text-primary));
+  color: var(--text-secondary);
   font-size: 10px;
   font-weight: var(--font-weight-semibold);
   line-height: 1;
+}
+
+.scaleboard__pad--degree-color .scaleboard__pad-degree-name {
+  color: color-mix(in srgb, var(--degree-color) 78%, var(--text-primary));
 }
 
 /* --- Voice mode --- */
@@ -675,7 +679,7 @@
   pointer-events: none;
 }
 
-.micropiano__key--degree::after {
+.micropiano__key--degree-color::after {
   content: '';
   position: absolute;
   inset: 3px;
@@ -684,15 +688,15 @@
   pointer-events: none;
 }
 
-.micropiano__key--degree.micropiano__key--white {
+.micropiano__key--degree-color.micropiano__key--white {
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--degree-color) 18%, transparent), transparent 58%),
+    linear-gradient(180deg, color-mix(in srgb, var(--degree-color) var(--degree-intensity), transparent), transparent 58%),
     linear-gradient(180deg, #e8e8e8 0%, #d0d0d0 100%);
 }
 
-.micropiano__key--degree.micropiano__key--black {
+.micropiano__key--degree-color.micropiano__key--black {
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--degree-color) 20%, transparent), transparent 64%),
+    linear-gradient(180deg, color-mix(in srgb, var(--degree-color) var(--degree-intensity), transparent), transparent 64%),
     linear-gradient(180deg, #333 0%, #1a1a1a 100%);
 }
 
@@ -701,10 +705,18 @@
   top: 6px;
   left: 50%;
   transform: translateX(-50%);
-  color: color-mix(in srgb, var(--degree-color) 82%, white);
+  color: var(--surface-2);
   font-size: 10px;
   font-weight: var(--font-weight-bold);
   pointer-events: none;
+}
+
+.micropiano__key--black .micropiano__degree-label {
+  color: var(--text-secondary);
+}
+
+.micropiano__key--degree-color .micropiano__degree-label {
+  color: color-mix(in srgb, var(--degree-color) 82%, white);
 }
 
 /* === SKETCH KIT === */

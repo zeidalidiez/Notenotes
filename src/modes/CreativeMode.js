@@ -1932,6 +1932,11 @@ export class CreativeMode {
           <input type="checkbox" data-degree-labels ${degree.showLabels ? 'checked' : ''}>
           <span>Show degree labels</span>
         </label>
+        <label class="create-control-popover__row create-control-popover__row--slider">
+          <span>Color intensity</span>
+          <span class="create-control-popover__value" data-degree-intensity-value>${Math.round((degree.intensity ?? 0.22) * 100)}%</span>
+          <input class="tone-row__slider" type="range" min="5" max="75" value="${Math.round((degree.intensity ?? 0.22) * 100)}" data-degree-intensity aria-label="Degree color intensity">
+        </label>
         <div class="degree-controls__swatches" aria-label="Degree colors for ${context.root} ${SCALES[context.scale]?.name || 'Major'}">
           ${intervals.map(interval => {
             const meta = degreeForMidi(60 + interval, { root: 'C', scale: 'chromatic' });
@@ -1964,6 +1969,12 @@ export class CreativeMode {
     });
     popover.querySelector('[data-degree-labels]')?.addEventListener('change', (event) => {
       this._ensureDegreeHighlighting().showLabels = !!event.target.checked;
+      notify();
+    });
+    popover.querySelector('[data-degree-intensity]')?.addEventListener('input', (event) => {
+      const degree = this._ensureDegreeHighlighting();
+      degree.intensity = Math.max(0.05, Math.min(0.75, Number(event.target.value) / 100));
+      popover.querySelector('[data-degree-intensity-value]')?.replaceChildren(`${Math.round(degree.intensity * 100)}%`);
       notify();
     });
     popover.querySelectorAll('[data-degree-color]').forEach(input => {

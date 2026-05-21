@@ -43,6 +43,7 @@ export const DEFAULT_DEGREE_COLORS = {
 export const DEFAULT_DEGREE_HIGHLIGHTING = {
   enabled: false,
   showLabels: false,
+  intensity: 0.22,
   colors: DEFAULT_DEGREE_COLORS
 };
 
@@ -84,9 +85,11 @@ export function normalizeMusicalContext(context = {}) {
 
 export function normalizeDegreeHighlighting(value = {}) {
   const colors = { ...DEFAULT_DEGREE_COLORS, ...(value?.colors || {}) };
+  const intensity = Number(value?.intensity);
   return {
     enabled: !!value?.enabled,
     showLabels: !!value?.showLabels,
+    intensity: Number.isFinite(intensity) ? Math.max(0.05, Math.min(0.75, intensity)) : DEFAULT_DEGREE_HIGHLIGHTING.intensity,
     colors
   };
 }

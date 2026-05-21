@@ -2161,3 +2161,33 @@ This is a UI correction pass after the shared project key/scale landed.
   - MicroPiano opens the Keys layout / Degree Colors popover.
   - Unsupported Create surfaces show the same button disabled.
 - Reason: changing the button text per instrument made the toolbar feel visually unstable. Consistent labeling is preferred even if the panel contents differ by active instrument.
+
+## Degree Highlighting / Octave Cleanup 0.1.17
+
+- Degree highlighting now has a separate `intensity` value:
+
+```js
+project.settings.degreeHighlighting = {
+  enabled: false,
+  showLabels: false,
+  intensity: 0.22,
+  colors: { ... }
+}
+```
+
+- `normalizeDegreeHighlighting()` clamps intensity between `0.05` and `0.75`.
+- The Layout panel renders a `Color intensity` slider from 5% to 75%.
+- Degree labels and color highlighting are independent:
+  - `showLabels: true` can show labels without `enabled: true`.
+  - Label-only mode does not add the colored piano key outline or Scale Board color tint.
+  - When color highlighting is enabled, labels use the degree color.
+  - When color highlighting is disabled, labels use normal key/pad readable text colors.
+- CSS classes are intentionally split:
+  - `scaleboard__pad--degree-color`
+  - `scaleboard__pad--degree-label`
+  - `micropiano__key--degree-color`
+  - `micropiano__key--degree-label`
+- Scale Board and Controller octave floors now match Piano's lower practical octave:
+  - old clamp: `2..6`
+  - new clamp: `1..6`
+- There was no hard audio limitation behind the old C2-ish floor. It was an old guardrail. C1 is allowed now; C0 remains avoided because it is mostly sub-bass rumble on normal speakers and is less useful for this app's default playing surface.

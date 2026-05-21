@@ -264,7 +264,7 @@ export class ControllerMode {
   }
 
   shiftOctave(delta) {
-    const next = Math.max(2, Math.min(6, this.octave + delta));
+    const next = Math.max(1, Math.min(6, this.octave + delta));
     if (next === this.octave) return;
     this.octave = next;
     this._updateOctave();

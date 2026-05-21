@@ -247,7 +247,8 @@ export class AISeedPanel {
     });
     this.el.querySelector('#ai-cancel')?.addEventListener('click', (e) => {
       e.preventDefault();
-      this.controller?.abort();
+      if (this.controller?.isGenerating?.()) this.controller.abort();
+      this._onClose?.();
     });
   }
 

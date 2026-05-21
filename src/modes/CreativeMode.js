@@ -8,6 +8,7 @@ import '../modes/creative.css';
 import { WebAudioSynth, PRESETS, SOUND_TRAITS, normalizeSoundTraits } from '../instruments/WebAudioSynth.js';
 import {
   DEFAULT_DEGREE_COLORS,
+  DEFAULT_DEGREE_HIGHLIGHTING,
   degreeForMidi,
   midiToNoteName,
   normalizeDegreeHighlighting,
@@ -1987,8 +1988,13 @@ export class CreativeMode {
     });
     popover.querySelector('[data-degree-reset]')?.addEventListener('pointerdown', (event) => {
       event.preventDefault();
-      const degree = this._ensureDegreeHighlighting();
-      degree.colors = { ...DEFAULT_DEGREE_COLORS };
+      this.project.settings ||= {};
+      this.project.settings.degreeHighlighting = normalizeDegreeHighlighting({
+        enabled: DEFAULT_DEGREE_HIGHLIGHTING.enabled,
+        showLabels: DEFAULT_DEGREE_HIGHLIGHTING.showLabels,
+        intensity: DEFAULT_DEGREE_HIGHLIGHTING.intensity,
+        colors: { ...DEFAULT_DEGREE_COLORS },
+      });
       notify();
       const parent = popover.parentElement;
       const isPads = popover.id === 'pads-popover';

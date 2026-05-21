@@ -2226,3 +2226,22 @@ project.settings.degreeHighlighting = {
   - non-Major scales still render the rotated circle but do not claim a diatonic arc yet
 - Recording works by firing the existing ScaleBoard note callbacks once per chord member. This means Compass snippets are normal MIDI snippets, not a new snippet type.
 - Deferred: minor-key arc logic, inversions, chord extensions, and cross-highlighting ScaleBoard pads while Compass chords play.
+
+## Usability And Tone Taming 0.1.20
+
+- AI Seed Cancel now closes the AI popover after aborting any active generation. Before this pass it only called `AIController.abort()`, which left the panel open and made Cancel feel like a half-action.
+- Layout degree reset now restores the entire default degree-highlighting object:
+  - `enabled: false`
+  - `showLabels: false`
+  - `intensity: DEFAULT_DEGREE_HIGHLIGHTING.intensity`
+  - `colors: DEFAULT_DEGREE_COLORS`
+- This matters because the old reset only restored swatch colors. Intensity and checkbox state could stay customized while the button claimed to reset the feature.
+- Drive + Noise interaction was softened:
+  - `WebAudioSynth._createVoiceNoise()` now lowers per-voice noise gain as Drive rises.
+  - `SketchKit._rebuildEffects()` applies the same idea to kit noise texture.
+  - `WavExporter.applyToneTraits()` mirrors the reduced noise amount before Drive so exported WAVs do not keep the old static-heavy behavior.
+- Modern preset responsiveness:
+  - `soft_pad.envelope.attack` changed from `0.6` to `0.18`.
+  - `modern_pad.envelope.attack` changed from `0.75` to `0.22`.
+  - `modern_pad.filterEnv.attack` changed from `0.42` to `0.16`.
+- Reasoning: the slow attacks were musically valid for long pad holds, but in Notenotes they made quick taps appear broken or silent. These are still slower than chip presets, but now short presses should speak.

@@ -136,7 +136,7 @@ export const PRESETS = {
     name: 'Soft Pad',
     family: 'modern',
     oscillator: { type: 'sine', detune: 8 },
-    envelope: { attack: 0.6, decay: 0.5, sustain: 0.7, release: 1.2 },
+    envelope: { attack: 0.18, decay: 0.5, sustain: 0.7, release: 1.2 },
     filter: { type: 'lowpass', frequency: 3000, Q: 0.7 },
     gain: 0.4,
   },
@@ -205,9 +205,9 @@ export const PRESETS = {
     schemaVersion: 2,
     oscillator: { type: 'sawtooth', detune: -3 },
     oscillator2: { type: 'triangle', detune: 1200, gain: 0.22 },
-    envelope: { attack: 0.75, decay: 0.8, sustain: 0.74, release: 1.6 },
+    envelope: { attack: 0.22, decay: 0.8, sustain: 0.74, release: 1.6 },
     filter: { type: 'lowpass', frequency: 2200, Q: 0.8 },
-    filterEnv: { attack: 0.42, decay: 1.15, sustain: 0.62, depth: 0.56 },
+    filterEnv: { attack: 0.16, decay: 1.15, sustain: 0.62, depth: 0.56 },
     vibrato: { rate: 4.2, depth: 7, delay: 0.35 },
     unison: { voices: 3, spread: 14 },
     keyTrack: 0.36,
@@ -743,6 +743,7 @@ export class WebAudioSynth {
     const amount = this._traitCurve('noise');
     const ctx = this.engine.ctx;
     if (!ctx || amount <= 0) return null;
+    const drive = this._traitCurve('drive');
 
     const length = Math.max(1, Math.floor(ctx.sampleRate * 0.8));
     const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
@@ -757,7 +758,8 @@ export class WebAudioSynth {
     source.buffer = buffer;
     source.loop = true;
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.08 + amount * 0.45, now);
+    const driveDucking = 1 - drive * 0.55;
+    gain.gain.setValueAtTime((0.045 + amount * 0.26) * driveDucking, now);
     source.connect(gain);
     return { source, gain };
   }

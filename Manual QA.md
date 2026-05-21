@@ -410,6 +410,34 @@ Expected:
 - The exported WAV includes the clip Tone.
 - Tone does not apply unexpectedly to unrelated clips.
 
+### 7.4 Drive And Noise Stay Usable Together
+
+Steps:
+
+1. Go to Pads or Piano.
+2. Open Tone.
+3. Set Drive and Noise to moderate and then high values.
+4. Try the same Tone settings on Kit.
+5. Export a short WAV with the same Tone settings.
+
+Expected:
+
+- Noise adds texture but does not explode into constant static as Drive increases.
+- Live playback and WAV export both keep the reduced-noise behavior.
+
+### 7.5 Modern Presets Speak On Short Taps
+
+Steps:
+
+1. Select Soft Pad and Modern Pad.
+2. Tap short notes on Pads and Piano.
+3. Hold longer notes to confirm the smoother pad character still exists.
+
+Expected:
+
+- Short taps produce audible sound.
+- Held notes still feel like modern/pad instruments rather than chip plucks.
+
 ## 8. Controller Triggers
 
 ### 8.1 Trigger Notes In Single Mode

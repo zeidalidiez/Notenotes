@@ -820,9 +820,10 @@ export class SketchKit {
       const noiseGain = ctx.createGain();
       const noiseFilter = ctx.createBiquadFilter();
       const source = this._noiseSource(0.5);
+      const driveDucking = 1 - driveAmount * 0.5;
       noiseFilter.type = 'highpass';
       noiseFilter.frequency.value = 900 + noiseAmount * 4200;
-      noiseGain.gain.value = 0.04 + noiseAmount * 0.22;
+      noiseGain.gain.value = (0.025 + noiseAmount * 0.14) * driveDucking;
       current.connect(noiseGain);
       source.connect(noiseFilter);
       noiseFilter.connect(noiseGain.gain);

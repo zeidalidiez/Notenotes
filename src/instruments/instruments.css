@@ -401,6 +401,21 @@
   box-shadow: 0 0 20px var(--accent-glow-strong);
 }
 
+.scaleboard__pad.is-active.is-controller-single {
+  border-color: #7bd88f;
+  box-shadow: 0 0 16px rgba(123, 216, 143, 0.55);
+}
+
+.scaleboard__pad.is-active.is-controller-chord {
+  border-color: #f4bf75;
+  box-shadow: 0 0 16px rgba(244, 191, 117, 0.55);
+}
+
+.scaleboard__pad.is-active.is-controller-root {
+  border-color: #77c8ff;
+  box-shadow: 0 0 16px rgba(119, 200, 255, 0.55);
+}
+
 .scaleboard__pad--degree-color {
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--degree-color) var(--degree-intensity), transparent), transparent 72%),

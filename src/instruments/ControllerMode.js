@@ -645,7 +645,10 @@ export class ControllerMode {
 
   _bindingLabel(binding) {
     if (binding?.type === 'drum') return binding.padId || 'Drum';
-    if (binding?.type === 'scalePad' && Number.isFinite(binding.padIndex)) return binding.label || `Pad ${binding.padIndex + 1}`;
+    if (binding?.type === 'scalePad' && Number.isFinite(binding.padIndex)) {
+      const action = binding.padAction === 'chord' ? 'Chord' : binding.padAction === 'root' ? 'Root' : 'Note';
+      return binding.label ? `${binding.label} (${action})` : `Pad ${binding.padIndex + 1} (${action})`;
+    }
     if (binding?.type === 'midi' && Number.isFinite(binding.midi)) return midiToNoteName(binding.midi).display;
     return 'Unknown';
   }

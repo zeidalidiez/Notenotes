@@ -492,9 +492,12 @@ Expected:
 - The mapper stays open after Set long enough for the next Pads/Piano/Kit click to bind.
 - Pads bindings show as Pads/Chord/Root targets, not just fixed note names.
 - Pads bindings keep the learned action. A button learned from Single stays a single note after switching Pads to Chords.
+- A binding learned from a pad that no longer exists shows a clear toast instead of silently doing nothing.
 - A learned Custom chord pad plays as a chord from the controller.
 - Piano bindings still play exact notes.
+- Piano bindings light visible keys while they are held.
 - Kit bindings still play exact drum sounds.
+- Save Current creates a named controller preset, Load restores it, and Delete removes it.
 
 ### 8.1 Trigger Notes In Single Mode
 

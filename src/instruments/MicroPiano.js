@@ -261,6 +261,26 @@ export class MicroPiano {
     if (this._onNoteOn) this._onNoteOn(midi, 0.8);
   }
 
+  pressControllerMidi(midi) {
+    if (this._activeKeys.has(midi)) return true;
+    if (this._onBeforeNoteOn) this._onBeforeNoteOn();
+    this.synth.noteOn(midi);
+    const key = this.el?.querySelector(`.micropiano__key[data-midi="${midi}"]`);
+    if (key) key.classList.add('is-active');
+    this._activeKeys.add(midi);
+    if (this._onNoteOn) this._onNoteOn(midi, 0.8);
+    return true;
+  }
+
+  releaseControllerMidi(midi) {
+    if (!this._activeKeys.has(midi)) return;
+    this.synth.noteOff(midi);
+    const key = this.el?.querySelector(`.micropiano__key[data-midi="${midi}"]`);
+    if (key) key.classList.remove('is-active');
+    this._activeKeys.delete(midi);
+    if (this._onNoteOff) this._onNoteOff(midi);
+  }
+
   _controllerLearnTargetForMidi(midi) {
     const name = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][midi % 12];
     const oct = Math.floor(midi / 12) - 1;

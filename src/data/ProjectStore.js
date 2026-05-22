@@ -59,6 +59,7 @@ export function createProject(name = 'Untitled Sketch') {
         rightTrigger: 'none'
       },
       controllerBindings: {},
+      controllerBindingPresets: [],
       degreeHighlighting: {
         enabled: DEFAULT_DEGREE_HIGHLIGHTING.enabled,
         showLabels: DEFAULT_DEGREE_HIGHLIGHTING.showLabels,

@@ -1170,6 +1170,14 @@ export class CreativeMode {
     return this.project.settings.controllerBindings;
   }
 
+  _ensureControllerBindingPresets() {
+    if (!this.project.settings) this.project.settings = {};
+    if (!Array.isArray(this.project.settings.controllerBindingPresets)) {
+      this.project.settings.controllerBindingPresets = [];
+    }
+    return this.project.settings.controllerBindingPresets;
+  }
+
   _controllerBinding(index) {
     return this._ensureControllerBindings()[String(index)] || null;
   }
@@ -1184,15 +1192,17 @@ export class CreativeMode {
       if (this.scaleBoard?.padMode === 'voices') return;
       if (this._heldControllerPads.has(index)) return;
       const bindingKey = `controller-${index}`;
-      this.scaleBoard.pressControllerPadBinding(bindingKey, binding);
+      const played = this.scaleBoard.pressControllerPadBinding(bindingKey, binding);
+      if (!played) {
+        showToast(`${binding.label || 'Controller binding'} is not available in the current Pads layout`);
+        return;
+      }
       this._heldControllerPads.set(index, bindingKey);
       return;
     }
     if (binding.type === 'midi' && Number.isFinite(binding.midi)) {
       if (this._heldControllerMidis.has(index)) return;
-      this._beginArmedRecordingIfNeeded();
-      this.synth.noteOn(binding.midi, 0.8);
-      this.recordingManager.noteOn(binding.midi, 0.8, { controllerBinding: true });
+      this.microPiano.pressControllerMidi(binding.midi);
       this._heldControllerMidis.set(index, binding.midi);
     }
   }
@@ -1206,8 +1216,7 @@ export class CreativeMode {
     }
     if (!this._heldControllerMidis.has(index)) return;
     const midi = this._heldControllerMidis.get(index);
-    this.synth.noteOff(midi);
-    this.recordingManager.noteOff(midi);
+    this.microPiano.releaseControllerMidi(midi);
     this._heldControllerMidis.delete(index);
   }
 
@@ -1624,19 +1633,29 @@ export class CreativeMode {
 
   _renderControllerBindingList() {
     const bindings = this._ensureControllerBindings();
+    const presets = this._ensureControllerBindingPresets();
     const entries = Object.entries(bindings).filter(([, binding]) => binding).sort(([a], [b]) => Number(a) - Number(b));
     return `
       <div class="tone-popover__header">
         <span>Controller Bindings</span>
       </div>
       <div class="controller-map controller-map--list">
+        <div class="controller-map__preset-row">
+          <select class="settings-select" id="controller-preset-select" aria-label="Controller binding preset">
+            <option value="">Controller preset...</option>
+            ${presets.map(preset => `<option value="${this._escapeHtml(preset.id)}">${this._escapeHtml(preset.name || 'Untitled preset')}</option>`).join('')}
+          </select>
+          <button class="btn btn--ghost btn--sm" id="controller-preset-load" type="button" ${presets.length ? '' : 'disabled'}>Load</button>
+          <button class="btn btn--ghost btn--sm" id="controller-preset-save" type="button" ${entries.length ? '' : 'disabled'}>Save Current</button>
+          <button class="btn btn--ghost btn--sm" id="controller-preset-delete" type="button" ${presets.length ? '' : 'disabled'}>Delete</button>
+        </div>
         ${entries.length ? entries.map(([index, binding]) => {
           const info = gamepadButtonInfo(Number(index));
           return `
             <div class="controller-map__binding">
               <span class="controller-map__button">${this._escapeHtml(info.label)}</span>
               <span class="controller-map__arrow">to</span>
-              <span class="controller-map__target">${this._escapeHtml(binding.label || this._controllerTargetLabel(binding))}</span>
+              <span class="controller-map__target">${this._escapeHtml(this._controllerTargetLabel(binding))}</span>
               <button class="btn btn--ghost btn--sm" data-controller-unbind="${index}" type="button">Unbind</button>
             </div>
           `;
@@ -1678,6 +1697,47 @@ export class CreativeMode {
       this.controllerMode?.refreshBindings?.();
       this._refreshControllerMapper();
       showToast('Controller bindings cleared');
+    });
+    popover.querySelector('#controller-preset-save')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      const bindings = this._ensureControllerBindings();
+      if (!Object.keys(bindings).length) return;
+      const name = window.prompt('Name this controller preset');
+      if (!name?.trim()) return;
+      const now = Date.now();
+      this._ensureControllerBindingPresets().push({
+        id: `controller-preset-${now}`,
+        name: name.trim(),
+        bindings: this._cloneControllerBindings(bindings),
+        createdAt: now,
+        updatedAt: now,
+      });
+      this.store?.scheduleAutoSave(this.project);
+      this._refreshControllerMapper();
+      showToast('Controller preset saved');
+    });
+    popover.querySelector('#controller-preset-load')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      const presets = this._ensureControllerBindingPresets();
+      const presetId = popover.querySelector('#controller-preset-select')?.value || presets[0]?.id;
+      const preset = presets.find(item => item.id === presetId);
+      if (!preset) return;
+      this.project.settings.controllerBindings = this._cloneControllerBindings(preset.bindings || {});
+      this.store?.scheduleAutoSave(this.project);
+      this.controllerMode?.refreshBindings?.();
+      this._refreshControllerMapper();
+      showToast(`Controller preset loaded: ${preset.name}`);
+    });
+    popover.querySelector('#controller-preset-delete')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      const presets = this._ensureControllerBindingPresets();
+      const presetId = popover.querySelector('#controller-preset-select')?.value || presets[0]?.id;
+      const preset = presets.find(item => item.id === presetId);
+      if (!preset || !window.confirm(`Delete controller preset "${preset.name}"?`)) return;
+      this.project.settings.controllerBindingPresets = presets.filter(item => item.id !== presetId);
+      this.store?.scheduleAutoSave(this.project);
+      this._refreshControllerMapper();
+      showToast('Controller preset deleted');
     });
     popover.querySelectorAll('[data-controller-unbind]').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -1754,11 +1814,24 @@ export class CreativeMode {
     };
   }
 
+  _cloneControllerBindings(bindings = {}) {
+    return JSON.parse(JSON.stringify(bindings || {}));
+  }
+
   _controllerTargetLabel(binding) {
     if (binding?.type === 'drum') return binding.padId || 'Drum';
-    if (binding?.type === 'scalePad' && Number.isFinite(binding.padIndex)) return binding.label || `Pad ${binding.padIndex + 1}`;
+    if (binding?.type === 'scalePad' && Number.isFinite(binding.padIndex)) {
+      const action = this._controllerPadActionName(binding.padAction || binding.padMode);
+      return binding.label ? `${binding.label} (${action})` : `Pad ${binding.padIndex + 1} (${action})`;
+    }
     if (binding?.type === 'midi' && Number.isFinite(binding.midi)) return midiToNoteName(binding.midi).display;
     return 'Unknown';
+  }
+
+  _controllerPadActionName(action) {
+    if (action === 'chord' || action === 'chords') return 'Chord';
+    if (action === 'root') return 'Root';
+    return 'Note';
   }
 
   _closeControllerMapperPopover() {

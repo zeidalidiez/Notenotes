@@ -775,12 +775,12 @@ export class ScaleBoard {
   }
 
   pressControllerPadBinding(bindingKey, binding = {}) {
-    if (!bindingKey || this._activeControllerPadBindings.has(bindingKey)) return;
-    if (this.padMode === 'voices') return;
+    if (!bindingKey || this._activeControllerPadBindings.has(bindingKey)) return true;
+    if (this.padMode === 'voices') return false;
     const index = Number(binding.padIndex);
     const pad = this.el?.querySelector(`.scaleboard__pad[data-index="${index}"]`);
     const midi = this._notes[index];
-    if (!pad || midi === undefined) return;
+    if (!pad || midi === undefined) return false;
 
     const action = binding.padAction || this._padActionFromMode(binding.padMode);
     let midis;
@@ -793,9 +793,10 @@ export class ScaleBoard {
       midis = [midi];
     }
 
-    pad.classList.add('is-active');
-    this._activeControllerPadBindings.set(bindingKey, { index, midis });
+    pad.classList.add('is-active', `is-controller-${action}`);
+    this._activeControllerPadBindings.set(bindingKey, { index, midis, action });
     midis.forEach(m => this._noteOn(m));
+    return true;
   }
 
   releaseControllerPadBinding(bindingKey) {
@@ -803,8 +804,10 @@ export class ScaleBoard {
     if (!active) return;
     active.midis.forEach(m => this._noteOff(m));
     this._activeControllerPadBindings.delete(bindingKey);
+    const pad = this.el?.querySelector(`.scaleboard__pad[data-index="${active.index}"]`);
+    pad?.classList.remove('is-controller-single', 'is-controller-chord', 'is-controller-root');
     if (!this._activePadIndexes.has(active.index) && !this._hasActiveControllerPadIndex(active.index)) {
-      this.el?.querySelector(`.scaleboard__pad[data-index="${active.index}"]`)?.classList.remove('is-active');
+      pad?.classList.remove('is-active');
     }
   }
 

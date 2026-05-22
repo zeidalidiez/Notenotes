@@ -2312,3 +2312,23 @@ project.settings.degreeHighlighting = {
 - This fixes the issue where a button learned from a Single pad would later become a chord whenever the visible Pads screen was switched to Chords mode.
 - ScaleBoard exposes `pressControllerPadBinding(bindingKey, binding)` and `releaseControllerPadBinding(bindingKey)` so controller playback can reuse ScaleBoard note callbacks and recording behavior without relying on the current `padMode`.
 - The learned `midi` value remains display/debug metadata only. Playback resolves the current project key/scale/octave for the stored `padIndex` plus stored `padAction`.
+
+## Controller Binding Guardrails / Presets 0.1.25
+
+- Controller Pads bindings now fail visibly when the stored `padIndex` does not exist in the current Pads layout.
+  - Example: a binding learned from Pad 13 will not silently do nothing on a 7-pad scale.
+  - CreativeMode shows a toast that the binding is not available in the current Pads layout.
+- Piano controller bindings now route through `MicroPiano.pressControllerMidi()` / `releaseControllerMidi()`.
+  - This keeps exact-note behavior.
+  - If the key is visible, it lights up on the Piano screen.
+  - If the key is outside the visible range, it still plays and records.
+- Pads controller bindings get action-specific active classes:
+  - `is-controller-single`
+  - `is-controller-chord`
+  - `is-controller-root`
+  These make a controller-triggered single binding visually distinct from a controller-triggered chord/root binding even when the visible Pads mode is different.
+- Binding lists now include the Pads action type in the target label, such as `(Note)`, `(Chord)`, or `(Root)`.
+- Project settings now include `controllerBindingPresets: []`.
+  - Presets are stored inside the workspace/project JSON, so workspace backups carry them.
+  - The Controller Mapper list view can save the current binding map as a named preset, load a preset over the current map, or delete a preset.
+  - Presets clone `project.settings.controllerBindings`; they do not store live gamepad state.

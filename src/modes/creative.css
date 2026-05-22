@@ -255,6 +255,14 @@
   flex-wrap: wrap;
 }
 
+.controller-map__preset-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) repeat(3, auto);
+  gap: var(--space-xs);
+  align-items: center;
+  margin-bottom: var(--space-sm);
+}
+
 .controller-map__binding {
   display: grid;
   grid-template-columns: minmax(66px, 0.7fr) auto minmax(80px, 1fr) auto;

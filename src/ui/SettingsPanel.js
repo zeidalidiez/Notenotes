@@ -57,6 +57,25 @@ function formatBytes(bytes = 0) {
   return `${value.toFixed(digits)} ${units[unit]}`;
 }
 
+function formatRelativeTime(timestamp) {
+  if (!timestamp) return 'Never';
+  const diff = Math.max(0, Date.now() - Number(timestamp));
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  if (diff < minute) return 'Just now';
+  if (diff < hour) {
+    const mins = Math.round(diff / minute);
+    return `${mins} min${mins === 1 ? '' : 's'} ago`;
+  }
+  if (diff < day) {
+    const hours = Math.round(diff / hour);
+    return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  }
+  const days = Math.round(diff / day);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
 function percent(value, total) {
   if (!Number.isFinite(value) || !Number.isFinite(total) || total <= 0) return 0;
   return Math.max(0, Math.min(100, (value / total) * 100));
@@ -436,8 +455,16 @@ export class SettingsPanel {
             <span class="settings-value" id="storage-audio-count">Checking...</span>
           </div>
           <div class="settings-row">
+            <label class="settings-label">Browser storage</label>
+            <span class="settings-value" id="storage-persistence">Checking...</span>
+          </div>
+          <div class="settings-row">
             <label class="settings-label">Workspace backup</label>
             <span class="settings-value" id="storage-backup-size">Estimating...</span>
+          </div>
+          <div class="settings-row">
+            <label class="settings-label">Backup status</label>
+            <span class="settings-value" id="storage-backup-status">Checking...</span>
           </div>
           <p class="settings-desc" id="storage-advice">Checking storage...</p>
         </div>
@@ -503,6 +530,33 @@ export class SettingsPanel {
     if (contents === 'archive') return 'Full archive includes the current workspace, milestones, and version history. This is the biggest file and the safest handoff.';
     if (contents === 'milestones') return 'Includes the current workspace and named milestones, but leaves auto-save history out.';
     return 'Includes the current workspace only. This is the smallest normal project backup.';
+  }
+
+  _workspaceBackupStatus() {
+    const settings = this.project?.settings || {};
+    const lastEditAt = Number(settings.lastEditAt || this.project?.updatedAt || 0);
+    const lastBackupAt = Number(settings.lastWorkspaceBackupAt || 0);
+    if (!lastBackupAt) {
+      return {
+        state: 'danger',
+        label: 'No workspace backup yet',
+        advice: 'Browser storage is not a backup. Save a workspace backup outside the browser for anything important.'
+      };
+    }
+    if (!lastEditAt || lastBackupAt >= lastEditAt) {
+      return {
+        state: 'ok',
+        label: `Backed up ${formatRelativeTime(lastBackupAt)}`,
+        advice: 'Your latest tracked workspace edit has a workspace backup file outside browser storage.'
+      };
+    }
+    const age = Date.now() - lastBackupAt;
+    const state = age > 24 * 60 * 60 * 1000 ? 'danger' : age > 18 * 60 * 60 * 1000 ? 'warning' : 'warning';
+    return {
+      state,
+      label: `Edited since backup (${formatRelativeTime(lastBackupAt)})`,
+      advice: `This workspace changed after the last backup. Save a fresh workspace backup to protect the latest work.`
+    };
   }
 
   _bindEvents() {
@@ -887,14 +941,18 @@ export class SettingsPanel {
     const usedEl = body.querySelector('#storage-meter-used');
     const quotaEl = body.querySelector('#storage-meter-quota');
     const audioEl = body.querySelector('#storage-audio-count');
+    const persistenceEl = body.querySelector('#storage-persistence');
     const backupEl = body.querySelector('#storage-backup-size');
+    const backupStatusEl = body.querySelector('#storage-backup-status');
     const adviceEl = body.querySelector('#storage-advice');
 
     try {
       const estimate = await navigator.storage?.estimate?.();
+      const persisted = await navigator.storage?.persisted?.();
       const usage = estimate?.usage || 0;
       const quota = estimate?.quota || 0;
       const usedPercent = percent(usage, quota);
+      const backupStatus = this._workspaceBackupStatus();
 
       if (fillEl) {
         fillEl.style.width = `${usedPercent}%`;
@@ -903,6 +961,11 @@ export class SettingsPanel {
       }
       if (usedEl) usedEl.textContent = quota ? `${formatBytes(usage)} used` : 'Storage estimate unavailable';
       if (quotaEl) quotaEl.textContent = quota ? `${usedPercent.toFixed(1)}% of ${formatBytes(quota)}` : '';
+      if (persistenceEl) {
+        if (persisted === true) persistenceEl.textContent = 'Persistent';
+        else if (persisted === false) persistenceEl.textContent = 'Best effort';
+        else persistenceEl.textContent = 'Unknown';
+      }
 
       const audioStats = await this.store?.getAudioAssetStats?.(this.project);
       const audioBytes = audioStats?.bytes || 0;
@@ -915,11 +978,18 @@ export class SettingsPanel {
         audioEl.textContent = `${audioCount} recording${audioCount === 1 ? '' : 's'}, ${formatBytes(audioBytes)}${missingText}`;
       }
       if (backupEl) backupEl.textContent = `About ${formatBytes(backupBytes)}`;
+      if (backupStatusEl) backupStatusEl.textContent = backupStatus.label;
       if (adviceEl) {
-        if (missing > 0) {
+        if (backupStatus.state === 'danger') {
+          adviceEl.textContent = backupStatus.advice;
+        } else if (backupStatus.state === 'warning') {
+          adviceEl.textContent = backupStatus.advice;
+        } else if (missing > 0) {
           adviceEl.textContent = 'Some older audio clips are unavailable. Save a fresh workspace backup after checking the project.';
         } else if (usedPercent >= 85) {
           adviceEl.textContent = 'Storage is getting tight. Save a workspace backup outside the browser before recording more audio.';
+        } else if (persisted === false) {
+          adviceEl.textContent = 'Browser storage is best effort on this device. Workspace backups are still the real safety net.';
         } else if (audioCount > 0) {
           adviceEl.textContent = 'Audio recordings are stored locally. Save a workspace backup when you reach a version you care about.';
         } else {
@@ -931,7 +1001,9 @@ export class SettingsPanel {
       if (usedEl) usedEl.textContent = 'Storage estimate unavailable';
       if (quotaEl) quotaEl.textContent = '';
       if (audioEl) audioEl.textContent = 'Could not check audio storage';
+      if (persistenceEl) persistenceEl.textContent = 'Could not check';
       if (backupEl) backupEl.textContent = 'Could not estimate';
+      if (backupStatusEl) backupStatusEl.textContent = this._workspaceBackupStatus().label;
       if (adviceEl) adviceEl.textContent = 'Save workspace backups outside the browser for anything important.';
     }
   }
@@ -1167,6 +1239,10 @@ export class SettingsPanel {
         const backup = await this._workspaceBackupPayload(contents);
         const suffix = contents === 'archive' ? 'archive' : contents === 'milestones' ? 'workspace-milestones' : 'workspace';
         await saveJsonFile(backup, backupFilename(this.project, suffix));
+        this.project.settings ||= {};
+        this.project.settings.lastWorkspaceBackupAt = Date.now();
+        await this.store?.save(this.project, { markEdit: false });
+        await this._loadStorageStatus();
         showToast('Workspace backup saved');
       } catch (err) {
         if (err?.name !== 'AbortError') {

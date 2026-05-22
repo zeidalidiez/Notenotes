@@ -67,6 +67,8 @@ export function createProject(name = 'Untitled Sketch') {
       },
       versionHistoryLimit: DEFAULT_VERSION_HISTORY_LIMIT,
       backupContents: 'current',
+      lastEditAt: null,
+      lastWorkspaceBackupAt: null,
       debugLogging: false,
       canvasLoopEnabled: false,
       voicePhrase: '',
@@ -343,8 +345,12 @@ export class ProjectStore {
    * Save a project to IndexedDB.
    * @param {object} project
    */
-  async save(project) {
-    project.updatedAt = Date.now();
+  async save(project, options = {}) {
+    const { markEdit = true } = options;
+    const now = Date.now();
+    project.updatedAt = now;
+    project.settings ||= {};
+    if (markEdit) project.settings.lastEditAt = now;
     await this.migrateProjectAudioAssets(project);
     await this._db.put(STORE_PROJECTS, this._sanitizeProjectForStorage(project));
   }

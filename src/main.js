@@ -70,6 +70,7 @@ class App {
     // Bind keyboard shortcuts
     this._bindKeyboard();
     this._bindWheelShortcuts();
+    this._requestPersistentStorageOnFirstGesture();
 
     // Load or create project
     await this._loadOrCreateProject();
@@ -224,6 +225,21 @@ class App {
     this._setupAudioInit();
 
     console.log('[App] Notenotes ready.');
+  }
+
+  _requestPersistentStorageOnFirstGesture() {
+    if (typeof navigator === 'undefined' || !navigator.storage?.persist) return;
+    const request = async () => {
+      window.removeEventListener('pointerdown', request, true);
+      window.removeEventListener('keydown', request, true);
+      try {
+        await navigator.storage.persist();
+      } catch (err) {
+        console.warn('[Storage] Persistent storage request failed:', err);
+      }
+    };
+    window.addEventListener('pointerdown', request, { once: true, capture: true });
+    window.addEventListener('keydown', request, { once: true, capture: true });
   }
 
   _ensureProjectMusicalContext() {

@@ -287,6 +287,24 @@ Expected:
 
 ## 6. Backups And Restore
 
+### 6.0 Storage Status
+
+Steps:
+
+1. Open Settings, then Save.
+2. Check the Storage group.
+3. Save a workspace backup.
+4. Make a small edit, such as renaming the project or adding a snippet.
+5. Return to Settings, then Save.
+
+Expected:
+
+- Browser storage shows Persistent, Best effort, Unknown, or an honest failure state.
+- Workspace backup status says there is no workspace backup before the first backup.
+- After saving a workspace backup, the status shows the latest backup time.
+- After a later edit, the status says the workspace changed since the last backup.
+- The advice text does not imply browser storage is the same thing as an external backup file.
+
 ### 6.1 Workspace Backup
 
 Steps:

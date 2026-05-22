@@ -2245,3 +2245,25 @@ project.settings.degreeHighlighting = {
   - `modern_pad.envelope.attack` changed from `0.75` to `0.22`.
   - `modern_pad.filterEnv.attack` changed from `0.42` to `0.16`.
 - Reasoning: the slow attacks were musically valid for long pad holds, but in Notenotes they made quick taps appear broken or silent. These are still slower than chip presets, but now short presses should speak.
+
+## Storage Hardening Start 0.1.21
+
+- The app now requests persistent browser storage on the first user gesture via `navigator.storage.persist()` when the API exists.
+- This is a durability improvement, not a real backup. Persistent storage can reduce automatic browser eviction, but users can still lose data by clearing site/browser data or switching browsers/devices. Keep README/UI language honest about this distinction.
+- Settings -> Save -> Storage now shows:
+  - storage usage/quota from `navigator.storage.estimate()`
+  - browser storage mode from `navigator.storage.persisted()` as `Persistent`, `Best effort`, `Unknown`, or failure text
+  - workspace backup status based on `project.settings.lastEditAt` and `project.settings.lastWorkspaceBackupAt`
+- `ProjectStore.save(project, options)` now accepts `{ markEdit = true }`.
+  - Normal saves and autosaves mark `project.settings.lastEditAt`.
+  - The workspace-backup success path saves with `{ markEdit: false }` after setting `lastWorkspaceBackupAt`, so the act of recording the backup timestamp does not make the project look dirty again.
+- `createProject()` initializes `settings.lastEditAt` and `settings.lastWorkspaceBackupAt` as `null`.
+- Workspace backup save flow:
+  1. save current project normally
+  2. build portable backup payload with embedded audio
+  3. write JSON backup
+  4. set `lastWorkspaceBackupAt = Date.now()`
+  5. save metadata with `markEdit: false`
+  6. refresh storage status
+- Backup status is intentionally tied to workspace backups only. Snippet backups are still useful, but they do not prove the current workspace layout/milestones/version history are protected.
+- Future local-folder backup work should reuse this metadata instead of creating a second backup-status system.

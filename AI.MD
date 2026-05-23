@@ -2442,10 +2442,11 @@ project.settings.degreeHighlighting = {
 - `SettingsPanel` conditionally adds a `Diagnostics` tab only when `window.__notenotesDebug === true`.
   - The diagnostics panel is destroyed when leaving the tab or closing Settings so the requestAnimationFrame readout does not keep running in the background.
 - `src/ui/DiagnosticsPanel.js` is intentionally math-first and non-invasive.
-  - It does not start transport, play audio, subscribe to every tick, change BPM, change loop regions, or mutate project data.
+  - In 0.1.31 this did not start any transport, play audio, subscribe to every tick, change BPM, change loop regions, or mutate project data.
+  - Superseded in 0.1.34: the panel can run one isolated silent `Transport` instance for runtime tempo measurement, but it still does not touch the app's active transport, clips, metronome, loop regions, or project data.
   - Live Timing reads current transport fields at animation-frame rate only while visible: meter, grouping, BPM, seconds/tick, ticks/sec, ticks/bar, ticks/pulse, current bar/pulse/tick.
-  - `Verify Current Meter` compares the current meter/BPM 8-bar duration from the pulse formula against `ticksPerBarForMeter() * secondsPerTickForMeter()`.
-  - `Run Full Matrix` checks all supported meter/BPM cells, pair-up invariants, and linearity invariants immediately from the same meter helpers used by transport/export.
+  - Original 0.1.31 button names were `Verify Current Meter` and `Run Full Matrix`.
+  - Superseded in 0.1.34: these are now labeled `Check meter math` and `Check meter matrix` because they validate helper consistency, not live transport timing.
 - This replaces the heavier live-transport diagnostic idea for now.
   - Avoid diagnostic tests that use the real transport as a metronome unless they are explicitly isolated; otherwise the measuring tool can become the source of jitter or can disturb user playback state.
   - If future QA needs a live scheduling probe, build it as a separate opt-in tool and make clear that it measures scheduler/runtime behavior, not just meter math.
@@ -2484,3 +2485,21 @@ project.settings.degreeHighlighting = {
 - `App._setProjectMeter()` now treats grouping changes on the same meter id as real meter changes. Previously `current.id === next.id` returned early, which would have ignored a `7/8 2+2+3 -> 3+2+2` update.
 - `Manual QA.md` section `12.3` now includes `5/8` and `7/8` timing rows and grouping checks. `DiagnosticsPanel` pair-up checks also include `2/4 = 5/8` and `3/4 = 7/8` duration invariants.
 - Free mode remains unshipped. Do not expose `free` until the Canvas seconds ruler, disabled sheet export, and mode-switch confirmation behavior are implemented.
+
+## Diagnostics Runtime Tempo Measurement 0.1.34
+
+- The Diagnostics panel now separates meter-helper checks from runtime scheduler checks.
+- Existing buttons were renamed for accuracy:
+  - `Check meter math` validates the current meter's helper formulas (`expectedSeconds` vs `ticksPerBarForMeter() * secondsPerTickForMeter()`).
+  - `Check meter matrix` validates every exposed meter/BPM cell plus pair-up and linearity invariants.
+  - These math checks are still useful for catching helper drift, but they are not a substitute for runtime transport measurement.
+- New `Measure live tempo` button runs an isolated, silent `Transport` instance.
+  - It copies the active meter, BPM, and PPQ from the app transport.
+  - It sets `loopEnabled = false`, starts only that diagnostic transport, and listens to `onBar` / `onBeat` callbacks.
+  - It measures elapsed `AudioContext.currentTime` from the first captured bar boundary to the bar boundary after four bars.
+  - It compares measured duration to `pulseCount * (60 / bpm) * bars` and reports PASS/WARN/FAIL with runtime thresholds of 50ms / 100ms.
+  - It captures early pulse gaps so asymmetric meters can be checked for feel (`5/8 2+3` should show short-long; `3+2` should show long-short).
+- The runtime measurement intentionally does not use `PlaybackEngine`, `Metronome`, snippets, Canvas clips, or the user's active `Transport`.
+  - It can resume the shared `AudioContext` because it is measuring scheduler time, but it schedules no audio nodes and produces no sound.
+  - `destroy()` stops any diagnostic runtime transport so closing Settings cannot leave a measurement loop running.
+- `Manual QA.md` section `12.4` now describes all three diagnostic buttons and clarifies that asymmetric pair-up invariants mean total bar duration, not identical pulse spacing.

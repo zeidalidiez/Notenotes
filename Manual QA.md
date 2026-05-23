@@ -764,14 +764,16 @@ Steps:
 4. Open Diagnostics.
 5. Confirm Live Timing readouts are populated.
 6. Change BPM and Meter in the top bar.
-7. Click Verify Current Meter.
-8. Click Run Full Matrix.
-9. Remove `?debug=1`, reload, and open Settings.
+7. Click Check meter math.
+8. Click Check meter matrix.
+9. Click Measure live tempo.
+10. Remove `?debug=1`, reload, and open Settings.
 
 Expected:
 
 - Diagnostics appears only with `?debug=1`.
 - Live Timing numbers match the top bar and update without starting playback.
-- Verify Current Meter reports PASS for supported meters.
-- Run Full Matrix reports PASS for all supported meter/BPM cells, pair-up checks, and linearity checks.
-- The diagnostics panel does not play audio, start transport, or mutate the current project.
+- Check meter math reports PASS for supported meters.
+- Check meter matrix reports PASS for all supported meter/BPM cells, pair-up checks, and linearity checks.
+- Measure live tempo starts an isolated silent transport, reports expected vs measured duration, and does not start the app's active transport, play clips, play the metronome, or mutate the current project.
+- In `5/8`, `2+3` should report alternating short-long pulse gaps and `3+2` should report long-short pulse gaps. Pair-up checks mean total bar duration only, not identical pulse feel.

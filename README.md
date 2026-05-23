@@ -317,7 +317,7 @@ Notenotes is built in the open and grows with its community. Whether you're fili
 3. **Fork → branch → PR.** Keep PRs small and focused; describe the user-facing change.
 4. **Music tests welcome.** A 10-second clip of "this used to break and now it doesn't" is a perfectly good test.
 
-Developer timing diagnostics exist for QA without living in the normal UI. Open the app with `?debug=1`, then Settings -> Diagnostics, to inspect meter timing and run the tempo matrix. The diagnostics panel is URL-only, so it does not hang around for regular users after QA.
+Developer timing diagnostics exist for QA without living in the normal UI. Open the app with `?debug=1`, then Settings -> Diagnostics, to inspect meter timing, run the meter math matrix, and measure live tempo with an isolated silent transport. The diagnostics panel is URL-only, so it does not hang around for regular users after QA.
 
 ### For AI agents working on this codebase
 

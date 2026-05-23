@@ -8,6 +8,7 @@ import {
   secondsPerTickForMeter,
   ticksPerBarForMeter,
 } from '../engine/Meter.js';
+import { Transport } from '../engine/Transport.js';
 
 const MATRIX_BPMS = [60, 120, 240];
 const MATRIX_BARS = 4;
@@ -20,6 +21,13 @@ function statusForMs(ms) {
   const abs = Math.abs(ms);
   if (abs <= 1) return 'pass';
   if (abs <= 50) return 'warn';
+  return 'fail';
+}
+
+function statusForRuntimeMs(ms) {
+  const abs = Math.abs(ms);
+  if (abs <= 50) return 'pass';
+  if (abs <= 100) return 'warn';
   return 'fail';
 }
 
@@ -78,6 +86,8 @@ export class DiagnosticsPanel {
     this.transport = transport;
     this.el = null;
     this._raf = null;
+    this._runtimeTransport = null;
+    this._runtimeRunning = false;
   }
 
   render() {
@@ -87,17 +97,18 @@ export class DiagnosticsPanel {
       <div class="settings-section diagnostics-panel__section">
         <div class="settings-group">
           <h3 class="settings-group__title">Diagnostics</h3>
-          <p class="settings-desc">Developer-only timing checks. This panel does not play audio or start transport.</p>
+          <p class="settings-desc">Developer-only timing checks. Math checks validate the meter helpers; the runtime check uses an isolated silent transport and never touches the active project playback.</p>
         </div>
         <div class="settings-group">
           <h3 class="settings-group__title">Live Timing</h3>
           <div class="diagnostics-grid" id="diag-live-grid"></div>
         </div>
         <div class="settings-group">
-          <h3 class="settings-group__title">Verify Tempo</h3>
+          <h3 class="settings-group__title">Meter Math</h3>
           <div class="diagnostics-actions">
-            <button class="btn btn--ghost btn--sm" id="diag-current" type="button">Verify Current Meter</button>
-            <button class="btn btn--ghost btn--sm" id="diag-matrix" type="button">Run Full Matrix</button>
+            <button class="btn btn--ghost btn--sm" id="diag-current" type="button">Check meter math</button>
+            <button class="btn btn--ghost btn--sm" id="diag-matrix" type="button">Check meter matrix</button>
+            <button class="btn btn--ghost btn--sm" id="diag-runtime" type="button">Measure live tempo</button>
           </div>
           <div class="diagnostics-result" id="diag-result">No run yet.</div>
         </div>
@@ -111,6 +122,7 @@ export class DiagnosticsPanel {
   destroy() {
     if (this._raf) cancelAnimationFrame(this._raf);
     this._raf = null;
+    this._stopRuntimeTransport();
   }
 
   _bind() {
@@ -119,6 +131,9 @@ export class DiagnosticsPanel {
     });
     this.el.querySelector('#diag-matrix')?.addEventListener('click', () => {
       this._renderMatrixResult();
+    });
+    this.el.querySelector('#diag-runtime')?.addEventListener('click', () => {
+      this._measureRuntimeTempo();
     });
   }
 
@@ -165,7 +180,7 @@ export class DiagnosticsPanel {
     this._setResult(`
       <div class="diagnostics-summary diagnostics-summary--${status}">
         <strong>${statusLabel(status)}</strong>
-        <span>${meter.id || '4/4'} at ${bpm} BPM, 8 bars</span>
+        <span>Meter.js helper check: ${meter.id || '4/4'} at ${bpm} BPM, 8 bars</span>
       </div>
       <div class="diagnostics-grid diagnostics-grid--compact">
         <div class="diagnostics-grid__label">Expected</div><div class="diagnostics-grid__value">${fmt(expected)} s</div>
@@ -189,7 +204,7 @@ export class DiagnosticsPanel {
     this._setResult(`
       <div class="diagnostics-summary diagnostics-summary--${status}">
         <strong>${statusLabel(status)}</strong>
-        <span>${rows.length} tempo cells, ${pairRows.length} pair checks, ${lineRows.length} linearity checks</span>
+        <span>Meter.js matrix: ${rows.length} tempo cells, ${pairRows.length} pair checks, ${lineRows.length} linearity checks</span>
       </div>
       <div class="diagnostics-table" role="table" aria-label="Tempo matrix results">
         <div class="diagnostics-table__row diagnostics-table__row--head">
@@ -213,6 +228,122 @@ export class DiagnosticsPanel {
         </div>
       </details>
     `);
+  }
+
+  async _measureRuntimeTempo() {
+    if (this._runtimeRunning) return;
+    const button = this.el?.querySelector('#diag-runtime');
+    if (button) button.disabled = true;
+    this._runtimeRunning = true;
+    this._setResult('<div class="diagnostics-summary"><strong>RUNNING</strong><span>Measuring isolated silent transport...</span></div>');
+
+    try {
+      const result = await this._runIsolatedTempoMeasurement();
+      const status = statusForRuntimeMs(result.deviationMs);
+      const pulseText = result.pulseDurations.map(value => `${fmt(value, 3)}s`).join(', ');
+      this._setResult(`
+        <div class="diagnostics-summary diagnostics-summary--${status}">
+          <strong>${statusLabel(status)}</strong>
+          <span>Runtime transport: ${result.meterId} at ${result.bpm} BPM, ${result.bars} bars</span>
+        </div>
+        <div class="diagnostics-grid diagnostics-grid--compact">
+          <div class="diagnostics-grid__label">Expected</div><div class="diagnostics-grid__value">${fmt(result.expected)} s</div>
+          <div class="diagnostics-grid__label">Measured</div><div class="diagnostics-grid__value">${fmt(result.measured)} s</div>
+          <div class="diagnostics-grid__label">Deviation</div><div class="diagnostics-grid__value">${fmt(result.deviationMs, 2)} ms</div>
+          <div class="diagnostics-grid__label">Pulse gaps</div><div class="diagnostics-grid__value">${pulseText || '--'}</div>
+        </div>
+      `);
+    } catch (err) {
+      this._setResult(`
+        <div class="diagnostics-summary diagnostics-summary--fail">
+          <strong>FAIL</strong>
+          <span>${err?.message || 'Runtime tempo measurement failed'}</span>
+        </div>
+      `);
+    } finally {
+      this._runtimeRunning = false;
+      if (button) button.disabled = false;
+      this._stopRuntimeTransport();
+    }
+  }
+
+  _runIsolatedTempoMeasurement() {
+    const source = this.transport;
+    const meter = source?.meter || METER_PRESETS['4/4'];
+    const bpm = source?.bpm || 120;
+    const ticksPerBeat = source?.ticksPerBeat || 480;
+    const bars = 4;
+    const expected = expectedSeconds(meter, bpm, bars);
+    const timeoutMs = Math.max(3000, (expected + 1.5) * 1000);
+
+    return new Promise((resolve, reject) => {
+      const runtime = new Transport();
+      this._runtimeTransport = runtime;
+      runtime.meter = meter;
+      runtime.bpm = bpm;
+      runtime.ticksPerBeat = ticksPerBeat;
+      runtime.loopEnabled = false;
+
+      const barTimes = [];
+      const beatTimes = [];
+      const offBar = runtime.onBar((bar, time) => {
+        if (bar < 0) return;
+        barTimes.push({ bar, time });
+        if (barTimes.length >= bars + 1) finish();
+      });
+      const offBeat = runtime.onBeat((beat, time) => {
+        if (beatTimes.length < 16) beatTimes.push({ beat, time });
+      });
+
+      const cleanup = () => {
+        clearTimeout(timeout);
+        offBar();
+        offBeat();
+        runtime.stop();
+        if (this._runtimeTransport === runtime) this._runtimeTransport = null;
+      };
+
+      const finish = () => {
+        const start = barTimes[0];
+        const end = barTimes[bars];
+        if (!start || !end) {
+          cleanup();
+          reject(new Error('Not enough bar callbacks captured'));
+          return;
+        }
+        const measured = end.time - start.time;
+        const pulseDurations = [];
+        for (let i = 1; i < beatTimes.length; i += 1) {
+          const prev = beatTimes[i - 1];
+          const next = beatTimes[i];
+          if (next.time > prev.time) pulseDurations.push(next.time - prev.time);
+        }
+        cleanup();
+        resolve({
+          meterId: meter.id || '4/4',
+          bpm,
+          bars,
+          expected,
+          measured,
+          deviationMs: (measured - expected) * 1000,
+          pulseDurations,
+        });
+      };
+
+      const timeout = setTimeout(() => {
+        cleanup();
+        reject(new Error('Runtime tempo measurement timed out'));
+      }, timeoutMs);
+
+      runtime.seekToBar(0);
+      runtime.play();
+    });
+  }
+
+  _stopRuntimeTransport() {
+    if (!this._runtimeTransport) return;
+    this._runtimeTransport.stop();
+    this._runtimeTransport = null;
   }
 
   _setResult(html) {

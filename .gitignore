@@ -22,4 +22,4 @@ dist
 *.njsproj
 *.sln
 *.sw?
-.agents/*
+.agents/

@@ -22,6 +22,7 @@ import {
   ALLOWED_LENGTHS_BARS,
   getSubmitSequenceTool,
 } from './sequence-schema.js';
+import { SCALES, scaleDescription } from '../engine/MusicTheory.js';
 
 /**
  * @typedef {object} PromptContext
@@ -72,7 +73,10 @@ export function buildSystemPrompt(ctx) {
   lines.push(`- Time signature: ${meter}. Use ${beatsPerBar} felt beat${beatsPerBar === 1 ? '' : 's'} per bar for event beat positions.`);
   lines.push(`- Tempo: ${ctx.bpm || 120} BPM (${pulseText}).`);
   if (ctx.instrument === 'scaleboard') {
-    lines.push(`- Scale: ${ctx.scaleName || 'major'} in ${ctx.rootNote || 'C'}. ${ctx.padCount || 7} pads available (padIndex 0..${(ctx.padCount || 7) - 1}). The pads are scale-locked; you cannot play out-of-key notes.`);
+    const scale = SCALES[ctx.scaleName] || SCALES.major;
+    const scaleContext = scaleDescription(ctx.scaleName || 'major');
+    lines.push(`- Scale: ${scale.name || ctx.scaleName || 'Major'} in ${ctx.rootNote || 'C'}. ${ctx.padCount || 7} pads available (padIndex 0..${(ctx.padCount || 7) - 1}). The pads are scale-locked; you cannot play out-of-key notes.`);
+    if (scaleContext) lines.push(`- Scale color: ${scaleContext}`);
   } else if (ctx.instrument === 'piano') {
     lines.push(`- Free chromatic. You can use any MIDI note 24..96. The user has not constrained you to a key, but tasteful key choices respect the project's overall scale (${ctx.scaleName || 'major'} in ${ctx.rootNote || 'C'}).`);
   } else if (ctx.instrument === 'kit') {

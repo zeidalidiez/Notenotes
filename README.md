@@ -89,7 +89,8 @@ Plus: **16 synth presets** split into Chip and Modern families, **Tone** control
 ### For someone who wants a different perspective into the world of music.
 
 - **Scale-locked pads** - every press is in key. You can't pick a wrong note. Turn on **Extensions** to keep the scale going into the next octave without turning it into a theory quiz.
-- **Project key and scale** - set the shared root and scale in the top bar. Pads, Controller fallback, AI context, and the optional Piano/Pad degree colors all read from the same place instead of each feature guessing on its own. The old duplicate Root/Scale controls are intentionally gone from Pads and Ctrl.
+- **Project key and scale** - set the shared root and scale in the top bar. The scale picker is grouped by family and includes Western modes, pentatonic colors, Hungarian/Klezmer colors, and honest 12-TET maqam/raga-inspired approximations. Pads, Controller fallback, AI context, and the optional Piano/Pad degree colors all read from the same place instead of each feature guessing on its own. The old duplicate Root/Scale controls are intentionally gone from Pads and Ctrl.
+- **Curated chord pads** - Chords mode still stacks scale degrees for familiar Western scales, but uses hand-picked chord pads for scales where plain tertian stacking would feel wrong, such as Hirajoshi, Hungarian Minor, Double Harmonic, and Phrygian Dominant.
 - **Beat colors** - set a different color for each beat. The background pulses in time so you can *see* the meter.
 - **Degree colors** - the Layout panel can turn on shared degree highlighting, adjust color intensity, or show degree labels without the colored outlines. It is off by default. Pads use plain function names like Tonic and Dominant, while Piano keeps compact shorthand badges like b3 and 5.
 - **Hold & arpeggio modes** - latch notes, auto-arpeggiate chords across **10 chord types**, **4 patterns**, and **4 rates**. Or sustain a drone while you explore.
@@ -171,6 +172,7 @@ These are the ideas that drive the project. Some are coded, some are sketches, s
 ### Safety nets for those who need them
 - [x] **Scale lock** on the pads.
 - [ ] **Chord lock** - only chords that fit the song's key are reachable.
+- [ ] **Microtonal Pads mode** - true quarter-tone maqam/raga support needs a deliberate pitch-label, MIDI-export, ABC-export, AI-schema, and controller-binding design instead of being slipped in as float scale intervals.
 - [ ] **Drone mode** - sustain the root of your key in the background as a tonal anchor.
 - [ ] **Suggest-next-chord** - gentle prompts when you want them, invisible when you don't.
 

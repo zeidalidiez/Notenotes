@@ -11,16 +11,43 @@ export const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A',
 /** Circle of fifths order, each step clockwise is +7 semitones. */
 export const CIRCLE_OF_FIFTHS = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#', 'G#', 'D#', 'A#', 'F'];
 
+export const SCALE_FAMILIES = {
+  western: 'Western',
+  pentatonic: 'Pentatonic / East Asian',
+  easternEuropean: 'Hungarian / Klezmer',
+  maqamInspired: 'Maqam-inspired',
+  ragaInspired: 'Raga-inspired',
+  utility: 'Utility'
+};
+
 /** Scale interval patterns (semitones from root) */
 export const SCALES = {
-  major:       { name: 'Major',       intervals: [0, 2, 4, 5, 7, 9, 11] },
-  minor:       { name: 'Minor',       intervals: [0, 2, 3, 5, 7, 8, 10] },
-  pentatonic:  { name: 'Pentatonic',  intervals: [0, 2, 4, 7, 9] },
-  pentatonicMinor: { name: 'Pent. Minor', intervals: [0, 3, 5, 7, 10] },
-  blues:       { name: 'Blues',        intervals: [0, 3, 5, 6, 7, 10] },
-  dorian:      { name: 'Dorian',       intervals: [0, 2, 3, 5, 7, 9, 10] },
-  mixolydian:  { name: 'Mixolydian',   intervals: [0, 2, 4, 5, 7, 9, 10] },
-  chromatic:   { name: 'Chromatic',    intervals: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] }
+  major:       { name: 'Major',       family: 'western', intervals: [0, 2, 4, 5, 7, 9, 11], degreePattern: '1 2 3 4 5 6 7', description: 'Bright seven-note major scale.' },
+  minor:       { name: 'Minor',       family: 'western', intervals: [0, 2, 3, 5, 7, 8, 10], degreePattern: '1 2 b3 4 5 b6 b7', description: 'Natural minor scale.' },
+  dorian:      { name: 'Dorian',      family: 'western', intervals: [0, 2, 3, 5, 7, 9, 10], degreePattern: '1 2 b3 4 5 6 b7', description: 'Minor color with a raised 6.' },
+  phrygian:    { name: 'Phrygian',    family: 'western', intervals: [0, 1, 3, 5, 7, 8, 10], degreePattern: '1 b2 b3 4 5 b6 b7', description: 'Dark minor mode with a flat 2.' },
+  lydian:      { name: 'Lydian',      family: 'western', intervals: [0, 2, 4, 6, 7, 9, 11], degreePattern: '1 2 3 #4 5 6 7', description: 'Major color with a raised 4.' },
+  mixolydian:  { name: 'Mixolydian',  family: 'western', intervals: [0, 2, 4, 5, 7, 9, 10], degreePattern: '1 2 3 4 5 6 b7', description: 'Major color with a flat 7.' },
+  locrian:     { name: 'Locrian',     family: 'western', intervals: [0, 1, 3, 5, 6, 8, 10], degreePattern: '1 b2 b3 4 b5 b6 b7', description: 'Unstable diminished mode.' },
+  harmonicMinor: { name: 'Harmonic Minor', family: 'western', intervals: [0, 2, 3, 5, 7, 8, 11], degreePattern: '1 2 b3 4 5 b6 7', description: 'Minor scale with a leading tone.' },
+  melodicMinor: { name: 'Melodic Minor', family: 'western', intervals: [0, 2, 3, 5, 7, 9, 11], degreePattern: '1 2 b3 4 5 6 7', description: 'Ascending melodic minor / jazz minor.' },
+  pentatonic:  { name: 'Pentatonic',  family: 'pentatonic', intervals: [0, 2, 4, 7, 9], degreePattern: '1 2 3 5 6', description: 'Open major pentatonic shape.' },
+  pentatonicMinor: { name: 'Pent. Minor', family: 'pentatonic', intervals: [0, 3, 5, 7, 10], degreePattern: '1 b3 4 5 b7', description: 'Open minor pentatonic shape.' },
+  blues:       { name: 'Blues',       family: 'pentatonic', intervals: [0, 3, 5, 6, 7, 10], degreePattern: '1 b3 4 b5 5 b7', description: 'Minor pentatonic plus the blue note.' },
+  hirajoshi:   { name: 'Hirajoshi',   family: 'pentatonic', intervals: [0, 2, 3, 7, 8], degreePattern: '1 2 b3 5 b6', description: 'Japanese koto-derived pentatonic color.' },
+  inScale:     { name: 'In',          family: 'pentatonic', intervals: [0, 1, 5, 7, 8], degreePattern: '1 b2 4 5 b6', description: 'Japanese pentatonic color with a close flat 2.' },
+  yo:          { name: 'Yo',          family: 'pentatonic', intervals: [0, 2, 5, 7, 9], degreePattern: '1 2 4 5 6', description: 'Bright Japanese pentatonic color.' },
+  iwato:       { name: 'Iwato',       family: 'pentatonic', intervals: [0, 1, 5, 6, 10], degreePattern: '1 b2 4 b5 b7', description: 'Sparse Japanese pentatonic color with a tritone.' },
+  hungarianMinor: { name: 'Hungarian Minor', family: 'easternEuropean', intervals: [0, 2, 3, 6, 7, 8, 11], degreePattern: '1 2 b3 #4 5 b6 7', description: 'Eastern European minor color with augmented-second tension.' },
+  hungarianMajor: { name: 'Hungarian Major', family: 'easternEuropean', intervals: [0, 3, 4, 6, 7, 9, 10], degreePattern: '1 #2 3 #4 5 6 b7', description: 'Bright Hungarian color with a raised 2 and raised 4.' },
+  romanianMinor: { name: 'Romanian Minor', family: 'easternEuropean', intervals: [0, 2, 3, 6, 7, 9, 10], degreePattern: '1 2 b3 #4 5 6 b7', description: 'Also called Ukrainian Dorian; minor with raised 4 and 6.' },
+  doubleHarmonic: { name: 'Double Harmonic', family: 'maqamInspired', intervals: [0, 1, 4, 5, 7, 8, 11], degreePattern: '1 b2 3 4 5 b6 7', description: '12-TET shape also associated with Byzantine / Hijaz Kar / Bhairav.' },
+  phrygianDominant: { name: 'Phrygian Dominant', family: 'maqamInspired', intervals: [0, 1, 4, 5, 7, 8, 10], degreePattern: '1 b2 3 4 5 b6 b7', aliases: ['Freygish', 'Hijaz approx.'], description: 'Spanish/Klezmer/Hijaz-inspired dominant color in 12-TET.' },
+  neapolitanMinor: { name: 'Neapolitan Minor', family: 'maqamInspired', intervals: [0, 1, 3, 5, 7, 8, 11], degreePattern: '1 b2 b3 4 5 b6 7', description: 'Minor color with flat 2 and leading tone.' },
+  marwa:       { name: 'Marwa Approx.', family: 'ragaInspired', intervals: [0, 1, 4, 6, 7, 9, 11], degreePattern: '1 b2 3 #4 5 6 7', description: '12-TET raga-inspired pitch collection; not a full raga rule set.' },
+  purvi:       { name: 'Purvi Approx.', family: 'ragaInspired', intervals: [0, 1, 4, 6, 7, 8, 11], degreePattern: '1 b2 3 #4 5 b6 7', description: '12-TET raga-inspired pitch collection; not a full raga rule set.' },
+  todi:        { name: 'Todi Approx.', family: 'ragaInspired', intervals: [0, 1, 3, 6, 7, 8, 11], degreePattern: '1 b2 b3 #4 5 b6 7', description: '12-TET raga-inspired pitch collection; true Todi intonation is microtonal.' },
+  chromatic:   { name: 'Chromatic',    family: 'utility', intervals: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], degreePattern: 'all 12 semitones', description: 'All twelve notes.' }
 };
 
 export const DEFAULT_MUSICAL_CONTEXT = {
@@ -117,6 +144,20 @@ export function normalizeDegreeHighlighting(value = {}) {
     intensity: Number.isFinite(intensity) ? Math.max(0.05, Math.min(0.75, intensity)) : DEFAULT_DEGREE_HIGHLIGHTING.intensity,
     colors
   };
+}
+
+export function scaleFamilyLabel(family) {
+  return SCALE_FAMILIES[family] || SCALE_FAMILIES.western;
+}
+
+export function scaleDescription(scaleName) {
+  const scale = SCALES[scaleName];
+  if (!scale) return '';
+  const bits = [];
+  if (scale.degreePattern) bits.push(scale.degreePattern);
+  if (scale.description) bits.push(scale.description);
+  if (Array.isArray(scale.aliases) && scale.aliases.length) bits.push(`Aliases: ${scale.aliases.join(', ')}`);
+  return bits.join(' - ');
 }
 
 export function intervalFromRoot(midi, rootNote) {

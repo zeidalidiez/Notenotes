@@ -2588,3 +2588,36 @@ project.settings.degreeHighlighting = {
   - If folder permission is no longer `granted`, the scheduled backup quietly skips and the top status pill / Save tab guide the user to grant access.
 - Settings -> Save now says pending edits will auto-save shortly when `lastEditAt > lastWorkspaceBackupAt`.
 - Manual QA section `6.5` now expects a backup after about 10 seconds when no cooldown is active, or within about 1 minute of the previous folder backup.
+
+## Scale Expansion Foundation 0.1.40
+
+- `src/engine/MusicTheory.js` now treats scale entries as metadata objects, not just interval bags.
+  - Existing consumers still read `SCALES[id].intervals`, so the change is additive.
+  - Optional metadata now includes `family`, `degreePattern`, `description`, and `aliases`.
+  - `SCALE_FAMILIES`, `scaleFamilyLabel(family)`, and `scaleDescription(scaleName)` are the shared helpers for UI and AI prompt context.
+- The first safe 12-TET scale expansion is shipped:
+  - Western: `phrygian`, `lydian`, `locrian`, `harmonicMinor`, `melodicMinor`.
+  - Pentatonic / East Asian: `hirajoshi`, `inScale`, `yo`, `iwato`.
+  - Hungarian / Klezmer: `hungarianMinor`, `hungarianMajor`, `romanianMinor`.
+  - Maqam-inspired 12-TET approximations: `doubleHarmonic`, `phrygianDominant`, `neapolitanMinor`.
+  - Raga-inspired 12-TET approximations: `marwa`, `purvi`, `todi`.
+- The top-bar Scale dropdown now renders `<optgroup>` sections by scale family.
+  - `chromatic` remains hidden from the top-bar picker as before.
+  - Option titles carry the degree pattern and short description where the browser exposes them.
+- `PromptBuilder` now imports `SCALES` and `scaleDescription()`.
+  - Pads prompts use the display scale name rather than the raw id.
+  - A `Scale color:` line gives AI Seed the degree pattern, description, and aliases so less-common scales are not treated as mystery strings.
+- `src/engine/ScaleChords.js` adds opt-in curated chord-pad recipes for scales where stacked scale-thirds are a poor default.
+  - Current curated entries: `hungarianMinor`, `hungarianMajor`, `romanianMinor`, `doubleHarmonic`, `phrygianDominant`, `neapolitanMinor`, `hirajoshi`, `inScale`, `iwato`, `marwa`, `purvi`, and `todi`.
+  - Recipes store semitone offsets relative to the project root, not relative to the chord root.
+  - `ScaleBoard._getChordMidis()` prefers a curated recipe only when `padMode === "chords"` and the active scale has a recipe list. Custom chord pads still use the old stacked-degree behavior.
+  - In curated Chords mode, visible pads use the recipe count and labels (`I`, `bII`, `i+b6`, etc.) instead of scale-degree numbers.
+  - Extensions are hidden in curated Chords mode because those pads are not "degrees continued into the next octave"; they are named harmonic choices.
+- This pass intentionally does not introduce microtonal intervals.
+  - Although `midiToFreq()` can play float MIDI values, the surrounding app still assumes integer MIDI in `midiToNoteName()`, piano rows, controller labels/bindings, MIDI export, ABC export, and AI sequence schema.
+  - Real microtonal mode should be a separate feature with explicit UX. Estimate: roughly 2-4 focused weeks for an end-to-end implementation.
+  - Minimum scope for that future mode: pad-only float pitches, half-flat/half-sharp labels, WAV export verification, MIDI export policy (rounding vs pitch bend vs disabled), ABC accidental support, controller binding labels, AI schema update, and clear UI text that distinguishes true microtonal scales from 12-TET approximations.
+- Not yet done:
+  - Enharmonic spelling. Note names remain sharp-biased (`NOTE_NAMES`), so flat-leaning scales can display awkward note spellings even when degree labels are musically readable.
+  - Sheet music key-signature specialization for non-Western scales.
+  - Curated chord coverage is intentionally a first musical pass, not a musicological final word. Add or revise recipes as QA finds better voicings.

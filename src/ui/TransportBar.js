@@ -5,7 +5,7 @@
 
 import { TransportState } from '../engine/Transport.js';
 import { ARP_MODES } from '../engine/ArpeggioManager.js';
-import { NOTE_NAMES, SCALES, normalizeMusicalContext } from '../engine/MusicTheory.js';
+import { NOTE_NAMES, SCALES, normalizeMusicalContext, scaleDescription, scaleFamilyLabel } from '../engine/MusicTheory.js';
 import { ALLOWED_GROUPINGS, METER_PICKER_IDS, METER_PRESETS, meterLabel, normalizeMeter, pulseCountForMeter } from '../engine/Meter.js';
 
 export class TransportBar {
@@ -75,9 +75,7 @@ export class TransportBar {
           ${NOTE_NAMES.map(note => `<option value="${note}" ${note === this._projectKey.root ? 'selected' : ''}>${note}</option>`).join('')}
         </select>
         <select id="project-scale-select" aria-label="Project scale">
-          ${Object.entries(SCALES).filter(([key]) => key !== 'chromatic').map(([key, scale]) =>
-            `<option value="${key}" ${key === this._projectKey.scale ? 'selected' : ''}>${scale.name}</option>`
-          ).join('')}
+          ${this._renderScaleOptions()}
         </select>
         <span class="transport-bar__project-key-label">Meter</span>
         <select id="project-meter-select" aria-label="Project meter">
@@ -258,6 +256,27 @@ export class TransportBar {
       moreBtn?.setAttribute('aria-expanded', String(shouldOpen));
     };
     this.el.querySelector('#tb-more-btn')?.addEventListener('pointerdown', toggleMore);
+  }
+
+  _renderScaleOptions() {
+    const groups = new Map();
+    Object.entries(SCALES)
+      .filter(([key]) => key !== 'chromatic')
+      .forEach(([key, scale]) => {
+        const family = scale.family || 'western';
+        if (!groups.has(family)) groups.set(family, []);
+        groups.get(family).push([key, scale]);
+      });
+
+    return [...groups.entries()].map(([family, entries]) => `
+      <optgroup label="${scaleFamilyLabel(family)}">
+        ${entries.map(([key, scale]) => {
+          const selected = key === this._projectKey.scale ? 'selected' : '';
+          const title = scaleDescription(key);
+          return `<option value="${key}" ${selected} title="${title}">${scale.name}</option>`;
+        }).join('')}
+      </optgroup>
+    `).join('');
   }
 
   setArpLabel(mode) {

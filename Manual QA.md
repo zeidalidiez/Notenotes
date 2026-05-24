@@ -74,7 +74,28 @@ Expected:
 - Chromatic shows function labels for all 12 pads. Lowered Supertonic may truncate visually, but the tooltip or accessibility label still has the full text.
 - Piano keeps compact shorthand labels such as Root, b3, 5, and b7.
 
-### 1.4 Pads Compass Mode
+### 1.4 Scale Picker Families
+
+Steps:
+
+1. Open the top-bar Scale dropdown.
+2. Confirm scales are grouped by family.
+3. Switch through one scale from each visible family.
+4. Open Pads and confirm pad count follows the selected scale.
+5. Switch to Chords mode on Hungarian Minor, Phrygian Dominant, and Hirajoshi.
+6. Open AI Seed on Pads and generate a short mock sequence.
+
+Expected:
+
+- The picker groups Western, Pentatonic / East Asian, Hungarian / Klezmer, Maqam-inspired, and Raga-inspired scale entries.
+- New scales load without resetting the project root.
+- Pentatonic scales show five pads without Extensions and ten pads with Extensions.
+- Seven-note scales show seven pads without Extensions and thirteen pads with Extensions.
+- Chords mode shows named curated chord pads for scales that need them instead of numbered degree-triad pads.
+- Extensions is hidden in Chords mode when the selected scale uses curated chord pads.
+- AI Seed still generates valid pad indexes for the selected scale.
+
+### 1.5 Pads Compass Mode
 
 Steps:
 

@@ -4,7 +4,8 @@
  * Pad Mode dropdown options:
  *   - "single": each pad plays a single note from the scale.
  *   - "chords": each pad plays a triad rooted on its scale degree.
- *     The Extensions toggle continues single/chord layouts up to degree 13.
+ *     The Extensions toggle continues normal chord layouts up to degree 13.
+ *     Scales with curated chord recipes show named harmonic pads instead.
  *   - "root": chromatic pads; each pad plays itself plus the selected root
  *             note in the octave nearest the pad note.
  *   - "voices": each pad sings a syllable from a typed phrase, at the pad's pitch.
@@ -28,6 +29,7 @@ import {
   SCALES,
   NOTE_NAMES
 } from '../engine/MusicTheory.js';
+import { scaleChordRecipes } from '../engine/ScaleChords.js';
 import { showToast } from '../ui/Toast.js';
 import { syllabify, extractPlayableSyllables, sanitizePhraseInput } from './voice/syllabify.js';
 
@@ -188,6 +190,9 @@ export class ScaleBoard {
 
     if (this.padMode === 'root') {
       this._notes = NOTE_NAMES.map(note => noteNameToMidi(note, this.octave));
+    } else if (this.padMode === 'chords' && this._curatedChordRecipes()) {
+      const rootMidi = noteNameToMidi(this.rootNote, this.octave);
+      this._notes = this._curatedChordRecipes().map(recipe => rootMidi + (recipe.semitones?.[0] || 0));
     } else if (this.padMode === 'custom') {
       const count = overrideCount || this.project?.settings?.scalePadsCount || 7;
       this._notes = this._fullScaleNotes.slice(0, Math.min(count, this._fullScaleNotes.length));
@@ -278,11 +283,20 @@ export class ScaleBoard {
   }
 
   _canUseExtensions() {
-    return this.padMode === 'single' || this.padMode === 'chords';
+    return this.padMode === 'single' || (this.padMode === 'chords' && !this._curatedChordRecipes());
   }
 
   _usesExtensions() {
     return this.extensionsEnabled && this._canUseExtensions();
+  }
+
+  _curatedChordRecipes() {
+    return scaleChordRecipes(this.scaleName);
+  }
+
+  _curatedChordRecipe(index) {
+    const recipes = this.padMode === 'chords' ? this._curatedChordRecipes() : null;
+    return recipes?.[index] || null;
   }
 
   _circleRoots() {
@@ -359,12 +373,13 @@ export class ScaleBoard {
   _renderPads() {
     return this._notes.map((midi, i) => {
       const noteInfo = midiToNoteName(midi);
+      const curatedChord = this._curatedChordRecipe(i);
       const isRootMode = this.padMode === 'root';
       const rootMidi = isRootMode ? this._rootMidiNear(midi) : midi;
       const rootInfo = midiToNoteName(rootMidi);
       let isChord = this.padMode === 'chords' || (this.padMode === 'custom' && this.customPadTypes[i] === 'chord');
       const degree = i + 1;
-      let typeLabel = isRootMode ? `+ ${rootInfo.display}` : (isChord ? 'Chord' : 'Note');
+      let typeLabel = isRootMode ? `+ ${rootInfo.display}` : (curatedChord?.name || (isChord ? 'Chord' : 'Note'));
       const isVoice = this.padMode === 'voices';
       const voiceLabel = isVoice ? this._previewSyllableForPad(i) : null;
       const voiceClass = isVoice ? ' scaleboard__pad--voice' : '';
@@ -379,11 +394,11 @@ export class ScaleBoard {
         : '';
       return `
         <button class="scaleboard__pad${voiceClass}${degreeClass} ${this.isEditingLayout ? 'is-editing' : ''}"${degreeStyle} data-index="${i}" data-midi="${midi}"
-                aria-label="${isRootMode ? `${noteInfo.display} plus nearest ${this.rootNote}, ${rootInfo.display}` : `Scale degree ${degree}, ${noteInfo.display}`}${theoryLabel}${voiceLabel ? ', sings ' + voiceLabel : ''}">
-          <span class="scaleboard__pad-degree">${isRootMode ? noteInfo.name : degree}</span>
+                aria-label="${isRootMode ? `${noteInfo.display} plus nearest ${this.rootNote}, ${rootInfo.display}` : curatedChord ? `${curatedChord.label} chord, ${curatedChord.name}` : `Scale degree ${degree}, ${noteInfo.display}`}${theoryLabel}${voiceLabel ? ', sings ' + voiceLabel : ''}">
+          <span class="scaleboard__pad-degree">${isRootMode ? noteInfo.name : (curatedChord?.label || degree)}</span>
           <span class="scaleboard__pad-note">${noteInfo.display}</span>
           ${degreeLabel ? `<span class="scaleboard__pad-degree-name">${this._escapeHtml(degreeLabel)}</span>` : ''}
-          ${(this.padMode === 'custom' || isRootMode) ? `<span class="scaleboard__pad-type">${typeLabel}</span>` : ''}
+          ${(this.padMode === 'custom' || isRootMode || curatedChord) ? `<span class="scaleboard__pad-type">${this._escapeHtml(typeLabel)}</span>` : ''}
           ${isVoice && voiceLabel ? `<span class="scaleboard__pad-syllable">${this._escapeHtml(voiceLabel)}</span>` : ''}
         </button>
       `;
@@ -658,6 +673,12 @@ export class ScaleBoard {
   }
 
   _getChordMidis(startIndex) {
+    const recipe = this._curatedChordRecipe(startIndex);
+    if (recipe) {
+      const rootMidi = noteNameToMidi(this.rootNote, this.octave);
+      return recipe.semitones.map(offset => rootMidi + offset);
+    }
+
     // A simple triad (1st, 3rd, 5th in the scale)
     const midis = [];
     const maxIdx = this._fullScaleNotes.length - 1;

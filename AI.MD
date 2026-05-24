@@ -2534,3 +2534,19 @@ project.settings.degreeHighlighting = {
 - `TransportBar.setBackupStatus()` now recognizes `is-auto` and `is-permission` classes.
 - `src/style.css` gives `is-auto` the blue folder-auto-backup treatment and `is-permission` an amber grant-permission treatment.
 - Settings folder connect/disconnect dispatch `notenotes-backup-status-changed` with `markEdit: false` so the top shortcut updates immediately without scheduling an auto backup.
+
+## Folder Backup Permission Grant 0.1.37
+
+- The top backup shortcut now actively handles the `Grant folder` state instead of only opening Settings.
+- `TransportBar.onBackupClick` now routes through `App._handleBackupStatusClick()`.
+  - It reads the stored File System Access API directory handle with `getBackupFolderHandle(store)`.
+  - If a handle exists and `queryPermission({ mode: "readwrite" })` is not `granted`, it calls `requestPermission({ mode: "readwrite" })` from the user's click gesture.
+  - If permission is granted, it shows `Backup folder access restored`, runs `_runFolderAutoBackup({ reason: "permission-grant", force: true })`, refreshes the top shortcut, and then opens Settings -> Save.
+  - If permission is still denied/prompt, it shows a toast and still opens Settings -> Save for context.
+- `_runFolderAutoBackup()` now accepts `{ force: true }`.
+  - Normal timer/visibility auto-backups still respect `_folderAutoBackupDue()` and the 15 minute minimum interval.
+  - The forced path is only used after an explicit permission-restoring user gesture, so it is allowed to write a current-workspace backup immediately.
+- App startup now calls `_scheduleFolderAutoBackup()` after the initial backup-status sync. If the browser kept the connected folder permission and the project has edits newer than the last workspace backup, the folder backup timer is scheduled without waiting for a new edit.
+- Settings -> Save folder status now states when auto folder backup is active and includes the relative last workspace backup time when available.
+- Manual workspace JSON downloads and manual `Save To Folder` now dispatch `notenotes-backup-status-changed` with `markEdit: false` after successful saves so the top backup shortcut updates immediately without triggering another auto-backup loop.
+- The browser permission limitation remains: Notenotes cannot silently restore a downgraded directory permission after reload. The app now uses the top shortcut as the explicit user gesture that can restore it.

@@ -1034,12 +1034,14 @@ export class SettingsPanel {
     }
 
     const permission = await this._backupFolderPermission(handle, false);
+    const lastBackupAt = Number(this.project?.settings?.lastWorkspaceBackupAt || 0);
+    const lastText = lastBackupAt ? ` Last backup: ${formatRelativeTime(lastBackupAt)}.` : '';
     if (statusEl) statusEl.textContent = permission === 'granted'
       ? `Connected: ${handle.name || 'backup folder'}`
       : `Connected: ${handle.name || 'backup folder'} (needs permission)`;
     if (descEl) descEl.textContent = permission === 'granted'
-      ? 'Save To Folder writes a timestamped workspace backup JSON into this folder. Notenotes also auto-saves the current workspace here after edits.'
-      : 'Save To Folder may ask permission before writing the next backup.';
+      ? `Auto folder backups are active. Notenotes writes the current workspace here after edits.${lastText}`
+      : 'The folder is still connected, but the browser needs permission again. Use Save To Folder or the top backup shortcut to grant access.';
     if (connectBtn) connectBtn.disabled = false;
     if (saveBtn) saveBtn.disabled = false;
     if (disconnectBtn) disconnectBtn.disabled = false;
@@ -1070,6 +1072,9 @@ export class SettingsPanel {
     if (!result.saved) return false;
     await this._loadStorageStatus();
     await this._refreshBackupFolderStatus();
+    window.dispatchEvent(new CustomEvent('notenotes-backup-status-changed', {
+      detail: { projectId: this.project?.id, markEdit: false },
+    }));
     return true;
   }
 
@@ -1201,6 +1206,9 @@ export class SettingsPanel {
         this.project.settings.lastWorkspaceBackupAt = Date.now();
         await this.store?.save(this.project, { markEdit: false });
         await this._loadStorageStatus();
+        window.dispatchEvent(new CustomEvent('notenotes-backup-status-changed', {
+          detail: { projectId: this.project?.id, markEdit: false },
+        }));
         showToast('Workspace backup saved');
       } catch (err) {
         if (err?.name !== 'AbortError') {

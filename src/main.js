@@ -167,7 +167,7 @@ class App {
 
     // Wire metronome button to also show settings on long-press
     this.transportBar.onSettingsClick = () => this.settingsPanel.toggle();
-    this.transportBar.onBackupClick = () => this.settingsPanel.openTo('history');
+    this.transportBar.onBackupClick = () => this._handleBackupStatusClick();
     this.transportBar.onMoreOpen = () => this.settingsPanel.close();
     window.addEventListener('notenotes-open-settings', (event) => {
       this.transportBar.closeMore?.();
@@ -181,6 +181,7 @@ class App {
       if (document.visibilityState === 'hidden') this._runFolderAutoBackup({ reason: 'visibility' });
     });
     this._syncBackupStatus();
+    this._scheduleFolderAutoBackup();
 
     // Wire modulation manager to creative mode synth (after synth init)
     this.modManager._synth = this.creativeMode.synth;
@@ -298,11 +299,35 @@ class App {
         state: 'permission',
         label: `Backup folder needs permission`,
         shortLabel: 'Grant folder',
-        advice: 'Your backup folder is still connected, but the browser needs permission again before automatic folder backups can continue. Open Save and click Save To Folder.',
+        advice: 'Your backup folder is still connected, but the browser needs permission again before automatic folder backups can continue. Click to grant access.',
       });
     } catch (err) {
       console.warn('[Backup] Could not check folder backup status:', err);
       this.transportBar.setBackupStatus(baseStatus);
+    }
+  }
+
+  async _handleBackupStatusClick() {
+    try {
+      const handle = await getBackupFolderHandle(this.store);
+      if (handle) {
+        const permission = await backupFolderPermission(handle, false);
+        if (permission !== 'granted') {
+          const requested = await backupFolderPermission(handle, true);
+          if (requested === 'granted') {
+            showToast('Backup folder access restored');
+            await this._runFolderAutoBackup({ reason: 'permission-grant', force: true });
+          } else {
+            showToast('Backup folder still needs permission');
+          }
+          await this._syncBackupStatus();
+        }
+      }
+    } catch (err) {
+      console.warn('[Backup] Could not request backup folder permission:', err);
+      showToast('Could not request backup folder access');
+    } finally {
+      this.settingsPanel?.openTo('history');
     }
   }
 
@@ -324,8 +349,8 @@ class App {
     }, AUTO_FOLDER_BACKUP_DELAY_MS);
   }
 
-  async _runFolderAutoBackup({ reason = 'timer' } = {}) {
-    if (this._folderAutoBackupRunning || !this._folderAutoBackupDue()) return;
+  async _runFolderAutoBackup({ reason = 'timer', force = false } = {}) {
+    if (this._folderAutoBackupRunning || (!force && !this._folderAutoBackupDue())) return;
     this._folderAutoBackupRunning = true;
     try {
       const handle = await getBackupFolderHandle(this.store);

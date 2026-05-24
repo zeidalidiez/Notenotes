@@ -405,7 +405,9 @@ Expected:
 - Unsupported browsers show folder backup as unavailable and leave the manual Save Backup path usable.
 - The connected folder status shows the folder name when permission is available.
 - The top backup shortcut turns blue and says `Auto backup` when the connected folder permission is granted.
-- After a browser reload, if Chrome keeps the folder handle but drops write permission, the top backup shortcut says `Grant folder` and opens Save when clicked.
+- After a browser reload, if Chrome keeps the folder handle but drops write permission, the top backup shortcut says `Grant folder`, requests folder access when clicked, then opens Save.
+- If permission is restored from the top shortcut, a current-workspace folder backup is written immediately and the shortcut returns to blue `Auto backup`.
+- The Save folder row says auto folder backups are active when permission is granted and shows the last workspace backup age when one exists.
 - Save To Folder writes a timestamped workspace JSON backup into the selected folder.
 - After later edits, a connected folder with granted permission receives a current-workspace backup automatically.
 - Auto folder backup does not open permission prompts. If permission is no longer granted, it silently skips until the user uses Save To Folder or reconnects.

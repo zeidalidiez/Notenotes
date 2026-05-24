@@ -396,7 +396,7 @@ Steps:
 4. Click Save To Folder.
 5. Check the selected folder on disk.
 6. Make a small edit after the manual folder save.
-7. Wait at least one auto-folder-backup delay, or leave the tab to trigger the visibility backup path.
+7. Wait about 10 seconds, or leave the tab to trigger the visibility backup path.
 8. Check the selected folder again.
 9. Disconnect the folder.
 
@@ -409,7 +409,7 @@ Expected:
 - If permission is restored from the top shortcut, a current-workspace folder backup is written immediately and the shortcut returns to blue `Auto backup`.
 - The Save folder row says auto folder backups are active when permission is granted and shows the last workspace backup age when one exists.
 - Save To Folder writes a timestamped workspace JSON backup into the selected folder.
-- After later edits, a connected folder with granted permission receives a current-workspace backup automatically.
+- After later edits, a connected folder with granted permission receives a current-workspace backup automatically within about 10 seconds when no cooldown is active, or within about 1 minute of the previous folder backup.
 - Auto folder backup does not open permission prompts. If permission is no longer granted, it silently skips until the user uses Save To Folder or reconnects.
 - The normal backup status updates after the folder save.
 - Disconnect removes the app connection but does not delete any backup files.

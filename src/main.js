@@ -332,21 +332,28 @@ class App {
   }
 
   _folderAutoBackupDue() {
-    if (!this.project?.settings) return false;
+    const waitMs = this._folderAutoBackupWaitMs();
+    return waitMs !== null && waitMs <= 0;
+  }
+
+  _folderAutoBackupWaitMs() {
+    if (!this.project?.settings) return null;
     const lastEditAt = Number(this.project.settings.lastEditAt || this.project.updatedAt || 0);
     const lastBackupAt = Number(this.project.settings.lastWorkspaceBackupAt || 0);
-    if (!lastEditAt || lastBackupAt >= lastEditAt) return false;
-    if (!lastBackupAt) return true;
-    return Date.now() - lastBackupAt >= AUTO_FOLDER_BACKUP_MIN_INTERVAL_MS;
+    if (!lastEditAt || lastBackupAt >= lastEditAt) return null;
+    if (!lastBackupAt) return 0;
+    return Math.max(0, AUTO_FOLDER_BACKUP_MIN_INTERVAL_MS - (Date.now() - lastBackupAt));
   }
 
   _scheduleFolderAutoBackup() {
     if (this._folderAutoBackupTimer) clearTimeout(this._folderAutoBackupTimer);
-    if (!this._folderAutoBackupDue()) return;
+    const waitMs = this._folderAutoBackupWaitMs();
+    if (waitMs === null) return;
+    const delay = Math.max(AUTO_FOLDER_BACKUP_DELAY_MS, waitMs);
     this._folderAutoBackupTimer = setTimeout(() => {
       this._folderAutoBackupTimer = null;
       this._runFolderAutoBackup({ reason: 'timer' });
-    }, AUTO_FOLDER_BACKUP_DELAY_MS);
+    }, delay);
   }
 
   async _runFolderAutoBackup({ reason = 'timer', force = false } = {}) {

@@ -1035,12 +1035,14 @@ export class SettingsPanel {
 
     const permission = await this._backupFolderPermission(handle, false);
     const lastBackupAt = Number(this.project?.settings?.lastWorkspaceBackupAt || 0);
+    const lastEditAt = Number(this.project?.settings?.lastEditAt || this.project?.updatedAt || 0);
     const lastText = lastBackupAt ? ` Last backup: ${formatRelativeTime(lastBackupAt)}.` : '';
+    const pendingText = lastEditAt > lastBackupAt ? ' Pending edits will auto-save shortly.' : '';
     if (statusEl) statusEl.textContent = permission === 'granted'
       ? `Connected: ${handle.name || 'backup folder'}`
       : `Connected: ${handle.name || 'backup folder'} (needs permission)`;
     if (descEl) descEl.textContent = permission === 'granted'
-      ? `Auto folder backups are active. Notenotes writes the current workspace here after edits.${lastText}`
+      ? `Auto folder backups are active. Notenotes writes the current workspace here shortly after edits.${lastText}${pendingText}`
       : 'The folder is still connected, but the browser needs permission again. Use Save To Folder or the top backup shortcut to grant access.';
     if (connectBtn) connectBtn.disabled = false;
     if (saveBtn) saveBtn.disabled = false;

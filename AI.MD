@@ -2569,3 +2569,22 @@ project.settings.degreeHighlighting = {
 - Confirmed existing UX papercut fixes still hold in this baseline:
   - AI Seed Cancel closes the popover after aborting active generation.
   - Layout Reset restores enabled state, label visibility, intensity, and default degree colors.
+
+## Folder Auto Backup Cadence 0.1.39
+
+- Folder auto-backup was too conservative in `0.1.35`-`0.1.38`.
+  - The first implementation waited `60s` after an edit and refused to write more often than every `15m` from the previous workspace backup.
+  - Because `_scheduleFolderAutoBackup()` only scheduled when the backup was already due, an edit made during the cooldown could fail to create a future timer. This made connected-folder backup feel indistinguishable from manual Save To Folder during QA.
+- `src/utils/FolderBackup.js` now uses:
+  - `AUTO_FOLDER_BACKUP_DELAY_MS = 10_000`
+  - `AUTO_FOLDER_BACKUP_MIN_INTERVAL_MS = 60_000`
+- `App._folderAutoBackupWaitMs()` now separates "pending edited workspace" from "due right now".
+  - It returns `null` when there is no pending edit newer than `lastWorkspaceBackupAt`.
+  - It returns `0` when a backup can run immediately.
+  - It returns the remaining cooldown milliseconds when a backup is pending but the last folder/workspace backup is too recent.
+- `App._scheduleFolderAutoBackup()` now always schedules a timer for pending edits. The timer delay is `max(10s, remainingCooldown)`, so edits made just after a folder backup still write once the 1 minute cooldown expires.
+- `App._runFolderAutoBackup()` remains permission-safe:
+  - Normal background/timer writes still do not call `requestPermission()`.
+  - If folder permission is no longer `granted`, the scheduled backup quietly skips and the top status pill / Save tab guide the user to grant access.
+- Settings -> Save now says pending edits will auto-save shortly when `lastEditAt > lastWorkspaceBackupAt`.
+- Manual QA section `6.5` now expects a backup after about 10 seconds when no cooldown is active, or within about 1 minute of the previous folder backup.

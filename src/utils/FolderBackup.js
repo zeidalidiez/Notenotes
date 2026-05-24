@@ -1,8 +1,8 @@
 import { backupFilename, saveJsonToDirectory, workspaceBackup } from '../export/BackupExporter.js';
 
 export const LOCAL_BACKUP_FOLDER_KEY = 'workspaceBackupDirectoryHandle';
-export const AUTO_FOLDER_BACKUP_DELAY_MS = 60 * 1000;
-export const AUTO_FOLDER_BACKUP_MIN_INTERVAL_MS = 15 * 60 * 1000;
+export const AUTO_FOLDER_BACKUP_DELAY_MS = 10 * 1000;
+export const AUTO_FOLDER_BACKUP_MIN_INTERVAL_MS = 60 * 1000;
 
 export function folderBackupSupported() {
   return typeof window !== 'undefined' && !!window.showDirectoryPicker;

@@ -1,0 +1,696 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Notenotes — Scale Expansion Evaluation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fafaf7;
+    --surface: #ffffff;
+    --ink: #1a1a1a;
+    --ink-soft: #4a4a4a;
+    --ink-faint: #767676;
+    --rule: #e8e6e0;
+    --rule-soft: #f0eeea;
+    --accent: #b8722f;
+    --accent-soft: #f5ead9;
+    --warn: #c44545;
+    --ok: #2e7d4f;
+    --code-bg: #f3f1eb;
+    --code-ink: #2a2418;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 16px; line-height: 1.6; }
+  body { padding: 0 5vw 8vw; }
+  .wrap { max-width: 900px; margin: 0 auto; }
+
+  header.hero {
+    padding: 96px 0 56px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 56px;
+  }
+  .kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 18px;
+  }
+  h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: clamp(2.4rem, 5vw, 3.6rem);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    margin: 0 0 20px;
+    color: var(--ink);
+  }
+  .lede {
+    font-size: 1.18rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 70ch;
+    margin: 0 0 28px;
+  }
+  .meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .meta span strong { color: var(--ink); font-weight: 600; }
+
+  h2 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 1.85rem;
+    letter-spacing: -0.01em;
+    margin: 72px 0 10px;
+    padding-top: 12px;
+    line-height: 1.2;
+  }
+  h2 .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--accent);
+    margin-right: 14px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    vertical-align: middle;
+  }
+  h3 {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 1.18rem;
+    margin: 38px 0 10px;
+    color: var(--ink);
+  }
+  h4 {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-faint);
+    margin: 28px 0 8px;
+  }
+  p { margin: 0 0 16px; max-width: 72ch; }
+
+  code, .mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.86em;
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+  pre {
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 18px 20px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.84rem;
+    line-height: 1.55;
+    border-left: 3px solid var(--accent);
+    margin: 18px 0 22px;
+  }
+  pre code { background: none; padding: 0; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 28px;
+    font-size: 0.92rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+    font-weight: 500;
+    border-bottom: 1.5px solid var(--ink);
+  }
+  td.name { font-weight: 600; }
+  td.intervals { font-family: 'JetBrains Mono', monospace; font-size: 0.84rem; color: var(--ink-soft); }
+  td.note { color: var(--ink-soft); font-size: 0.9rem; }
+  tr:hover { background: var(--rule-soft); }
+  tr.dup td:first-child::after {
+    content: 'duplicate';
+    display: inline-block;
+    margin-left: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    background: var(--rule);
+    color: var(--ink-faint);
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 500;
+  }
+  tr.micro td:first-child::after {
+    content: 'microtonal';
+    display: inline-block;
+    margin-left: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    background: var(--accent-soft);
+    color: var(--accent);
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 500;
+  }
+
+  .callout {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    padding: 18px 22px;
+    border-radius: 0 6px 6px 0;
+    margin: 24px 0;
+    font-size: 0.96rem;
+    color: var(--code-ink);
+  }
+  .callout strong { color: var(--accent); }
+  .callout.warn { background: #fdebeb; border-left-color: var(--warn); }
+  .callout.warn strong { color: var(--warn); }
+  .callout.ok { background: #e7f4ec; border-left-color: var(--ok); }
+  .callout.ok strong { color: var(--ok); }
+  .callout p:last-child { margin-bottom: 0; }
+
+  .hurdle {
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 22px 24px;
+    margin: 16px 0;
+    background: var(--surface);
+  }
+  .hurdle h3 { margin-top: 0; display: flex; align-items: center; gap: 12px; }
+  .hurdle .severity {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.66rem;
+    padding: 3px 8px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 500;
+  }
+  .severity.low { background: #e7f4ec; color: var(--ok); }
+  .severity.med { background: var(--accent-soft); color: var(--accent); }
+  .severity.high { background: #fdebeb; color: var(--warn); }
+
+  .tier {
+    border-top: 1px solid var(--rule);
+    padding: 28px 0;
+  }
+  .tier-head {
+    display: flex;
+    align-items: baseline;
+    gap: 18px;
+    margin-bottom: 12px;
+  }
+  .tier-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 4px 10px;
+    border-radius: 3px;
+    color: white;
+  }
+  .tier-tag.t1 { background: var(--ok); }
+  .tier-tag.t2 { background: var(--accent); }
+  .tier-tag.t3 { background: #8a5cb6; }
+  .tier-tag.t4 { background: var(--ink-soft); }
+  .tier-head h3 { margin: 0; font-size: 1.3rem; }
+  .effort {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+    margin-left: auto;
+  }
+
+  ul, ol { padding-left: 24px; margin: 0 0 18px; max-width: 70ch; }
+  li { margin-bottom: 6px; }
+
+  .ref-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 18px 0 28px;
+  }
+  .ref-card {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    padding: 14px 16px;
+    border-radius: 6px;
+    font-size: 0.88rem;
+  }
+  .ref-card .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+
+  footer {
+    margin-top: 96px;
+    padding-top: 28px;
+    border-top: 1px solid var(--rule);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+  }
+
+  @media (max-width: 720px) {
+    .ref-grid { grid-template-columns: 1fr; }
+    .meta { flex-direction: column; gap: 6px; }
+  }
+</style>
+<style>
+.ha-img-placeholder{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;background:#f4f4f5;border:1px dashed #d4d4d8;border-radius:8px;color:#71717a;font-size:12px;font-family:system-ui,sans-serif;min-height:80px;padding:16px;box-sizing:border-box;animation:ha-img-pulse 1.5s ease-in-out infinite}
+.ha-img-placeholder.ha-failed{animation:none;opacity:.7}
+@keyframes ha-img-pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@media(prefers-color-scheme:dark){.ha-img-placeholder{background:#27272a;border-color:#3f3f46;color:#a1a1aa}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">Engineering Evaluation · Notenotes</p>
+  <h1>Adding Eastern scales and Hungarian chords to a 12-TET sketchpad.</h1>
+  <p class="lede">A read of <span class="mono">zeidalidiez/Notenotes</span> at <span class="mono">main</span>, mapped against four non-Western scale families (maqam, Hungarian/Gypsy/Klezmer, East Asian pentatonic, Indian raga), with a microtonal cost breakdown and a tiered rollout plan.</p>
+  <div class="meta">
+    <span><strong>Repo</strong> &nbsp;zeidalidiez/Notenotes</span>
+    <span><strong>Branch</strong> &nbsp;main</span>
+    <span><strong>Version</strong> &nbsp;0.1.39</span>
+    <span><strong>Stack</strong> &nbsp;Vite · vanilla JS · abcjs · IndexedDB</span>
+  </div>
+</header>
+
+<section>
+  <h2><span class="num">01</span>Executive summary</h2>
+  <p>The scale system in Notenotes is unusually friendly to expansion. <code>SCALES</code> in <code>src/engine/MusicTheory.js</code> is a single canonical map of <code>{ name, intervals }</code> entries, and the rest of the codebase — the scale picker, the pad layout, the AI prompt builder — reads from it. Adding 12-TET scales (Hungarian Minor, Double Harmonic, Hirajoshi, etc.) is a one-file change that automatically propagates to UI and AI context. That's the cheap, high-value bucket.</p>
+  <p>The honest hurdles cluster in three places. First, the chord auto-derivation in <code>ScaleBoard._getChordMidis()</code> stacks scale-thirds (positions 0, 2, 4 in the scale array) — which is correct for diatonic Western scales but produces nonsense for Hungarian minor and for any pentatonic. To deliver "curated idiomatic chords per scale" you'll need a new data structure parallel to <code>CHORD_TYPES</code> in <code>ArpeggioManager.js</code>, plus a small change in ScaleBoard to consult it when present. Second, the note model is sharps-only and the function-name labels (Tonic, Submediant) are mechanically right but semantically wrong for non-Western contexts — these are UX hurdles, not engineering ones, but they affect the feel. Third, true maqam needs microtones, and microtones break the integer-MIDI assumption that runs through pad layout, controller bindings, MIDI export, ABC notation, and AI prompts. Detailed cost in §05.</p>
+  <p>My recommended rollout is four tiers. <strong>Tier 1 (a weekend)</strong> drops in 12-TET interval definitions for ~15 high-value scales and adds the missing Western diatonic modes (Lydian, Phrygian, Locrian, Harmonic Minor, Melodic Minor) along the way. <strong>Tier 2 (a week)</strong> adds curated chord lists per scale and updates ScaleBoard to use them when present. <strong>Tier 3 (1-2 weeks)</strong> handles UX polish: family grouping in the picker, transliteration aliases, contextual function-name overrides, enharmonic flat spellings. <strong>Tier 4 (a month or more, optional)</strong> is real microtonal support — feasible but architecturally invasive.</p>
+</section>
+
+<section>
+  <h2><span class="num">02</span>Current architecture, in one breath</h2>
+  <p>The relevant files and their roles:</p>
+  <div class="ref-grid">
+    <div class="ref-card">
+      <div class="label">Single source of truth</div>
+      <code>src/engine/MusicTheory.js</code><br>
+      <span style="color:var(--ink-soft); font-size:0.86rem;">Defines <code>SCALES</code>, <code>NOTE_NAMES</code>, <code>INTERVAL_LABELS</code>, <code>CLASSICAL_FUNCTION_NAMES</code>, <code>getScaleNotes()</code>, <code>degreeForMidi()</code>.</span>
+    </div>
+    <div class="ref-card">
+      <div class="label">UI consumer</div>
+      <code>src/ui/TransportBar.js</code><br>
+      <span style="color:var(--ink-soft); font-size:0.86rem;">Iterates <code>Object.entries(SCALES)</code> to build the scale &lt;select&gt; — new entries auto-appear.</span>
+    </div>
+    <div class="ref-card">
+      <div class="label">Scale-locked instrument</div>
+      <code>src/instruments/ScaleBoard.js</code><br>
+      <span style="color:var(--ink-soft); font-size:0.86rem;">Reads <code>SCALES[name].intervals.length</code> for pad count. Chord pads use <code>_getChordMidis()</code> stacking scale-thirds.</span>
+    </div>
+    <div class="ref-card">
+      <div class="label">Chord vocabulary</div>
+      <code>src/engine/ArpeggioManager.js</code><br>
+      <span style="color:var(--ink-soft); font-size:0.86rem;">Exports <code>CHORD_TYPES</code> as 10 semitone-array chord shapes. Good template for a per-scale chord table.</span>
+    </div>
+    <div class="ref-card">
+      <div class="label">AI context</div>
+      <code>src/ai/PromptBuilder.js</code><br>
+      <span style="color:var(--ink-soft); font-size:0.86rem;">References <code>scaleName</code> as a string in the system prompt. Will need a sentence about non-Western scales so the model treats them gently.</span>
+    </div>
+    <div class="ref-card">
+      <div class="label">Compass UI (independent)</div>
+      <code>ScaleBoard.pressCompassSegment()</code><br>
+      <span style="color:var(--ink-soft); font-size:0.86rem;">Hardcodes major/minor triad shapes on a circle-of-fifths surface. Independent of selected scale — out of scope for this work.</span>
+    </div>
+  </div>
+
+  <h4>The scale schema</h4>
+<pre><code>// src/engine/MusicTheory.js
+export const SCALES = {
+  major:       { name: 'Major',       intervals: [0, 2, 4, 5, 7, 9, 11] },
+  minor:       { name: 'Minor',       intervals: [0, 2, 3, 5, 7, 8, 10] },
+  pentatonic:  { name: 'Pentatonic',  intervals: [0, 2, 4, 7, 9] },
+  pentatonicMinor: { name: 'Pent. Minor', intervals: [0, 3, 5, 7, 10] },
+  blues:       { name: 'Blues',        intervals: [0, 3, 5, 6, 7, 10] },
+  dorian:      { name: 'Dorian',       intervals: [0, 2, 3, 5, 7, 9, 10] },
+  mixolydian:  { name: 'Mixolydian',   intervals: [0, 2, 4, 5, 7, 9, 10] },
+  chromatic:   { name: 'Chromatic',    intervals: [0,1,2,3,4,5,6,7,8,9,10,11] }
+};</code></pre>
+
+  <div class="callout ok"><strong>Good news.</strong> <code>getScaleNotes()</code> handles variable scale lengths cleanly (it loops through <code>scale.intervals</code> regardless of length), so 5-note and 8-note scales work without engine changes. <code>midiToFreq()</code> already accepts non-integer values, so microtonal audio playback is mechanically possible — the obstacles are in the layers above.</p></div>
+
+  <p>Notable gap in the existing Western set: <strong>Lydian, Phrygian, Locrian, Harmonic Minor, and Melodic Minor are missing</strong>. These are zero-risk adds and worth slipping in alongside the non-Western additions.</p>
+</section>
+
+<section>
+  <h2><span class="num">03</span>Proposed additions, by family</h2>
+
+  <h3>Hungarian / Gypsy / Klezmer / Eastern European</h3>
+  <p>These all live comfortably in 12-TET and represent the highest-ROI additions — the augmented-second leap is iconic and immediately recognizable.</p>
+  <table>
+    <thead><tr><th>Scale</th><th>Degrees</th><th>Semitones</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="name">Harmonic Minor</td><td class="intervals">1 2 ♭3 4 5 ♭6 7</td><td class="intervals">[0,2,3,5,7,8,11]</td><td class="note">Western, but missing today. Foundation for the rest.</td></tr>
+      <tr><td class="name">Melodic Minor (asc)</td><td class="intervals">1 2 ♭3 4 5 6 7</td><td class="intervals">[0,2,3,5,7,9,11]</td><td class="note">Foundation for jazz altered scales.</td></tr>
+      <tr><td class="name">Hungarian Minor</td><td class="intervals">1 2 ♭3 ♯4 5 ♭6 7</td><td class="intervals">[0,2,3,6,7,8,11]</td><td class="note">Aka Gypsy Minor. Two augmented seconds. Iconic.</td></tr>
+      <tr><td class="name">Hungarian Major</td><td class="intervals">1 ♯2 3 ♯4 5 6 ♭7</td><td class="intervals">[0,3,4,6,7,9,10]</td><td class="note">Bartók favored. Augmented second on the bottom.</td></tr>
+      <tr><td class="name">Double Harmonic Major</td><td class="intervals">1 ♭2 3 4 5 ♭6 7</td><td class="intervals">[0,1,4,5,7,8,11]</td><td class="note">Aka Byzantine, Gypsy Major, Bhairav (raga), Hijaz Kar (maqam). Single canonical 12-TET shape, many names.</td></tr>
+      <tr><td class="name">Phrygian Dominant</td><td class="intervals">1 ♭2 3 4 5 ♭6 ♭7</td><td class="intervals">[0,1,4,5,7,8,10]</td><td class="note">Aka Freygish, Ahava Rabbah, Spanish Phrygian. Klezmer staple. Same as Maqam Hijaz (12-TET approx).</td></tr>
+      <tr><td class="name">Romanian Minor</td><td class="intervals">1 2 ♭3 ♯4 5 6 ♭7</td><td class="intervals">[0,2,3,6,7,9,10]</td><td class="note">Aka Ukrainian Dorian, Mi Sheberach. Klezmer/Romanian fiddle.</td></tr>
+      <tr><td class="name">Neapolitan Minor</td><td class="intervals">1 ♭2 ♭3 4 5 ♭6 7</td><td class="intervals">[0,1,3,5,7,8,11]</td><td class="note">Adjacent Mediterranean character.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Middle Eastern (maqam family)</h3>
+  <p>Maqamat that map cleanly into 12-TET work fine. Quarter-tone maqamat (Bayati, Saba, Rast in some readings) lose their defining character in 12-TET — the half-flat second is the whole point. I'd suggest including the clean ones now and labeling the microtonal ones with a <em>"requires microtonal mode"</em> tag for later.</p>
+  <table>
+    <thead><tr><th>Maqam</th><th>Degrees</th><th>Semitones</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="name">Hijaz</td><td class="intervals">1 ♭2 3 4 5 ♭6 ♭7</td><td class="intervals">[0,1,4,5,7,8,10]</td><td class="note">Same shape as Phrygian Dominant — list under both names if your audience spans traditions.</td></tr>
+      <tr><td class="name">Hijaz Kar</td><td class="intervals">1 ♭2 3 4 5 ♭6 7</td><td class="intervals">[0,1,4,5,7,8,11]</td><td class="note">Same shape as Double Harmonic Major.</td></tr>
+      <tr><td class="name">Kurd</td><td class="intervals">1 ♭2 ♭3 4 5 ♭6 ♭7</td><td class="intervals">[0,1,3,5,7,8,10]</td><td class="note">Same as Phrygian.</td></tr>
+      <tr><td class="name">Nahawand</td><td class="intervals">1 2 ♭3 4 5 ♭6 ♭7</td><td class="intervals">[0,2,3,5,7,8,10]</td><td class="note">Same as Natural Minor.</td></tr>
+      <tr><td class="name">Ajam</td><td class="intervals">1 2 3 4 5 6 7</td><td class="intervals">[0,2,4,5,7,9,11]</td><td class="note">Same as Major.</td></tr>
+      <tr class="micro"><td class="name">Rast</td><td class="intervals">1 2 E♭ 4 5 6 B♭</td><td class="intervals">[0,2,3.5,5,7,9,10.5]</td><td class="note">Half-flat 3 and 7. 12-TET approx ≈ Major or Mixolydian, but loses Rast's identity.</td></tr>
+      <tr class="micro"><td class="name">Bayati</td><td class="intervals">1 E♭ ♭3 4 5 ♭6 ♭7</td><td class="intervals">[0,1.5,3,5,7,8,10]</td><td class="note">Quarter-flat 2 is the defining note. 12-TET approx ≈ Phrygian or Dorian (each loses something).</td></tr>
+      <tr class="micro"><td class="name">Saba</td><td class="intervals">1 E♭ ♭3 ♭4 5 ♭6 ♭7</td><td class="intervals">[0,1.5,3,4,7,8,10]</td><td class="note">Quarter-flat 2 and a diminished 4. Strongest case for "needs microtonal mode."</td></tr>
+    </tbody>
+  </table>
+
+  <h3>East Asian pentatonic</h3>
+  <p>All clean 5-note 12-TET shapes. Several Chinese modes overlap with the existing pentatonic set — I've flagged duplicates so you don't ship the same scale under two names.</p>
+  <table>
+    <thead><tr><th>Scale</th><th>Degrees</th><th>Semitones</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="name">Hirajoshi (Japanese)</td><td class="intervals">1 2 ♭3 5 ♭6</td><td class="intervals">[0,2,3,7,8]</td><td class="note">Classic koto tuning. Dark, distinctive.</td></tr>
+      <tr><td class="name">In (Japanese)</td><td class="intervals">1 ♭2 4 5 ♭6</td><td class="intervals">[0,1,5,7,8]</td><td class="note">Shamisen / shakuhachi register.</td></tr>
+      <tr><td class="name">Yo (Japanese)</td><td class="intervals">1 2 4 5 6</td><td class="intervals">[0,2,5,7,9]</td><td class="note">Brighter Japanese pentatonic. Folk-song staple.</td></tr>
+      <tr><td class="name">Iwato (Japanese)</td><td class="intervals">1 ♭2 4 ♭5 ♭7</td><td class="intervals">[0,1,5,6,10]</td><td class="note">Tense, suspended quality. Rare but striking.</td></tr>
+      <tr><td class="name">Insen (Japanese)</td><td class="intervals">1 ♭2 4 5 ♭7</td><td class="intervals">[0,1,5,7,10]</td><td class="note">In with raised 5.</td></tr>
+      <tr class="dup"><td class="name">Chinese Gong</td><td class="intervals">1 2 3 5 6</td><td class="intervals">[0,2,4,7,9]</td><td class="note">Same as existing <code>pentatonic</code>.</td></tr>
+      <tr><td class="name">Chinese Shang</td><td class="intervals">1 2 4 5 ♭7</td><td class="intervals">[0,2,5,7,10]</td><td class="note">Same as Egyptian / suspended pentatonic.</td></tr>
+      <tr><td class="name">Chinese Jiao</td><td class="intervals">1 ♭3 4 ♭6 ♭7</td><td class="intervals">[0,3,5,8,10]</td><td class="note">Distinct minor-ish pentatonic.</td></tr>
+      <tr class="dup"><td class="name">Chinese Zhi</td><td class="intervals">1 2 4 5 6</td><td class="intervals">[0,2,5,7,9]</td><td class="note">Same as Japanese Yo.</td></tr>
+      <tr class="dup"><td class="name">Chinese Yu</td><td class="intervals">1 ♭3 4 5 ♭7</td><td class="intervals">[0,3,5,7,10]</td><td class="note">Same as existing <code>pentatonicMinor</code>.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Indian raga (12-TET friendly selection)</h3>
+  <p>There are literally thousands of ragas; most use 7-note <em>sampurna</em> sets that map to 12-TET if we ignore <em>shruti</em> microtonality and the rules about which note to emphasize on ascent vs descent. I've picked seven that either have iconic interval patterns or no Western analog. Mind that calling something "Raga Bhairav" without modeling ornament rules is, strictly, just the scale shape — call it out in tooltip copy.</p>
+  <table>
+    <thead><tr><th>Raga</th><th>Degrees</th><th>Semitones</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="name">Bhairav</td><td class="intervals">1 ♭2 3 4 5 ♭6 7</td><td class="intervals">[0,1,4,5,7,8,11]</td><td class="note">Same shape as Double Harmonic / Hijaz Kar.</td></tr>
+      <tr><td class="name">Bhairavi</td><td class="intervals">1 ♭2 ♭3 4 5 ♭6 ♭7</td><td class="intervals">[0,1,3,5,7,8,10]</td><td class="note">Same shape as Phrygian.</td></tr>
+      <tr class="dup"><td class="name">Kafi</td><td class="intervals">1 2 ♭3 4 5 6 ♭7</td><td class="intervals">[0,2,3,5,7,9,10]</td><td class="note">Same shape as Dorian.</td></tr>
+      <tr class="dup"><td class="name">Khamaj</td><td class="intervals">1 2 3 4 5 6 ♭7</td><td class="intervals">[0,2,4,5,7,9,10]</td><td class="note">Same shape as Mixolydian.</td></tr>
+      <tr><td class="name">Marwa</td><td class="intervals">1 ♭2 3 ♯4 5 6 7</td><td class="intervals">[0,1,4,6,7,9,11]</td><td class="note">Distinct, no common Western analog. Lydian-with-flat-2.</td></tr>
+      <tr><td class="name">Purvi</td><td class="intervals">1 ♭2 3 ♯4 5 ♭6 7</td><td class="intervals">[0,1,4,6,7,8,11]</td><td class="note">Marwa with ♭6. Distinctive.</td></tr>
+      <tr><td class="name">Todi</td><td class="intervals">1 ♭2 ♭3 ♯4 5 ♭6 7</td><td class="intervals">[0,1,3,6,7,8,11]</td><td class="note">Highly distinctive. The ♯4 + ♭6 combo is iconic.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout"><strong>De-duplication recommendation.</strong> Several scales appear in multiple traditions with different names. Either (a) ship one canonical entry per <em>shape</em> and list aliases in tooltip / search-by-name, or (b) ship per-tradition entries with a tradition badge ("Maqam Hijaz" vs. "Phrygian Dominant" vs. "Freygish"). Option (b) is friendlier to musicians who think in one tradition; option (a) keeps the scale picker shorter. My vote is (b) with the picker grouped by family — see Tier 3.</div>
+</section>
+
+<section>
+  <h2><span class="num">04</span>Curated chord lists per scale</h2>
+  <p>Because <code>ScaleBoard._getChordMidis()</code> assumes tertian stacking, you need an opt-in override for scales where that produces bad chords. The simplest pattern, mirroring <code>CHORD_TYPES</code> in <code>ArpeggioManager.js</code>:</p>
+<pre><code>// new file: src/engine/ScaleChords.js
+// Curated idiomatic chord lists per scale, keyed by SCALES key.
+// Each entry is an array of chord recipes; a recipe is a label + semitone
+// offsets from the SCALE ROOT (not from the chord root). ScaleBoard will
+// prefer these when the user picks "Chords" mode on a scale with an entry.
+
+export const SCALE_CHORDS = {
+  hungarianMinor: [
+    { degree: 1, label: 'i',     semitones: [0, 3, 7] },        // minor triad
+    { degree: 2, label: 'ii°',   semitones: [2, 5, 8] },        // dim
+    { degree: 4, label: 'iv°+',  semitones: [6, 8, 11] },       // augmented from ♯4
+    { degree: 5, label: 'V',     semitones: [7, 11, 14] },      // major (dominant)
+    { degree: 6, label: 'bVI',   semitones: [8, 11, 15] },      // major
+    { degree: 7, label: 'vii°',  semitones: [11, 14, 17] },     // dim
+  ],
+  doubleHarmonic: [
+    { degree: 1, label: 'I',     semitones: [0, 4, 7] },        // major
+    { degree: 4, label: 'iv',    semitones: [5, 8, 12] },       // minor
+    { degree: 5, label: 'V',     semitones: [7, 11, 14] },      // major
+    { degree: 6, label: 'bVI+',  semitones: [8, 12, 16] },      // augmented
+  ],
+  hirajoshi: [
+    // Pentatonic — name chords by intervallic flavor rather than tertian function.
+    { degree: 1, label: 'i (open)',    semitones: [0, 7] },       // power
+    { degree: 1, label: 'i+♭6',        semitones: [0, 3, 8] },    // moody triad
+    { degree: 2, label: 'sus2/♭5',     semitones: [2, 5, 8] },
+  ],
+  // …one entry per scale that warrants it
+};</code></pre>
+  <p>Then in <code>ScaleBoard._getChordMidis(startIndex)</code>, prefer the curated recipe when the active scale appears in <code>SCALE_CHORDS</code>; fall back to the existing tertian stacking otherwise. The change is roughly 20 lines.</p>
+  <p>What to curate per scale (concrete suggestions):</p>
+  <ul>
+    <li><strong>Hungarian Minor</strong> — i (minor), V (major dominant), bVI (major), the iconic IV° augmented chord built on ♯4. Skip the awkward built-on-7 spelling.</li>
+    <li><strong>Double Harmonic / Bhairav / Hijaz Kar</strong> — I (major), iv (minor), V (major), bVI+ (augmented). The ♭2–3 leap and ♭6–7 leap are the personality.</li>
+    <li><strong>Phrygian Dominant / Hijaz / Freygish</strong> — I (major), bII (major, the iconic "Spanish" half-step), iv (minor), v° (diminished). The bII to I cadence is the entire flavor.</li>
+    <li><strong>Hirajoshi / In / Iwato</strong> — pentatonic scales need different thinking. Stack open fifths, ♭2/♭6 wedges, sus2-with-♭5 voicings. Tertian triads don't represent the language.</li>
+    <li><strong>Todi / Marwa / Purvi</strong> — emphasize the ♯4 dyad and the ♭2 leading tone. These ragas are tonally complex; pick 3-4 chords that capture the mood rather than trying to spell every degree.</li>
+    <li><strong>Romanian Minor</strong> — i, IV (major built on ♯4 — the ♯4 is the personality), V, bVII.</li>
+  </ul>
+  <div class="callout"><strong>UX call.</strong> When a curated chord list exists, the chord pads will <em>not</em> map 1:1 with scale-degree pads. You'll need to either (a) reduce the pad count when in "Chords" mode to match the curated list, or (b) lay out chord pads on a separate row. Option (b) preserves the "Extensions" toggle behavior better but adds layout complexity. Worth deciding before implementation.</div>
+</section>
+
+<section>
+  <h2><span class="num">05</span>Hurdles, ranked by friction</h2>
+
+  <div class="hurdle">
+    <h3>Tertian chord auto-derivation in ScaleBoard <span class="severity med">MEDIUM</span></h3>
+    <p>The fix is the <code>SCALE_CHORDS</code> opt-in above. Without it, "Chords" mode on Hungarian Minor or Hirajoshi will play wrong-feeling chords. The user has explicitly asked for curated lists, so this is in scope, but it's a real engineering item — not a one-liner.</p>
+  </div>
+
+  <div class="hurdle">
+    <h3>Enharmonic spelling is sharps-only <span class="severity med">MEDIUM</span></h3>
+    <p><code>NOTE_NAMES</code> is <code>['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']</code> with no flat names. Hungarian minor in C should display ♭3 as E♭ and ♭6 as A♭, not D♯ and G♯. The labels in <code>INTERVAL_LABELS</code> already use flat shorthand (b2, b3, b5, b6, b7), so degree labels work — but the <em>note-name</em> display in Piano labels and elsewhere will be wrong for some keys. A proper fix introduces context-sensitive spelling: in a flat-leaning scale, prefer the flat name. Several maqamat and ragas need this to look right.</p>
+  </div>
+
+  <div class="hurdle">
+    <h3>Classical function names are mechanically correct, semantically wrong <span class="severity low">LOW</span></h3>
+    <p><code>CLASSICAL_FUNCTION_NAMES</code> (Tonic, Subdominant, Submediant…) is keyed by chromatic interval, so it works on any scale. But "Submediant" applied to the ♭6 of Hungarian Minor or the half-flat 2 of Bayati is a vocabulary mismatch. Two paths: (a) ignore — the labels are optional and turned off by default; (b) add per-scale overrides so e.g. Phrygian Dominant labels the ♭2 as "Spanish 2" or "Hijaz 2." Low priority unless you want this to feel native to non-Western musicians.</p>
+  </div>
+
+  <div class="hurdle">
+    <h3>UI scale picker is a flat &lt;select&gt; <span class="severity low">LOW</span></h3>
+    <p>If you ship 25+ scales, a flat alphabetical list gets unwieldy. <code>TransportBar.js</code> renders one big <code>&lt;select&gt;</code>. Easy improvement: group via <code>&lt;optgroup&gt;</code> by family (Western, Hungarian/Klezmer, Maqam, Japanese, Chinese, Raga). The data model needs a <code>family</code> field added to scale entries — backwards compatible.</p>
+  </div>
+
+  <div class="hurdle">
+    <h3>AI prompt context <span class="severity low">LOW</span></h3>
+    <p><code>PromptBuilder.js</code> just passes the scale name string. New scales will work, but the model may not know what "Hirajoshi" or "Todi" means. Two paths: (a) add a one-line description per scale, fed into the prompt; (b) trust the model to know common names. I'd do (a) for the obscure ones — five extra sentences in the system prompt.</p>
+  </div>
+
+  <div class="hurdle">
+    <h3>ABC notation export <span class="severity med">MEDIUM</span></h3>
+    <p><code>src/export/ABCConverter.js</code> generates ABC notation via <code>abcjs</code>. ABC has full support for non-Western key signatures and microtones (<code>=B</code>, <code>^A</code>, <code>_E</code> etc.), but the converter probably writes a fixed key signature line. Sheet-music export of a Hungarian Minor or Bhairav scale will look weird without per-scale key-signature handling. Not blocking — the audio playback and pads are correct — but the sheet music output will be ugly. Worth a follow-up.</p>
+  </div>
+
+  <div class="hurdle">
+    <h3>Microtonal mode (Tier 4) <span class="severity high">HIGH</span></h3>
+    <p>Separated out in §06.</p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">06</span>Microtonal cost evaluation</h2>
+  <p>Microtonality means representing pitches between the 12-TET steps — quarter tones (50 cents) and three-quarter tones (150 cents) are the minimum for maqam coverage. The user asked for a real cost estimate, not a hand-wave, so here's the picture.</p>
+
+  <h4>What already works</h4>
+  <ul>
+    <li><code>midiToFreq(midi)</code> accepts non-integers, so 60.5 plays a quarter-tone above middle C. WebAudioSynth uses it. So <strong>audio playback is already microtonal-capable</strong>.</li>
+    <li><code>SCALES[name].intervals</code> is just an array of numbers — no integer constraint. <code>getScaleNotes()</code> adds them to a root MIDI number; floats propagate cleanly.</li>
+  </ul>
+
+  <h4>What breaks</h4>
+  <ul>
+    <li><strong>MicroPiano UI.</strong> The piano keyboard is a chromatic 12-tone layout per octave. Microtonal pitches can't be played from it. You'd need a separate keyboard view (24-tone layout, or a "between-keys" interaction) or accept that microtonal scales are pad-only.</li>
+    <li><strong>Pad labels.</strong> <code>midiToNoteName(60.5)</code> would return <code>'C'</code> for the floor — labels need a half-flat / half-sharp vocabulary (Helmholtz notation, or a custom convention).</li>
+    <li><strong>MIDI export.</strong> <code>src/export/MidiExporter.js</code> writes a standard MIDI file. MIDI 1.0 has no native microtone support; you'd need to either round to 12-TET (defeats the purpose) or emit MIDI pitch-bend automation per note (technically possible, ugly to export to a DAW). MIDI 2.0 supports it natively but DAW adoption is partial.</li>
+    <li><strong>ABC notation / sheet view.</strong> abcjs supports <code>^/A</code> (half-sharp) and <code>_/A</code> (half-flat) glyphs, but Western-trained eyes will find them illegible. Acceptable trade-off for serious maqam users.</li>
+    <li><strong>WAV export.</strong> <code>WavExporter.js</code> goes through the synth path, which already uses <code>midiToFreq</code>. Likely works without changes. Worth verifying.</li>
+    <li><strong>Project storage / settings.</strong> Scale interval arrays are JSON — floats serialize fine. No schema migration needed.</li>
+    <li><strong>Controller binding.</strong> Gamepad bindings are MIDI-keyed in <code>ControllerMode.js</code>. With float MIDIs, the map keys still work, but learned-binding labels show as <code>C4.5</code> or similar.</li>
+    <li><strong>AI / SequenceExecutor.</strong> The schema uses integer <code>midi</code> values; would need a schema bump and a prompt update.</li>
+  </ul>
+
+  <h4>Estimated effort to ship a usable microtonal mode</h4>
+  <ul>
+    <li>~3-4 days for the audio engine + pad path (the easy part — mostly already works).</li>
+    <li>~5-7 days for a quarter-tone-aware piano view, half-flat note labels, and the ABC notation hookup.</li>
+    <li>~3-5 days for export decisions (pick one: drop microtonal on MIDI export, or use pitch-bend automation).</li>
+    <li>~2-3 days for the AI schema update and prompt rewrite.</li>
+    <li>Total: <strong>2-4 weeks of focused work</strong> to ship microtonal mode end-to-end, with real maqam Rast / Bayati / Saba sounding correct and exporting cleanly.</li>
+  </ul>
+
+  <div class="callout warn"><strong>My recommendation.</strong> Ship Tier 1-3 first (12-TET approximations of all four families, curated chords, family grouping). Tag the truly microtonal maqamat (Rast, Bayati, Saba) as "approximation" in the UI and the tooltip. Then evaluate microtonal mode as a separate project once you have user signal on whether anyone is asking for it. The 12-TET approximations get you 80% of the way and don't lock the architecture out of microtones later.</div>
+</section>
+
+<section>
+  <h2><span class="num">07</span>Tiered rollout</h2>
+
+  <div class="tier">
+    <div class="tier-head">
+      <span class="tier-tag t1">Tier 1</span>
+      <h3>Drop-in scale definitions</h3>
+      <span class="effort">~1 weekend</span>
+    </div>
+    <p>Add ~15-20 entries to <code>SCALES</code> in <code>MusicTheory.js</code>. No other code changes required — TransportBar, ScaleBoard, ControllerMode, AI prompt builder all read from <code>SCALES</code> dynamically. New scales auto-appear in the picker, the pad count adjusts automatically.</p>
+    <p><strong>Includes:</strong> Lydian, Phrygian, Locrian, Harmonic Minor, Melodic Minor (filling the Western canon), Hungarian Minor, Hungarian Major, Double Harmonic, Phrygian Dominant, Romanian Minor, Neapolitan Minor, Hijaz, Hijaz Kar, Kurd, Nahawand, Ajam, Hirajoshi, In, Yo, Iwato, Insen, Chinese Shang, Chinese Jiao, Marwa, Purvi, Todi.</p>
+    <p><strong>Risks:</strong> Chord pads will sound "off" on the new scales (tertian stacking is wrong for them) until Tier 2 lands. Document this in the release note.</p>
+  </div>
+
+  <div class="tier">
+    <div class="tier-head">
+      <span class="tier-tag t2">Tier 2</span>
+      <h3>Curated chord lists per scale</h3>
+      <span class="effort">~1 week</span>
+    </div>
+    <p>New file: <code>src/engine/ScaleChords.js</code> with the <code>SCALE_CHORDS</code> map described in §04. Update <code>ScaleBoard._getChordMidis()</code> to prefer curated chords when present. Update <code>ScaleBoard._updateNotes()</code> to read pad count from the curated list when in Chords mode. Pick a layout (reduced pad count, or separate chord row).</p>
+    <p><strong>Risks:</strong> Decision needed on pad layout in Chords mode. Affects UI consistency with Extensions toggle.</p>
+  </div>
+
+  <div class="tier">
+    <div class="tier-head">
+      <span class="tier-tag t3">Tier 3</span>
+      <h3>UX polish and family grouping</h3>
+      <span class="effort">~1-2 weeks</span>
+    </div>
+    <ul style="margin-top:0">
+      <li>Add <code>family</code> field to scale entries; render <code>&lt;optgroup&gt;</code> in TransportBar.</li>
+      <li>Add aliases array for cross-tradition naming (Bhairav / Hijaz Kar / Double Harmonic → one canonical entry, three searchable names).</li>
+      <li>Context-sensitive enharmonic spelling (flat-prefer for flat-leaning scales).</li>
+      <li>Per-scale function-name overrides for non-Western scales (e.g., Phrygian Dominant labels ♭2 as "Spanish 2").</li>
+      <li>One-sentence description per scale fed into AI prompt builder.</li>
+      <li>Quick tooltip in the picker with the interval pattern (1 ♭2 3 4 5 ♭6 7) for each scale.</li>
+    </ul>
+  </div>
+
+  <div class="tier">
+    <div class="tier-head">
+      <span class="tier-tag t4">Tier 4 (optional)</span>
+      <h3>Real microtonal support</h3>
+      <span class="effort">~2-4 weeks</span>
+    </div>
+    <p>See §06 for the full cost breakdown. Worth doing only if you get user signal that 12-TET approximations of maqamat aren't acceptable. Architecturally invasive but not impossible.</p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">08</span>Open questions before implementation</h2>
+  <ol>
+    <li><strong>De-duplication policy.</strong> Ship one canonical entry per shape with aliases (shorter picker, harder to find by tradition name), or per-tradition entries with a family badge (longer picker, more discoverable)? My recommendation: per-tradition entries with optgroup grouping.</li>
+    <li><strong>Chord pad layout when curated lists are smaller than scale degree count.</strong> Reduce pad count, or add a separate chord row? Affects how Extensions toggle behaves.</li>
+    <li><strong>Function-name overrides.</strong> Worth the engineering for non-Western contexts, or leave the labels off and let users turn them on when they want classical Western names?</li>
+    <li><strong>Tooltip vocabulary for "approximate" scales.</strong> What text? "12-TET approximation — true intonation requires microtonal mode (coming later)"? Phrasing affects how users perceive the limitation.</li>
+    <li><strong>Sheet music export.</strong> Acceptable to ship Tier 1-2 with potentially-incorrect ABC key signatures for non-Western scales, then fix in a Tier 3.1 pass? Or block on this?</li>
+    <li><strong>Indian raga: scale-only, or eventually with ascent / descent / vadi-samvadi rules?</strong> The latter would be a much bigger lift (ornament rules, contextual restrictions). My read of the app: scale-only is consistent with how Notenotes treats every other scale, so I'd stop there.</li>
+  </ol>
+</section>
+
+<footer>
+  <p>Evaluation of <code>zeidalidiez/Notenotes</code> @ main · v0.1.39 · prepared 2026-05-24</p>
+  <p>No code changes were made to the repository in this pass.</p>
+</footer>
+
+</div>
+<script>
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && window.parent !== window) {
+    window.parent.postMessage({ type: 'close-fullscreen' }, '*');
+  }
+});
+</script>
+<!-- broken-img-handler -->
+<script>
+(function(){
+  if(window.__brokenImgHandler)return;
+  window.__brokenImgHandler=true;
+  var MAX=5,DELAYS=[2000,4000,8000,16000,32000];
+  document.addEventListener('error',function(e){
+    var img=e.target;
+    if(!img||img.tagName!=='IMG')return;
+    var liveSrc=img.getAttribute('src');
+    var src=img.dataset.haOriginalSrc||liveSrc;
+    if(!src)return;
+    if(img.dataset.haOriginalSrc&&liveSrc&&liveSrc!==img.dataset.haOriginalSrc&&liveSrc.indexOf('_r=')<0){src=liveSrc;img.dataset.haOriginalSrc=src;img.dataset.haRetryCount='0'}
+    else if(!img.dataset.haOriginalSrc){img.dataset.haOriginalSrc=src}
+    var attempt=parseInt(img.dataset.haRetryCount||'0',10);
+    if(img.dataset.haPhId){var old=document.getElementById(img.dataset.haPhId);if(old)old.remove()}
+    var ph=document.createElement('div');
+    ph.className='ha-img-placeholder'+(attempt>=MAX?' ha-failed':'');
+    ph.id='ha-ph-'+Math.random().toString(36).slice(2,9);
+    var w=img.getAttribute('width');var h=img.getAttribute('height');
+    if(w)ph.style.width=w+(isNaN(Number(w))?'':'px');
+    else if(img.style.width)ph.style.width=img.style.width;
+    else if(img.width>1)ph.style.width=img.width+'px';
+    if(h)ph.style.height=h+(isNaN(Number(h))?'':'px');
+    else if(img.style.height)ph.style.height=img.style.height;
+    else if(img.height>1)ph.style.height=img.height+'px';
+    ph.textContent=attempt>=MAX?'Image unavailable':'Loading image\u2026';
+    img.dataset.haPhId=ph.id;
+    if(img.dataset.haOrigDisplay==null)img.dataset.haOrigDisplay=img.style.display||'';
+    img.style.display='none';
+    img.insertAdjacentElement('afterend',ph);
+    if(attempt<MAX){
+      img.dataset.haRetryCount=String(attempt+1);
+      setTimeout(function(){
+        if(!img.isConnected)return;
+        if(img.dataset.haOriginalSrc!==src)return;
+        if(img.complete&&img.naturalWidth>0)return;
+        var curSrc=img.getAttribute('src');
+        if(curSrc&&curSrc.indexOf(src)!==0)return;
+        var fresh=src+(src.indexOf('?')>=0?'&':'?')+'_r='+(attempt+1)+'_'+Date.now();
+        img.src=fresh;
+      },DELAYS[attempt]);
+    }
+  },true);
+  document.addEventListener('load',function(e){
+    var img=e.target;
+    if(!img||img.tagName!=='IMG')return;
+    if(img.dataset.haPhId){
+      var ph=document.getElementById(img.dataset.haPhId);
+      if(ph)ph.remove();
+      delete img.dataset.haPhId;
+      img.style.display=img.dataset.haOrigDisplay||'';
+      delete img.dataset.haOrigDisplay;
+      delete img.dataset.haOriginalSrc;
+      delete img.dataset.haRetryCount;
+    }
+  },true);
+})();
+</script>
+</body>
+</html>

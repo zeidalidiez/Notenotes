@@ -8,6 +8,7 @@
  *     Scales with curated chord recipes show named harmonic pads instead.
  *   - "root": chromatic pads; each pad plays itself plus the selected root
  *             note in the octave nearest the pad note.
+ *   - "step": one trigger advances through a typed sequence of pad numbers.
  *   - "voices": each pad sings a syllable from a typed phrase, at the pad's pitch.
  *               Requires a VoiceEngine to be passed in. Phrase is persisted in
  *               project.settings.voicePhrase.
@@ -49,10 +50,13 @@ export class ScaleBoard {
     this.scaleName = 'major';
     this.rootNote = 'C';
     this.octave = 4;
-    this.padMode = 'single'; // 'single', 'chords', 'root', 'compass', 'voices', 'custom'
+    this.padMode = 'single'; // 'single', 'chords', 'root', 'compass', 'step', 'voices', 'custom'
     this.extensionsEnabled = false;
     this.isEditingLayout = false;
     this.customPadTypes = []; // 'single' or 'chord'
+    this._stepPointer = 0;
+    this._stepReleaseTimer = null;
+    this._activeStepMidis = [];
 
     // Voice mode state
     this._voicePhrase = '';        // raw user-typed string
@@ -64,6 +68,7 @@ export class ScaleBoard {
     this.onVoicePhraseChanged = null;
     this.onPadModeChange = null;
     this.onExtensionsChanged = null;
+    this.onStepPlayChanged = null;
 
     this._notes = [];
     this._fullScaleNotes = [];
@@ -235,6 +240,7 @@ export class ScaleBoard {
             <option value="chords" ${this.padMode === 'chords' ? 'selected' : ''}>Chords</option>
             <option value="root" ${this.padMode === 'root' ? 'selected' : ''}>Root</option>
             <option value="compass" ${this.padMode === 'compass' ? 'selected' : ''}>Compass</option>
+            <option value="step" ${this.padMode === 'step' ? 'selected' : ''}>Step Play</option>
             ${this.voiceEngine ? `<option value="voices" ${this.padMode === 'voices' ? 'selected' : ''}>Voice Sketch</option>` : ''}
             <option value="custom" ${this.padMode === 'custom' ? 'selected' : ''}>Custom</option>
           </select>
@@ -262,6 +268,8 @@ export class ScaleBoard {
       ${this._renderVoiceRow()}
       ${this.padMode === 'compass'
         ? this._renderCompass()
+        : this.padMode === 'step'
+          ? this._renderStepPlay()
         : `<div class="scaleboard__pads" id="sb-pads" style="grid-template-columns: ${this._gridColumns()}; gap: ${this._gridGap()};">
             ${this._renderPads()}
           </div>`}
@@ -424,6 +432,64 @@ export class ScaleBoard {
     };
   }
 
+  _stepSequenceString() {
+    const saved = this.project?.settings?.stepPlaySequence;
+    if (typeof saved === 'string' && saved.trim()) return saved;
+    return this._notes.map((_, index) => String(index + 1)).join(' ');
+  }
+
+  _stepSequenceIndexes() {
+    const max = this._notes.length;
+    if (!max) return [];
+    const tokens = this._stepSequenceString().match(/\d+/g) || [];
+    const indexes = tokens
+      .map(token => parseInt(token, 10) - 1)
+      .filter(index => Number.isInteger(index) && index >= 0 && index < max);
+    return indexes.length ? indexes : this._notes.map((_, index) => index);
+  }
+
+  _persistStepSequence(value) {
+    if (!this.project) return;
+    if (!this.project.settings) this.project.settings = {};
+    this.project.settings.stepPlaySequence = String(value || '').trim();
+    this._stepPointer = 0;
+    if (this.onStepPlayChanged) this.onStepPlayChanged(this.project.settings.stepPlaySequence);
+  }
+
+  _renderStepPlay() {
+    const sequence = this._stepSequenceIndexes();
+    const chips = sequence.map((index, step) => {
+      const midi = this._notes[index];
+      const note = midiToNoteName(midi);
+      const isCurrent = step === (this._stepPointer % Math.max(1, sequence.length));
+      return `
+        <span class="step-play__chip${isCurrent ? ' is-current' : ''}" data-step-chip="${step}">
+          <span>${index + 1}</span>
+          <small>${this._escapeHtml(note.display)}</small>
+        </span>
+      `;
+    }).join('');
+    return `
+      <div class="step-play" id="sb-step-play">
+        <div class="step-play__main">
+          <button class="step-play__trigger" id="sb-step-trigger" type="button" aria-label="Play next step">
+            <span class="step-play__trigger-label">Step</span>
+            <span class="step-play__trigger-sub">Press any keyboard key or MIDI note to advance</span>
+          </button>
+          <div class="step-play__sequence" id="sb-step-sequence" aria-live="polite">${chips}</div>
+        </div>
+        <div class="step-play__editor">
+          <label class="scaleboard__label" for="sb-step-input">Sequence</label>
+          <input class="step-play__input" id="sb-step-input" type="text" inputmode="numeric"
+            value="${this._escapeAttr(this._stepSequenceString())}"
+            aria-label="Step Play sequence"
+            placeholder="1 3 5 8" />
+          <button class="btn btn--sm btn--ghost" id="sb-step-reset" type="button">Reset</button>
+        </div>
+      </div>
+    `;
+  }
+
   _renderVoiceRow() {
     if (this.padMode !== 'voices' || !this.voiceEngine) return '';
     const pointerHint = this._playableSyllables.length === 0
@@ -527,7 +593,7 @@ export class ScaleBoard {
   }
 
   _refreshPads() {
-    if (this.padMode === 'compass') {
+    if (this.padMode === 'compass' || this.padMode === 'step') {
       this._refreshLayout();
       return;
     }
@@ -567,6 +633,8 @@ export class ScaleBoard {
         showToast('Root Mode: each note also plays the nearest root');
       } else if (this.padMode === 'compass') {
         showToast('Compass: major chords outside, relative minors inside');
+      } else if (this.padMode === 'step') {
+        showToast('Step Play: one trigger advances through the sequence');
       } else if (this.padMode === 'voices') {
         showToast('Voice Sketch: experimental robot voice tokens');
       }
@@ -597,8 +665,50 @@ export class ScaleBoard {
     });
 
     this._bindVoiceEvents();
+    this._bindStepPlayEvents();
     this._bindCompassEvents();
     this._bindPadEvents();
+  }
+
+  _bindStepPlayEvents() {
+    if (this.padMode !== 'step') return;
+    const trigger = this.el.querySelector('#sb-step-trigger');
+    trigger?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this.triggerStepPlay();
+    });
+    const input = this.el.querySelector('#sb-step-input');
+    input?.addEventListener('input', (e) => {
+      this._persistStepSequence(e.target.value);
+      this._refreshStepSequenceUi();
+    });
+    this.el.querySelector('#sb-step-reset')?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const next = this._notes.map((_, index) => String(index + 1)).join(' ');
+      if (input) input.value = next;
+      this._persistStepSequence(next);
+      this._refreshStepSequenceUi();
+      showToast('Step Play sequence reset');
+    });
+  }
+
+  _refreshStepSequenceUi() {
+    if (this.padMode !== 'step') return;
+    const sequence = this.el?.querySelector('#sb-step-sequence');
+    if (!sequence) return;
+    const active = this.el?.querySelector('#sb-step-trigger')?.classList.contains('is-active');
+    sequence.innerHTML = this._stepSequenceIndexes().map((index, step) => {
+      const midi = this._notes[index];
+      const note = midiToNoteName(midi);
+      const isCurrent = step === (this._stepPointer % Math.max(1, this._stepSequenceIndexes().length));
+      return `
+        <span class="step-play__chip${isCurrent ? ' is-current' : ''}" data-step-chip="${step}">
+          <span>${index + 1}</span>
+          <small>${this._escapeHtml(note.display)}</small>
+        </span>
+      `;
+    }).join('');
+    if (active) this.el?.querySelector('#sb-step-trigger')?.classList.add('is-active');
   }
 
   _bindCompassEvents() {
@@ -806,6 +916,10 @@ export class ScaleBoard {
   }
 
   pressPad(index) {
+    if (this.padMode === 'step') {
+      this.triggerStepPlay();
+      return;
+    }
     if (this.isEditingLayout || this._activePadIndexes.has(index)) return;
     const pad = this.el?.querySelector(`.scaleboard__pad[data-index="${index}"]`);
     const midi = this._notes[index];
@@ -876,6 +990,10 @@ export class ScaleBoard {
 
   pressMidiInput(midi, bindingKey = `midi-${midi}`) {
     if (this.padMode === 'voices') return false;
+    if (this.padMode === 'step') {
+      this.triggerStepPlay();
+      return false;
+    }
     const index = this._nearestPadIndexForMidi(midi);
     if (index < 0) return false;
     const padMidi = this._notes[index];
@@ -939,6 +1057,7 @@ export class ScaleBoard {
   }
 
   releasePad(index) {
+    if (this.padMode === 'step') return;
     if (!this._activePadIndexes.has(index)) return;
     const pad = this.el?.querySelector(`.scaleboard__pad[data-index="${index}"]`);
     const midi = this._notes[index];
@@ -1015,6 +1134,7 @@ export class ScaleBoard {
   releaseAllPads() {
     for (const key of [...this._dwellTimers.keys()]) this._cancelDwell(key);
     this._dwellActivePads.clear();
+    this._releaseStepPlay();
     [...this._activePadIndexes].forEach(index => this.releasePad(index));
     [...this._activeCompassChords.keys()].forEach(id => this.releaseCompassSegment(id));
     if (this.voiceEngine) {
@@ -1022,6 +1142,41 @@ export class ScaleBoard {
       this.voiceEngine.releaseAll();
       this._lastVoiceMidiByPad.clear();
     }
+  }
+
+  triggerStepPlay() {
+    if (this.padMode !== 'step') return false;
+    const sequence = this._stepSequenceIndexes();
+    if (!sequence.length) return false;
+    const step = this._stepPointer % sequence.length;
+    const padIndex = sequence[step];
+    const midi = this._notes[padIndex];
+    if (midi === undefined) return false;
+
+    this._releaseStepPlay();
+    this._stepPointer = (step + 1) % sequence.length;
+    this._activeStepMidis = [midi];
+    this.el?.querySelector('#sb-step-trigger')?.classList.add('is-active');
+    this._noteOn(midi);
+    this._refreshStepSequenceUi();
+
+    this._stepReleaseTimer = setTimeout(() => {
+      this._releaseStepPlay();
+      this._refreshStepSequenceUi();
+    }, 420);
+    return true;
+  }
+
+  _releaseStepPlay() {
+    if (this._stepReleaseTimer) {
+      clearTimeout(this._stepReleaseTimer);
+      this._stepReleaseTimer = null;
+    }
+    if (this._activeStepMidis.length) {
+      this._activeStepMidis.forEach(midi => this._noteOff(midi));
+      this._activeStepMidis = [];
+    }
+    this.el?.querySelector('#sb-step-trigger')?.classList.remove('is-active');
   }
 
   shiftOctave(delta) {

@@ -314,9 +314,18 @@ ScaleBoard reads `project.musicalContext` for root and scale. It supports:
 - Custom pads
 - Voice Sketch
 - Compass
+- Step Play
 
 Pad count follows the current scale unless a mode overrides it. Extensions
 continue scale degrees into the next octave for Single and normal Chords modes.
+
+Step Play is a Pads mode, not a top-level instrument. It renders a dedicated
+one-trigger surface plus a saved numeric sequence at
+`project.settings.stepPlaySequence`. The sequence is typed as visible pad
+numbers (`1 3 5 8`); invalid or unavailable numbers are ignored and an empty
+sequence falls back to the current visible pad order. Each trigger plays one
+single note for a short fixed gate, advances the pointer, and records the
+user's timing through the normal note callbacks.
 
 Scale definitions live in `MusicTheory.js`. They include family metadata,
 intervals, degree patterns, descriptions, and optional aliases. `chromatic`
@@ -414,20 +423,22 @@ Tremor Filter, and `?dwell=1` enables Dwell Play, then the normalized settings
 are saved. This is intentionally not a separate build; a helper link can make
 Notenotes playable before a user has to navigate Settings.
 
-Step Play is planned as a Pads mode, not a separate top-level instrument, because
-"instrument" already means synth/custom patch elsewhere. It should behave like a
-one-button performance surface: each trigger advances through a user-entered
-sequence while recording captures the user's timing.
+Step Play now lives in the Pads mode dropdown. It gives switch-style users a
+large single trigger while still working for keyboard and MIDI input. Any
+performance key or MIDI note-on advances the sequence; keyup/note-off do not
+release because Step Play uses its own short note gate.
 
 ## Keyboard And MIDI Input
 
 Create-mode performance input is surface-routed. The active Create surface owns
 the input meaning:
 
-- Computer keyboard uses `PERFORMANCE_KEYS` in `CreativeMode.js`:
+- Computer keyboard uses `PERFORMANCE_KEYS` from `src/ui/PerformanceKeys.js`:
   `1-=`, `Q-]`, `A-'`, `Z-/`. Pads and Piano reverse-map this list so `1` is
   the highest visible note and later keys move downward. Kit maps forward through
-  visible drum pads because drums are not pitch-ordered.
+  visible drum pads because drums are not pitch-ordered. Kit pads display the
+  matching `PERFORMANCE_KEY_LABELS` value so the playable shortcut is visible
+  on the only pad surface that is not pitch-numbered.
 - Global digit modulation shortcuts must yield when the active Create surface
   can play that key. `main.js` asks `creativeMode.handlesPerformanceKey(code)`
   before starting pitch/mod ramps.
@@ -435,10 +446,13 @@ the input meaning:
   routed to the active Create surface: Pads map the MIDI note to the nearest
   visible pad and then play the current Pad Mode action, Piano plays the exact
   MIDI note, and Kit prefers General MIDI drum notes with a visible-pad fallback.
+  In Step Play mode, any MIDI note-on advances the Step sequence and note-off is
+  ignored.
 
-Do not add another keyboard mapping table in a separate file unless this becomes
-user-configurable. Keep computer-keyboard, MIDI, and controller routing
-conceptually aligned: the active surface decides what the input does.
+Keep computer-keyboard, MIDI, and controller routing conceptually aligned: the
+active surface decides what the input does. If the performance key layout ever
+changes, update `PerformanceKeys.js` instead of duplicating labels in individual
+instruments.
 
 ## Canvas
 
@@ -503,3 +517,14 @@ should keep the author's direct, non-corporate voice.
 - No runtime CDNs.
 - No storing API keys in project data, backups, or IndexedDB.
 - No large bundled sample libraries without a bundle/licensing design pass.
+
+## Step Play And Kit Key Labels 0.1.48
+
+This release makes two Create-mode performance-input changes.
+
+- `src/ui/PerformanceKeys.js` is now the shared source of truth for computer keyboard performance codes and display labels. `CreativeMode` imports `PERFORMANCE_KEYS` for routing, and `SketchKit` imports `performanceKeyLabel()` so drum pads can show the key that triggers each visible pad. Keep future keyboard-label UI wired to this module instead of duplicating the layout.
+- Kit keyboard mapping remains forward through visible drum pads. The label is visual/accessibility context only; it does not change `SketchKit.triggerVisiblePad()` or GM drum-note MIDI routing.
+- ScaleBoard gained `padMode === 'step'`. The renderer replaces the normal pad grid with a Step Play surface: one large trigger, a chip list for the active sequence, a sequence text field, and Reset. The sequence persists at `project.settings.stepPlaySequence` as human-readable pad numbers such as `1 3 5 8`.
+- Step Play sanitizes by parsing numbers and ignoring unavailable pad indexes. If the saved sequence is empty or invalid for the current scale/pad count, playback falls back to the current visible pad order. This lets users change key/scale without creating a dead surface.
+- Step Play always plays single notes for now. It uses a short fixed gate and releases the previous step before firing the next one, so one switch/key/MIDI note-on can advance the phrase while recording captures the user's rhythm through the normal note callbacks.
+- Creative keyboard routing treats any performance key as a Step Play trigger while Pads are in Step Play mode. Web MIDI note-on does the same; note-off is ignored because Step Play is not a held-note surface. Pointer clicks on the Step button use the same `triggerStepPlay()` path.

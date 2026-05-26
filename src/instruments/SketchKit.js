@@ -9,6 +9,7 @@ import { SOUND_TRAITS, normalizeSoundTraits } from './WebAudioSynth.js';
 import { showToast } from '../ui/Toast.js';
 import { ChoicePicker } from '../ui/ChoicePicker.js';
 import { dwellSettings, tremorAllows } from '../ui/AccessibilityProfiles.js';
+import { performanceKeyLabel } from '../ui/PerformanceKeys.js';
 
 export const DRUM_KITS = {
   classic: {
@@ -214,9 +215,11 @@ export class SketchKit {
   _renderPads() {
     return this._visibleSounds().map((s, i) => {
       const padClass = `sketchkit__pad--${s.id}`;
+      const keyLabel = performanceKeyLabel(i);
       return `
         <button class="sketchkit__pad ${padClass}" data-pad="${s.id}" data-index="${i}"
-                aria-label="${s.label}">
+                aria-label="${s.label}${keyLabel ? `, keyboard ${keyLabel}` : ''}">
+          ${keyLabel ? `<span class="sketchkit__key-label" aria-hidden="true">${keyLabel}</span>` : ''}
           <span class="sketchkit__pad-icon">${s.icon}</span>
           <span class="sketchkit__pad-label">${s.label}</span>
         </button>

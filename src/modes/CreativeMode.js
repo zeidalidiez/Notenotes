@@ -33,6 +33,7 @@ import { TransportState } from '../engine/Transport.js';
 import { ArpeggioManager, ARP_MODES } from '../engine/ArpeggioManager.js';
 import { BINDABLE_GAMEPAD_BUTTONS, GamepadInputManager, gamepadButtonInfo } from '../engine/GamepadInputManager.js';
 import { showToast } from '../ui/Toast.js';
+import { PERFORMANCE_KEYS } from '../ui/PerformanceKeys.js';
 
 const INSTRUMENTS = {
   SCALEBOARD: 'scaleboard',
@@ -41,13 +42,6 @@ const INSTRUMENTS = {
   MIC: 'mic',
   CONTROLLER: 'controller',
 };
-
-const PERFORMANCE_KEYS = [
-  'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8', 'Digit9', 'Digit0', 'Minus', 'Equal',
-  'KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT', 'KeyY', 'KeyU', 'KeyI', 'KeyO', 'KeyP', 'BracketLeft', 'BracketRight',
-  'KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyG', 'KeyH', 'KeyJ', 'KeyK', 'KeyL', 'Semicolon', 'Quote',
-  'KeyZ', 'KeyX', 'KeyC', 'KeyV', 'KeyB', 'KeyN', 'KeyM', 'Comma', 'Period', 'Slash',
-];
 
 export class CreativeMode {
   constructor(engine, transport, quantizer, store, project, modManager) {
@@ -77,6 +71,7 @@ export class CreativeMode {
     this.scaleBoard = new ScaleBoard(this.synth, this.project, this.voiceEngine);
     this.scaleBoard.onVoicePhraseChanged = () => this.store?.scheduleAutoSave(this.project);
     this.scaleBoard.onExtensionsChanged = () => this.store?.scheduleAutoSave(this.project);
+    this.scaleBoard.onStepPlayChanged = () => this.store?.scheduleAutoSave(this.project);
     // When Scale Board switches into/out of Voice Sketch mode, refresh any
     // open AI Seed popover. AI can't generate voice phrases, so the panel
     // disables itself with "Unavailable in Voice Sketch mode" instead of
@@ -1131,6 +1126,14 @@ export class CreativeMode {
       }
 
       if (this.activeInstrument === INSTRUMENTS.SCALEBOARD) {
+        if (this.scaleBoard?.padMode === 'step') {
+          if (!PERFORMANCE_KEYS.includes(e.code)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          this.ensureAudioReady();
+          this.scaleBoard.triggerStepPlay();
+          return;
+        }
         const idx = this._performanceIndexForSurface(e.code, this.scaleBoard._notes.length, { reverse: true });
         if (idx === -1) return;
 
@@ -1188,6 +1191,7 @@ export class CreativeMode {
   handlesPerformanceKey(code) {
     if (!this._isCreativeActive()) return false;
     if (this.activeInstrument === INSTRUMENTS.SCALEBOARD) {
+      if (this.scaleBoard?.padMode === 'step') return PERFORMANCE_KEYS.includes(code);
       return this._performanceIndexForSurface(code, this.scaleBoard?._notes?.length || 0, { reverse: true }) !== -1;
     }
     if (this.activeInstrument === INSTRUMENTS.PIANO) {

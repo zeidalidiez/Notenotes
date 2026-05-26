@@ -78,10 +78,10 @@ Open any snippet in a piano roll for fine edits. Click to add notes, drag to mov
 
 | Instrument | What it is |
 |---|---|
-| **Pads** | Pads locked to the project key and scale (Major, Minor, Pentatonic, Blues, Dorian, Mixolydian, Chromatic). Pad count follows the scale, Extensions can continue it into the next octave, go fully custom, or switch into Compass for a circle-of-fifths chord surface. |
+| **Pads** | Pads locked to the project key and scale (Major, Minor, Pentatonic, Blues, Dorian, Mixolydian, Chromatic). Pad count follows the scale, Extensions can continue it into the next octave, go fully custom, switch into Compass for a circle-of-fifths chord surface, or use Step Play as a one-trigger sequencer. |
 | **Controller** | Gamepad-as-instrument via the Web Gamepad API. The Controller button near AI opens a learnable mapper, while the Controller screen shows connection state, trigger assignments, live highlights, current bindings, and saved binding presets. Pads bindings remember whether they were learned as notes, chords, or Root pads. |
 | **Micro Piano** | Configurable chromatic keyboard (1 or 2 stacked, 10–32 keys each) with octave shifting. Optional degree colors can mark which keys belong to the project key. |
-| **Sketch Kit** | 10-pad synthesized drum kit. Four kit presets (Classic, 808, Electronic, Acoustic), with the same Tone controls as the synth side. |
+| **Sketch Kit** | 10-pad synthesized drum kit. Four kit presets (Classic, 808, Electronic, Acoustic), keyboard labels on every pad, and the same Tone controls as the synth side. |
 | **Audio In** | Record from any input device with a live waveform. New audio snippets are saved with durable audio data so backups can actually bring them back. |
 
 Plus: **16 synth presets** split into Chip and Modern families, picked from the same searchable library pattern as scales, **Tone** controls for shaping sound without becoming a full DAW, and the entire instrument layer is [pluggable](#-build-your-own-instrument).
@@ -89,6 +89,7 @@ Plus: **16 synth presets** split into Chip and Modern families, picked from the 
 ### For someone who wants a different perspective into the world of music.
 
 - **Scale-locked pads** - every press is in key. You can't pick a wrong note. Turn on **Extensions** to keep the scale going into the next octave without turning it into a theory quiz.
+- **Step Play** - a Pads mode for one-switch or one-key playing. Type a sequence like `1 3 5 8`, then hit the large Step button, any performance key, or a MIDI note to advance through it while Notenotes records your timing.
 - **Project key and scale** - set the shared root and scale in the top bar. The scale picker is now a searchable family picker instead of a tiny dropdown, with Western modes, pentatonic colors, Hungarian/Klezmer colors, and honest 12-TET maqam/raga-inspired approximations grouped where they belong. Pads, Controller fallback, AI context, and the optional Piano/Pad degree colors all read from the same place instead of each feature guessing on its own. The old duplicate Root/Scale controls are intentionally gone from Pads and Ctrl.
 - **Curated chord pads** - Chords mode still stacks scale degrees for familiar Western scales, but uses hand-picked chord pads for scales where plain tertian stacking would feel wrong, such as Hirajoshi, Hungarian Minor, Double Harmonic, and Phrygian Dominant.
 - **Beat colors** - set a different color for each beat. The background pulses in time so you can *see* the meter.
@@ -96,7 +97,7 @@ Plus: **16 synth presets** split into Chip and Modern families, picked from the 
 - **Hold & arpeggio modes** - latch notes, auto-arpeggiate chords across **10 chord types**, **4 patterns**, and **4 rates**. Or sustain a drone while you explore.
 - **Tone** - simple sliders for Crush, Echo, Space, Wobble, Drive, and Noise. They work on synths and the drum kit, can be saved as searchable presets, reset back to zero, and are meant to be fast and playful rather than a wall of studio knobs. Echo and Space have been tightened so live playback and WAV export are chasing the same sound instead of two separate guesses. Noise now ducks hard when Drive is high so texture does not turn into a static wall.
 - **Controller triggers as sound switches or note switches** - assign LT and RT to Tone, or use them to reach related notes like 7ths and 9ths by holding the trigger before you strike the pad. Regular controller buttons can also be learned to Pads slots as notes, chords, or Root pads, exact Piano notes, or Kit sounds, then saved as controller presets. Triggers and sticks stay reserved for expression.
-- **Keyboard and MIDI as instruments** - in Create, the active surface owns your input. `1-=`, `Q-]`, `A-'`, and `Z-/` play Pads, Piano, or Kit depending on what you are looking at; Pads and Piano map the top-left key to the highest visible note and move downward from there. A connected MIDI keyboard routes the same way: Pads play the nearest visible pad through the current Pad Mode, Piano plays exact MIDI notes, and Kit uses drum-note mappings.
+- **Keyboard and MIDI as instruments** - in Create, the active surface owns your input. `1-=`, `Q-]`, `A-'`, and `Z-/` play Pads, Piano, or Kit depending on what you are looking at; Pads and Piano map the top-left key to the highest visible note and move downward from there, while Kit pads show the matching key label. A connected MIDI keyboard routes the same way: Pads play the nearest visible pad through the current Pad Mode, Piano plays exact MIDI notes, Kit uses drum-note mappings, and Step Play advances one step per note-on.
 - **Pitch & mod via QWERTY** - Korg K25-style mod (1/4/7) and pitch (3/6/9) when those keys are not being used by the active Create surface.
 - **Mobile and desktop focus, including iOS Safari** - touch drag-and-drop everywhere, a cleaner labeled transport menu on narrow screens, and extra audio unlock nudges when a real note or drum hit happens.
 
@@ -249,8 +250,8 @@ For a deeper reference - including a synthesized drum sound built from oscillato
 | `R` | Toggle recording |
 | `M` | Toggle metronome |
 | `Ctrl+Z` / `Ctrl+Shift+Z` | Undo / Redo |
-| Pads `1`–`9`, `0` | Hold visible pads |
-| Kit `1`–`9`, `0` | Trigger drum pads |
+| Pads `1`-`=`, `Q`-`]`, `A`-`'`, `Z`-`/` | Hold visible pads; in Step Play, advance the sequence |
+| Kit `1`-`=`, `Q`-`]`, `A`-`'`, `Z`-`/` | Trigger visible drum pads |
 | Piano `` ` ``–`=` | Hold piano keys left to right |
 | `ArrowUp` / `ArrowDown` | Octave shift (Pads, Micro Piano, Controller) |
 | `Delete` / `Backspace` | Delete selected note or clip |

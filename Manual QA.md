@@ -199,12 +199,16 @@ Steps:
 5. Switch to Kit and confirm the same keyboard rows trigger visible kit pads in pad order.
 6. Connect a MIDI keyboard in a browser that supports Web MIDI.
 7. Play MIDI notes while viewing Pads, Piano, and Kit.
+8. Return to Pads, set Pad Mode to Step Play, and enter `1 3 5`.
+9. Press the Step button, then press a few computer keyboard performance keys, then press a few MIDI notes.
 
 Expected:
 
 - Computer keyboard input plays the active Create surface instead of only triggering global shortcuts.
 - Pads and Piano keyboard notes hold until keyup; Kit hits fire immediately.
+- Kit pads show the keyboard key that triggers each visible pad.
 - MIDI notes route through the active surface: nearest visible Pads target, exact Piano MIDI, and Kit drum mapping.
+- Step Play advances one note per Step button press, keyboard keydown, or MIDI note-on, and records the user's timing when recording is armed.
 - Global pitch/mod digit shortcuts still work when the active Create surface does not claim that key.
 
 ## 2. Audio In Recording

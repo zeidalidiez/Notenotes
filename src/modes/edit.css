@@ -43,6 +43,24 @@
   font-weight: var(--font-weight-semibold);
 }
 
+.edit-toolbar__tone-badges {
+  display: flex;
+  gap: 2px;
+  max-width: 116px;
+  overflow: hidden;
+}
+
+.edit-toolbar__tone-badges span {
+  flex: 0 0 auto;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.72);
+  font-size: 7px;
+  line-height: 1;
+  padding: 2px 3px;
+  letter-spacing: 0;
+}
+
 .edit-toolbar__spacer { flex: 1; }
 
 .edit-toolbar .btn.is-active {

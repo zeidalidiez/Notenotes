@@ -5,6 +5,7 @@
 
 import { AudioEngine } from '../engine/AudioEngine.js';
 import { ticksPerBarForMeter } from '../engine/Meter.js';
+import { renderToneBadges, toneBadgeItemsForSnippet } from './ToneBadges.js';
 
 export class SnippetTray {
   constructor() {
@@ -107,6 +108,7 @@ export class SnippetTray {
       const aiBadge = s.aiSeeded
         ? `<span class="snippet-tray__badge snippet-tray__badge--ai" title="${this._escapeAttr(s.aiPrompt || 'AI-seeded snippet')}">AI</span>`
         : '';
+      const toneBadges = renderToneBadges(toneBadgeItemsForSnippet(s), 'snippet-tray__tone-badges tone-badges');
 
       return `
         <div class="snippet-tray__item ${s.aiSeeded ? 'is-ai-seeded' : ''}" data-id="${s.id}" draggable="true">
@@ -118,6 +120,7 @@ export class SnippetTray {
             <span class="snippet-tray__item-meta">${displayName}</span>
             ${aiBadge}
             ${badge}
+            ${toneBadges}
           </div>
           <div class="snippet-tray__item-actions">
             <button class="snippet-tray__action-btn snippet-tray__delete-btn" data-delete="${s.id}" aria-label="Delete snippet" title="Delete">✕</button>

@@ -473,6 +473,8 @@
   flex: 0 0 auto;
   display: flex;
   gap: 2px;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .canvas-clip__tone-badges span {

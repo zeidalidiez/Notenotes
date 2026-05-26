@@ -153,6 +153,24 @@
   white-space: nowrap;
 }
 
+.snippet-tray__tone-badges {
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.snippet-tray__tone-badges span {
+  flex: 0 0 auto;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.72);
+  font-size: 7px;
+  line-height: 1;
+  padding: 2px 3px;
+  letter-spacing: 0;
+}
+
 .snippet-tray__item-actions {
   display: flex;
   justify-content: flex-end;

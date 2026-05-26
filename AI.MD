@@ -380,6 +380,11 @@ Current intended picker targets:
 - Tone preset picker: implemented for Create synth Tone, Kit Tone, and Canvas
   Apply-to-Clip. Saved Tone presets still live in
   `project.settings.tonePresets`; the picker only changes selection UI.
+- Tone badges: `src/ui/ToneBadges.js` is the shared renderer for the compact
+  two-letter Tone markers (`CR`, `EC`, `SP`, `WB`, `DR`, `NO`). It is used by
+  Canvas clips, the snippet tray, and Inspect. Do not cap the list unless the
+  visual language changes; users need to see all six active traits when a
+  recorded or clip-level Tone stack uses them.
 
 ChoicePicker is category-first, searchable, mobile-friendly, and DOM-native. It
 closes by outside-click, Escape, or selecting an item; do not add visible close

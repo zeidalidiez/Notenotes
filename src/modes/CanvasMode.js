@@ -12,6 +12,7 @@ import { PRESETS, normalizeSoundTraits } from '../instruments/WebAudioSynth.js';
 import { normalizeMeter, pulseCountForMeter, subBeatsForPulse } from '../engine/Meter.js';
 import { showToast } from '../ui/Toast.js';
 import { ChoicePicker } from '../ui/ChoicePicker.js';
+import { renderToneBadges, toneBadgeItemsForClip } from '../ui/ToneBadges.js';
 
 /** Pixels per bar at default zoom */
 const DEFAULT_BAR_WIDTH = 120;
@@ -668,24 +669,7 @@ export class CanvasMode {
   }
 
   _renderToneBadges(clip) {
-    const labels = {
-      crush: 'CR',
-      echo: 'EC',
-      space: 'SP',
-      wobble: 'WB',
-      drive: 'DR',
-      noise: 'NO',
-    };
-    const sources = [
-      clip.soundTraits || clip.snippet?.soundTraits || {},
-      ...(clip.snippet?.notes || []).map(note => note.soundTraits || {}),
-      ...(clip.snippet?.hits || []).map(hit => hit.soundTraits || {}),
-    ];
-    const active = Object.entries(labels)
-      .filter(([id]) => sources.some(traits => traits[id]?.enabled !== false && (traits[id]?.amount || 0) > 0))
-      .slice(0, 3);
-    if (active.length === 0) return '';
-    return `<span class="canvas-clip__tone-badges">${active.map(([id, label]) => `<span title="${id}">${label}</span>`).join('')}</span>`;
+    return renderToneBadges(toneBadgeItemsForClip(clip), 'canvas-clip__tone-badges tone-badges');
   }
 
   _tonePresets() {

@@ -587,7 +587,24 @@ Expected:
 - The exported WAV includes the clip Tone.
 - Tone does not apply unexpectedly to unrelated clips.
 
-### 7.4 Drive And Noise Stay Usable Together
+### 7.4 Tone Badges Stay Visible
+
+Steps:
+
+1. Record a MIDI or drum snippet while all six Tone effects have non-zero amounts.
+2. Check the snippet tray before dragging the snippet to Canvas.
+3. Drag the snippet to Canvas.
+4. Open the snippet or placed clip in Inspect.
+5. Apply a different six-effect Tone preset directly to the Canvas clip and re-check Canvas and Inspect.
+
+Expected:
+
+- The snippet tray shows Tone badges for every active effect.
+- Canvas clips show all active Tone badges, not just the first three.
+- Inspect shows the same Tone badges in the toolbar for the loaded snippet or clip.
+- Clip-level Tone overrides are reflected in Canvas and Inspect without changing unrelated snippets.
+
+### 7.5 Drive And Noise Stay Usable Together
 
 Steps:
 

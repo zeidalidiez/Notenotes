@@ -9,6 +9,7 @@ import './edit.css';
 import { NOTE_NAMES, midiToNoteName } from '../engine/MusicTheory.js';
 import { pulseCountForMeter, pulseTicksForMeter, ticksPerBarForMeter } from '../engine/Meter.js';
 import { showToast } from '../ui/Toast.js';
+import { renderToneBadges, toneBadgeItemsFromSources } from '../ui/ToneBadges.js';
 
 const TICK_WIDTH = 0.15;
 const DEFAULT_NOTE_HEIGHT = 16;
@@ -375,6 +376,7 @@ export class EditMode {
       <button class="btn btn--ghost edit-toolbar__btn" id="edit-quantize-all-btn" title="Set every note duration to the selected grid">Quantize all</button>
     `;
     const velocityValue = Math.round((this._selectedEditableEvent()?.velocity ?? 0.8) * 100);
+    const toneBadges = this._renderToneBadges();
 
     return `
       <div class="edit-toolbar__group">
@@ -388,6 +390,7 @@ export class EditMode {
         <button class="btn btn--ghost edit-toolbar__btn edit-toolbar__btn--tiny" id="edit-double-btn" title="Double snippet length">2x</button>
         <button class="btn btn--ghost edit-toolbar__btn edit-toolbar__btn--tiny" id="edit-half-btn" title="Halve snippet length">1/2</button>
         <span class="edit-toolbar__value">${noteCount} ${isDrum ? 'hits' : 'notes'}</span>
+        ${toneBadges}
       </div>
       <div class="edit-toolbar__group">
         <button class="btn btn--ghost edit-toolbar__btn" id="edit-new-midi-toolbar" type="button">New MIDI</button>
@@ -420,6 +423,26 @@ export class EditMode {
         <button class="btn btn--ghost edit-toolbar__btn edit-toolbar__btn--danger" id="edit-delete-btn">Delete ${isDrum ? 'Hit' : 'Note'}</button>
       </div>
     `;
+  }
+
+  _renderToneBadges() {
+    const clip = this._findLoadedClip();
+    const snippet = this._snippet;
+    const items = toneBadgeItemsFromSources([
+      clip?.soundTraits || snippet?.soundTraits || {},
+      ...(snippet?.notes || []).map(note => note.soundTraits || {}),
+      ...(snippet?.hits || []).map(hit => hit.soundTraits || {}),
+    ]);
+    return renderToneBadges(items, 'edit-toolbar__tone-badges tone-badges');
+  }
+
+  _findLoadedClip() {
+    if (!this._clipId) return null;
+    for (const track of this.project?.tracks || []) {
+      const clip = (track.clips || []).find(item => item.id === this._clipId);
+      if (clip) return clip;
+    }
+    return null;
   }
 
   _renderClipOptions() {

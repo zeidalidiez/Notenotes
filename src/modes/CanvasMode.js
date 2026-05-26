@@ -284,44 +284,68 @@ export class CanvasMode {
       || this._customKitInstruments().some(instrument => `custom:${instrument.id}` === instrumentId);
   }
 
-  _midiInstrumentOptions(selectedId) {
+  _midiInstrumentGroups() {
     const builtIns = Object.values(TRACK_INSTRUMENTS).filter(inst => inst.type === 'synth');
-    const chip = builtIns
-      .filter(inst => (PRESETS[inst.preset]?.family || 'chip') === 'chip')
-      .map(inst => `<option value="${inst.id}" ${selectedId === inst.id ? 'selected' : ''}>${inst.name}</option>`)
-      .join('');
-    const modern = builtIns
-      .filter(inst => PRESETS[inst.preset]?.family === 'modern')
-      .map(inst => `<option value="${inst.id}" ${selectedId === inst.id ? 'selected' : ''}>${inst.name}</option>`)
-      .join('');
-    const custom = this._customPatchInstruments()
-      .map(instrument => {
-        const id = `custom:${instrument.id}`;
-        return `<option value="${id}" ${selectedId === id ? 'selected' : ''}>${instrument.name}</option>`;
-      })
-      .join('');
-    return `
-      <optgroup label="Chip presets">${chip}</optgroup>
-      <optgroup label="Modern presets">${modern}</optgroup>
-      ${custom ? `<optgroup label="Custom instruments">${custom}</optgroup>` : ''}
-    `;
+    const itemForBuiltIn = inst => {
+      const patch = PRESETS[inst.preset] || PRESETS[inst.id] || {};
+      return {
+        value: inst.id,
+        label: inst.name,
+        kicker: (patch.family || 'chip') === 'modern' ? 'Modern synth track' : 'Chip synth track',
+        description: this._instrumentDescription(patch),
+        tags: [patch.family, patch.oscillator?.type, patch.filter?.type, inst.name].filter(Boolean),
+      };
+    };
+    const chip = builtIns.filter(inst => (PRESETS[inst.preset]?.family || 'chip') === 'chip').map(itemForBuiltIn);
+    const modern = builtIns.filter(inst => PRESETS[inst.preset]?.family === 'modern').map(itemForBuiltIn);
+    const groups = [
+      { id: 'chip', label: 'Chip presets', items: chip },
+      { id: 'modern', label: 'Modern presets', items: modern },
+    ];
+    const custom = this._customPatchInstruments().map(instrument => ({
+      value: `custom:${instrument.id}`,
+      label: instrument.name || 'Untitled instrument',
+      kicker: 'Custom sample patch',
+      description: instrument.playbackMode === 'oneShot' ? 'One-shot sample instrument' : 'Gated sample instrument',
+      tags: ['custom', 'sample', instrument.name],
+    }));
+    if (custom.length) groups.push({ id: 'custom', label: 'Custom instruments', items: custom });
+    return groups;
   }
 
-  _drumInstrumentOptions(selectedId = 'kit') {
-    const normalizedSelected = selectedId === 'kit' ? 'classic' : selectedId;
-    const builtIns = Object.entries(DRUM_KITS)
-      .map(([id, kit]) => `<option value="${id}" ${normalizedSelected === id ? 'selected' : ''}>${kit.name}</option>`)
-      .join('');
-    const custom = this._customKitInstruments()
-      .map(instrument => {
-        const id = `custom:${instrument.id}`;
-        return `<option value="${id}" ${normalizedSelected === id ? 'selected' : ''}>${instrument.name}</option>`;
-      })
-      .join('');
-    return `
-      <optgroup label="Drum kits">${builtIns}</optgroup>
-      ${custom ? `<optgroup label="Custom instruments">${custom}</optgroup>` : ''}
-    `;
+  _drumInstrumentGroups() {
+    const builtIns = Object.entries(DRUM_KITS).map(([id, kit]) => ({
+      value: id,
+      label: kit.name,
+      kicker: 'Drum kit',
+      description: `${Object.keys(kit.sounds || {}).length} synthesized sounds`,
+      tags: ['drum', 'kit', kit.name],
+    }));
+    const groups = [{ id: 'drum', label: 'Drum kits', items: builtIns }];
+    const custom = this._customKitInstruments().map(instrument => ({
+      value: `custom:${instrument.id}`,
+      label: instrument.name || 'Untitled kit',
+      kicker: 'Custom kit',
+      description: 'Custom drum instrument',
+      tags: ['custom', 'kit', instrument.name],
+    }));
+    if (custom.length) groups.push({ id: 'custom', label: 'Custom instruments', items: custom });
+    return groups;
+  }
+
+  _instrumentDescription(patch = {}) {
+    const bits = [];
+    if (patch.oscillator?.type) bits.push(patch.oscillator.type);
+    if (patch.unison?.voices) bits.push(`${patch.unison.voices}-voice unison`);
+    if (patch.filterEnv) bits.push('filter motion');
+    if (patch.vibrato) bits.push('vibrato');
+    if (patch.drive) bits.push('drive');
+    return bits.join(' - ') || 'Synth patch';
+  }
+
+  _trackInstrumentGroups(track) {
+    if (track?.type === 'drum') return this._drumInstrumentGroups();
+    return this._midiInstrumentGroups();
   }
 
   _instrumentName(instrumentId) {
@@ -412,13 +436,13 @@ export class CanvasMode {
       const color = hexToRgba(trackColor, 0.35);
       header.style.borderLeft = `3px solid ${hexToRgba(trackColor, 0.8)}`;
 
-      // Build instrument options
       this._normalizeTrackType(track);
       const trackTypeLabel = this._trackTypeLabel(track.type);
-      const instOptions = track.type === 'midi' ? this._midiInstrumentOptions(track.instrumentId) : '';
-      const instSelect = track.type === 'drum' ? `<select class="canvas-lane__instrument" data-track-inst="${track.id}" aria-label="Drum kit">${this._drumInstrumentOptions(track.instrumentId)}</select>` : track.type !== 'midi'
+      const instSelect = track.type === 'drum' || track.type === 'midi'
+        ? `<button class="canvas-lane__instrument" data-track-inst="${track.id}" type="button" aria-label="Track instrument" title="${this._instrumentName(track.instrumentId)}">${this._instrumentName(track.instrumentId)}</button>`
+        : track.type !== 'midi'
         ? `<span class="canvas-lane__inst-label">LINE Audio</span>`
-        : `<select class="canvas-lane__instrument" data-track-inst="${track.id}" aria-label="Track instrument">${instOptions}</select>`;
+        : '';
 
       header.innerHTML = `
         <div class="canvas-lane__name-row">
@@ -712,6 +736,35 @@ export class CanvasMode {
     const label = this.el?.querySelector('#canvas-tone-preset-label');
     if (picker) picker.dataset.selectedTonePreset = preset?.id || '';
     if (label) label.textContent = preset?.name || 'Tone preset...';
+  }
+
+  _openTrackInstrumentPicker(anchor) {
+    const trackId = anchor?.dataset.trackInst;
+    const track = this.project?.tracks.find(t => t.id === trackId);
+    if (!track || track.type === 'audio') return;
+    const picker = new ChoicePicker({
+      title: track.type === 'drum' ? 'Choose Drum Kit' : 'Choose Track Instrument',
+      groups: this._trackInstrumentGroups(track),
+      selectedValue: track.instrumentId === 'kit' ? 'classic' : track.instrumentId,
+      searchPlaceholder: 'Search instruments...',
+      onSelect: (value) => this._setTrackInstrument(trackId, value),
+    });
+    picker.open(anchor);
+  }
+
+  _setTrackInstrument(trackId, instrumentId) {
+    const track = this.project?.tracks.find(t => t.id === trackId);
+    if (!track) return;
+    track.instrumentId = instrumentId;
+    this.store?.scheduleAutoSave(this.project);
+
+    if (this.onTrackInstrumentChanged) {
+      this.onTrackInstrumentChanged(trackId);
+    }
+
+    const instName = this._instrumentName(instrumentId);
+    this._renderTracks();
+    showToast(`${track.name}: ${instName}`);
   }
 
   _openTonePresetPicker(anchor) {
@@ -1313,6 +1366,13 @@ export class CanvasMode {
         return;
       }
 
+      const instBtn = e.target.closest('[data-track-inst]');
+      if (instBtn) {
+        e.preventDefault();
+        this._openTrackInstrumentPicker(instBtn);
+        return;
+      }
+
       const btn = e.target.closest('[data-action]');
       if (btn) {
         const action = btn.dataset.action;
@@ -1355,23 +1415,6 @@ export class CanvasMode {
         return;
       }
 
-      const select = e.target.closest('[data-track-inst]');
-      if (!select) return;
-
-      const trackId = select.dataset.trackInst;
-      const track = this.project?.tracks.find(t => t.id === trackId);
-      if (!track) return;
-
-      track.instrumentId = select.value;
-      this.store?.scheduleAutoSave(this.project);
-
-      // Notify playback engine to invalidate cached synth
-      if (this.onTrackInstrumentChanged) {
-        this.onTrackInstrumentChanged(trackId);
-      }
-
-      const instName = this._instrumentName(select.value);
-      showToast(`${track.name}: ${instName}`);
     });
 
     this._rulerEl?.addEventListener('pointerdown', (e) => {

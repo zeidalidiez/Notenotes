@@ -20,10 +20,6 @@
 }
 
 .choice-picker__header {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: var(--space-sm);
-  align-items: center;
   padding: var(--space-md);
   border-bottom: var(--border-subtle);
 }
@@ -33,13 +29,6 @@
   color: var(--text-primary);
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
-}
-
-.choice-picker__close {
-  min-width: 32px;
-  min-height: 32px;
-  padding: 0;
-  border-radius: var(--radius-sm);
 }
 
 .choice-picker__search {

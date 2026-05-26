@@ -103,7 +103,6 @@ export class ChoicePicker {
     this.el.innerHTML = `
       <div class="choice-picker__header">
         <h2 class="choice-picker__title">${this.title}</h2>
-        <button class="btn btn--ghost choice-picker__close" type="button" aria-label="Close">x</button>
       </div>
       <input class="choice-picker__search" type="search" value="${this._escapeAttr(this._query)}" placeholder="${this._escapeAttr(this.searchPlaceholder)}" aria-label="${this._escapeAttr(this.searchPlaceholder)}">
       <div class="choice-picker__body">
@@ -119,11 +118,6 @@ export class ChoicePicker {
         </div>
       </div>
     `;
-
-    this.el.querySelector('.choice-picker__close')?.addEventListener('pointerdown', (event) => {
-      event.preventDefault();
-      this.close();
-    });
 
     const search = this.el.querySelector('.choice-picker__search');
     search?.addEventListener('input', (event) => {

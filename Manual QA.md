@@ -154,6 +154,21 @@ Expected:
 - Apply, Delete, Save, Save as new, and Reset still work.
 - Canvas disables the Tone preset picker for audio clips and empty selection.
 
+### 1.8 Picker Close Behavior
+
+Steps:
+
+1. Open the Scale, Patch, Tone preset, and Canvas track instrument pickers.
+2. Close each picker by clicking outside it.
+3. Reopen each picker and close it with Escape.
+4. Reopen each picker and close it by selecting an item.
+
+Expected:
+
+- Pickers do not show a visible X/close button.
+- Outside-click, Escape, and item selection all close the picker.
+- Closing a picker without selecting does not change the current value.
+
 ## 2. Audio In Recording
 
 ### 2.1 Audio In Creates A Snippet

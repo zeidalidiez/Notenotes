@@ -32,6 +32,7 @@ import {
   getBackupFolderHandle,
   saveWorkspaceBackupToFolder,
 } from './utils/FolderBackup.js';
+import { applyAccessibilityProfilesFromUrl, ensureAccessibilitySettings } from './ui/AccessibilityProfiles.js';
 
 if (typeof window !== 'undefined') {
   const params = new URLSearchParams(window.location.search);
@@ -94,6 +95,7 @@ class App {
     // Pass project reference to creative mode
     this._ensureProjectMusicalContext();
     this._ensureProjectMeter();
+    this._applyAccessibilityProfiles();
     this.creativeMode.project = this.project;
     this.transportBar.setProjectKey(this.project.musicalContext);
     this.transportBar.setProjectMeter(this.project.meter);
@@ -398,6 +400,16 @@ class App {
     this.project.timeSignature = meterToTimeSignature(meter);
     this.transport.meter = meter;
     return meter;
+  }
+
+  _applyAccessibilityProfiles() {
+    if (!this.project) return;
+    ensureAccessibilitySettings(this.project);
+    const enabled = applyAccessibilityProfilesFromUrl(this.project, window.location.search);
+    if (enabled.length) {
+      this.store?.scheduleAutoSave(this.project);
+      requestAnimationFrame(() => showToast(`${enabled.join(' + ')} enabled`));
+    }
   }
 
   _setProjectMusicalContext(context, options = {}) {

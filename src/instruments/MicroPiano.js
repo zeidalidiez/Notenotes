@@ -4,6 +4,7 @@
  */
 
 import { degreeForMidi, normalizeDegreeHighlighting, normalizeMusicalContext } from '../engine/MusicTheory.js';
+import { dwellSettings, tremorAllows } from '../ui/AccessibilityProfiles.js';
 
 export class MicroPiano {
   constructor(synth, project) {
@@ -12,6 +13,8 @@ export class MicroPiano {
     this.el = null;
     this._baseOctave = 4;
     this._activeKeys = new Set();
+    this._dwellTimers = new Map();
+    this._dwellActiveKeys = new Set();
 
     this._onNoteOn = null;
     this._onNoteOff = null;
@@ -202,16 +205,34 @@ export class MicroPiano {
     keys.forEach(key => {
       key.addEventListener('pointerdown', (e) => {
         e.preventDefault();
+        this._cancelDwell(`key:${key.dataset.midi}`);
         const midi = parseInt(key.dataset.midi, 10);
         if (this._onControllerLearnTarget?.(this._controllerLearnTargetForMidi(midi))) return;
+        if (!tremorAllows(this.project, `piano:${midi}`)) return;
         key.setPointerCapture(e.pointerId);
         this.pressMidi(midi);
+      });
+
+      key.addEventListener('pointerenter', () => {
+        const midi = parseInt(key.dataset.midi, 10);
+        this._startDwell(`key:${midi}`, key, () => {
+          if (!tremorAllows(this.project, `piano:${midi}`)) return;
+          this._dwellActiveKeys.add(midi);
+          this.pressMidi(midi);
+        });
+      });
+
+      key.addEventListener('pointerleave', () => {
+        const midi = parseInt(key.dataset.midi, 10);
+        this._cancelDwell(`key:${midi}`);
+        if (this._dwellActiveKeys.has(midi)) this.releaseMidi(midi);
       });
 
       key.addEventListener('pointerup', (e) => {
         e.preventDefault();
         const midi = parseInt(key.dataset.midi, 10);
         this.releaseMidi(midi);
+        this._dwellActiveKeys.delete(midi);
       });
 
       key.addEventListener('pointercancel', () => {
@@ -219,6 +240,28 @@ export class MicroPiano {
         this.releaseMidi(midi);
       });
     });
+  }
+
+  _startDwell(key, el, onComplete) {
+    const settings = dwellSettings(this.project);
+    if (!settings.enabled) return;
+    this._cancelDwell(key);
+    el.classList.add('is-dwelling');
+    el.style.setProperty('--dwell-ms', `${settings.thresholdMs}ms`);
+    const timer = setTimeout(() => {
+      this._dwellTimers.delete(key);
+      el.classList.remove('is-dwelling');
+      onComplete?.();
+    }, settings.thresholdMs);
+    this._dwellTimers.set(key, { timer, el });
+  }
+
+  _cancelDwell(key) {
+    const entry = this._dwellTimers.get(key);
+    if (!entry) return;
+    clearTimeout(entry.timer);
+    entry.el?.classList.remove('is-dwelling');
+    this._dwellTimers.delete(key);
   }
 
   visibleMidis() {
@@ -238,6 +281,8 @@ export class MicroPiano {
   }
 
   releaseAllKeys() {
+    for (const key of [...this._dwellTimers.keys()]) this._cancelDwell(key);
+    this._dwellActiveKeys.clear();
     [...this._activeKeys].forEach(midi => this.releaseMidi(midi));
   }
 

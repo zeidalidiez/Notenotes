@@ -391,6 +391,34 @@ closes by outside-click, Escape, or selecting an item; do not add visible close
 buttons unless the rest of the app's modal language changes. Do not build another
 one-off long dropdown for creative libraries.
 
+## Accessibility Profiles
+
+Accessibility input helpers live in `src/ui/AccessibilityProfiles.js` and are
+stored at `project.settings.accessibility`. Keep this modular: new accessibility
+helpers should normalize through this module, expose controls in the Settings
+panel's Accessibility tab, and avoid scattering one-off flags across instruments.
+
+Current helpers:
+
+- Tremor Filter: ignores repeated triggers of the same target within
+  `thresholdMs`. Pads, Piano, and Kit call `tremorAllows(project, targetKey)`
+  before pointer or dwell-triggered playback. It filters same-target bounce
+  without blocking intentional movement across different targets.
+- Dwell Play: lets large playable targets fire after hover/aim dwell. Pads and
+  Piano hold the note while the pointer remains over the target after the dwell
+  completes; Kit fires the drum sound once. The visual dwell fill is CSS-driven
+  via `.is-dwelling` and `--dwell-ms`.
+
+URL profiles are applied in `main.js` after project load. `?tremor=1` enables
+Tremor Filter, and `?dwell=1` enables Dwell Play, then the normalized settings
+are saved. This is intentionally not a separate build; a helper link can make
+Notenotes playable before a user has to navigate Settings.
+
+Step Play is planned as a Pads mode, not a separate top-level instrument, because
+"instrument" already means synth/custom patch elsewhere. It should behave like a
+one-button performance surface: each trigger advances through a user-entered
+sequence while recording captures the user's timing.
+
 ## Canvas
 
 Canvas stores clips on tracks with absolute tick positions. Meter changes should

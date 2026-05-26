@@ -32,6 +32,7 @@ import {
 import { scaleChordRecipes } from '../engine/ScaleChords.js';
 import { showToast } from '../ui/Toast.js';
 import { syllabify, extractPlayableSyllables, sanitizePhraseInput } from './voice/syllabify.js';
+import { dwellSettings, tremorAllows } from '../ui/AccessibilityProfiles.js';
 
 export class ScaleBoard {
   /**
@@ -72,6 +73,8 @@ export class ScaleBoard {
     this._activeCompassChords = new Map(); // segmentId -> array of midis
     this._activeControllerPadBindings = new Map(); // bindingKey -> { index, midis }
     this._activePadIndexes = new Set();
+    this._dwellTimers = new Map();
+    this._dwellActivePads = new Set();
 
     // Callbacks for note recording
     this._onNoteOn = null;
@@ -705,6 +708,7 @@ export class ScaleBoard {
       // Pointer down → note on / edit toggle
       pad.addEventListener('pointerdown', (e) => {
         e.preventDefault();
+        this._cancelDwell(`pad:${i}`);
         
         if (this.isEditingLayout) {
           // Toggle custom type
@@ -715,9 +719,24 @@ export class ScaleBoard {
 
         const learnTarget = this._controllerLearnTargetForPad(i, midi);
         if (learnTarget && this._onControllerLearnTarget?.(learnTarget)) return;
+        if (!tremorAllows(this.project, `scale:${this.padMode}:${i}`)) return;
 
         pad.setPointerCapture(e.pointerId);
         this.pressPad(i);
+      });
+
+      pad.addEventListener('pointerenter', () => {
+        this._startDwell(`pad:${i}`, pad, () => {
+          if (this.isEditingLayout) return;
+          if (!tremorAllows(this.project, `scale:${this.padMode}:${i}`)) return;
+          this._dwellActivePads.add(i);
+          this.pressPad(i);
+        });
+      });
+
+      pad.addEventListener('pointerleave', () => {
+        this._cancelDwell(`pad:${i}`);
+        if (this._dwellActivePads.has(i)) this.releasePad(i);
       });
 
       const handleRelease = (e) => {
@@ -725,6 +744,7 @@ export class ScaleBoard {
         if (this.isEditingLayout) return;
 
         this.releasePad(i);
+        this._dwellActivePads.delete(i);
       };
 
       // Pointer up → note off
@@ -733,6 +753,28 @@ export class ScaleBoard {
       // Pointer cancel/leave → note off
       pad.addEventListener('pointercancel', handleRelease);
     });
+  }
+
+  _startDwell(key, el, onComplete) {
+    const settings = dwellSettings(this.project);
+    if (!settings.enabled) return;
+    this._cancelDwell(key);
+    el.classList.add('is-dwelling');
+    el.style.setProperty('--dwell-ms', `${settings.thresholdMs}ms`);
+    const timer = setTimeout(() => {
+      this._dwellTimers.delete(key);
+      el.classList.remove('is-dwelling');
+      onComplete?.();
+    }, settings.thresholdMs);
+    this._dwellTimers.set(key, { timer, el });
+  }
+
+  _cancelDwell(key) {
+    const entry = this._dwellTimers.get(key);
+    if (!entry) return;
+    clearTimeout(entry.timer);
+    entry.el?.classList.remove('is-dwelling');
+    this._dwellTimers.delete(key);
   }
 
   pressCompassSegment(id, index, quality) {
@@ -937,6 +979,8 @@ export class ScaleBoard {
   }
 
   releaseAllPads() {
+    for (const key of [...this._dwellTimers.keys()]) this._cancelDwell(key);
+    this._dwellActivePads.clear();
     [...this._activePadIndexes].forEach(index => this.releasePad(index));
     [...this._activeCompassChords.keys()].forEach(id => this.releaseCompassSegment(id));
     if (this.voiceEngine) {

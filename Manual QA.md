@@ -169,6 +169,25 @@ Expected:
 - Outside-click, Escape, and item selection all close the picker.
 - Closing a picker without selecting does not change the current value.
 
+### 1.9 Accessibility Profiles
+
+Steps:
+
+1. Open the app with `?tremor=1`.
+2. Open Settings > Accessibility and confirm Tremor Filter is enabled.
+3. On Pads, Piano, and Kit, rapidly retrigger the same target and confirm obvious double-bounces are ignored.
+4. Open the app with `?dwell=1`.
+5. Open Settings > Accessibility and confirm Dwell Play is enabled with the default timer.
+6. Hover over a Pads target, a Piano key, and a Kit pad until the dwell fill completes.
+7. Adjust the dwell time slider and retry one target.
+
+Expected:
+
+- URL profiles persist into project settings and can be turned off.
+- Tremor Filter only suppresses repeated hits on the same target, not normal movement across different targets.
+- Dwell Play fires large playable targets after the configured dwell time.
+- Pads and Piano release when the pointer leaves after a dwell-triggered note; Kit fires once.
+
 ## 2. Audio In Recording
 
 ### 2.1 Audio In Creates A Snippet

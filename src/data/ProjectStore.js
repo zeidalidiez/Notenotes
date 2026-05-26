@@ -6,6 +6,7 @@
 import { openDB } from 'idb';
 import { DEFAULT_DEGREE_HIGHLIGHTING, DEFAULT_MUSICAL_CONTEXT } from '../engine/MusicTheory.js';
 import { METER_PRESETS, meterToTimeSignature, normalizeMeter } from '../engine/Meter.js';
+import { ACCESSIBILITY_DEFAULTS, ensureAccessibilitySettings } from '../ui/AccessibilityProfiles.js';
 
 const DB_NAME = 'notenotes';
 const DB_VERSION = 4;
@@ -68,6 +69,10 @@ export function createProject(name = 'Untitled Sketch') {
         showLabels: DEFAULT_DEGREE_HIGHLIGHTING.showLabels,
         intensity: DEFAULT_DEGREE_HIGHLIGHTING.intensity,
         colors: { ...DEFAULT_DEGREE_HIGHLIGHTING.colors }
+      },
+      accessibility: {
+        tremorFilter: { ...ACCESSIBILITY_DEFAULTS.tremorFilter },
+        dwellPlay: { ...ACCESSIBILITY_DEFAULTS.dwellPlay },
       },
       versionHistoryLimit: DEFAULT_VERSION_HISTORY_LIMIT,
       backupContents: 'current',
@@ -402,6 +407,7 @@ export class ProjectStore {
     const meter = normalizeMeter(project.meter || project.timeSignature);
     project.meter = meter;
     project.timeSignature = meterToTimeSignature(meter);
+    ensureAccessibilitySettings(project);
     return project;
   }
 

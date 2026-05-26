@@ -413,6 +413,19 @@
   box-shadow: 0 0 20px var(--accent-glow-strong);
 }
 
+.scaleboard__pad.is-dwelling,
+.micropiano__key.is-dwelling,
+.sketchkit__pad.is-dwelling {
+  outline: 2px solid var(--accent-light);
+  outline-offset: -3px;
+  animation: dwell-fill var(--dwell-ms, 450ms) linear forwards;
+}
+
+@keyframes dwell-fill {
+  from { box-shadow: inset 0 0 0 999px rgba(255,255,255,0); }
+  to { box-shadow: inset 0 0 0 999px rgba(255,255,255,0.12), 0 0 16px var(--accent-glow); }
+}
+
 .scaleboard__pad.is-active.is-controller-single {
   border-color: #7bd88f;
   box-shadow: 0 0 16px rgba(123, 216, 143, 0.55);

@@ -8,6 +8,7 @@ import { AudioEngine } from '../engine/AudioEngine.js';
 import { SOUND_TRAITS, normalizeSoundTraits } from './WebAudioSynth.js';
 import { showToast } from '../ui/Toast.js';
 import { ChoicePicker } from '../ui/ChoicePicker.js';
+import { dwellSettings, tremorAllows } from '../ui/AccessibilityProfiles.js';
 
 export const DRUM_KITS = {
   classic: {
@@ -124,6 +125,7 @@ export class SketchKit {
     this.onAISeedClick = null;
     this.onControllerMapperClick = null;
     this._activePadTimers = new Map();
+    this._dwellTimers = new Map();
     this._toneClickOutsideHandler = null;
 
     window.addEventListener('settings-pads-changed', () => {
@@ -315,11 +317,47 @@ export class SketchKit {
       pad.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         const sid = pad.dataset.pad;
+        this._cancelDwell(`drum:${sid}`);
         const target = this._controllerLearnTargetForPad(sid);
         if (target && this._onControllerLearnTarget?.(target)) return;
+        if (!tremorAllows(this.project, `kit:${sid}`)) return;
         this.triggerPad(sid);
       });
+
+      pad.addEventListener('pointerenter', () => {
+        const sid = pad.dataset.pad;
+        this._startDwell(`drum:${sid}`, pad, () => {
+          if (!tremorAllows(this.project, `kit:${sid}`)) return;
+          this.triggerPad(sid);
+        });
+      });
+
+      pad.addEventListener('pointerleave', () => {
+        this._cancelDwell(`drum:${pad.dataset.pad}`);
+      });
     });
+  }
+
+  _startDwell(key, el, onComplete) {
+    const settings = dwellSettings(this.project);
+    if (!settings.enabled) return;
+    this._cancelDwell(key);
+    el.classList.add('is-dwelling');
+    el.style.setProperty('--dwell-ms', `${settings.thresholdMs}ms`);
+    const timer = setTimeout(() => {
+      this._dwellTimers.delete(key);
+      el.classList.remove('is-dwelling');
+      onComplete?.();
+    }, settings.thresholdMs);
+    this._dwellTimers.set(key, { timer, el });
+  }
+
+  _cancelDwell(key) {
+    const entry = this._dwellTimers.get(key);
+    if (!entry) return;
+    clearTimeout(entry.timer);
+    entry.el?.classList.remove('is-dwelling');
+    this._dwellTimers.delete(key);
   }
 
   visiblePadIds() {

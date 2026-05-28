@@ -200,9 +200,9 @@ Steps:
 6. Connect a MIDI keyboard in a browser that supports Web MIDI.
 7. Play MIDI notes while viewing Pads, Piano, and Kit.
 8. Return to Pads, set Pad Mode to Step Play, and confirm the octave controls are hidden.
-9. Open Edit Sequence, add notes from the note row, use the arrow buttons to reach the next octave, and save `1 3 5 8`.
+9. Open Edit Sequence, add notes from the note row, use the arrow buttons to move between octave rows, and save a short sequence.
 10. Press the Step button, then press a few computer keyboard performance keys, then press a few MIDI notes.
-11. Switch to a pentatonic scale, edit the Step Play sequence to `1 3 5 6`, and confirm `6` resolves to the next octave's first scale note.
+11. Switch to a pentatonic scale, edit the Step Play sequence, use the right arrow to reach the next octave row, and add its first note.
 12. Reopen Edit Sequence, click a sequence chip to remove it, then add it back.
 13. Use a chip's Alt button, pick a different note from the note row, save, and step through the sequence twice.
 14. Change the project key and scale, then return to Step Play.
@@ -216,6 +216,7 @@ Expected:
 - Kit pads show the keyboard key that triggers each visible pad.
 - MIDI notes route through the active surface: nearest visible Pads target, exact Piano MIDI, and Kit drum mapping.
 - Step Play uses chips in the modal instead of manual text entry; clicking a sequence chip removes it.
+- Step Play's editor note row moves through app octaves 1-6 only. It should never show extremely high note names such as D10, D11, or D12.
 - Step Play chips and editor note buttons use the same degree colors as Pads when Highlight scale degrees is enabled.
 - Undo restores recent editor chip changes. Outside taps and Escape do not close the editor; Save or Cancel is required.
 - Step Play advances one note per Step button press, keyboard keydown, or MIDI note-on, resolves picked degrees into fixed saved MIDI notes, and records the user's timing when recording is armed.

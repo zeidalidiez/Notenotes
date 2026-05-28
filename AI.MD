@@ -473,8 +473,10 @@ palette." The important details:
   using the current key/scale/octave at project load. After that, changing
   key/scale/octave does not move those notes.
 - The editor palette still uses `_stepLabel(degree)` so users can keep picking
-  by scale degree. Clicking a palette note appends `{ degree, midi }`; setting
-  an alternate writes `{ alternateDegree, alternateMidi }`.
+  by scale degree for legacy/default conversion. The live editor palette itself
+  uses absolute octave rows from 1 through 6 and appends `{ degree, midi }` from
+  the clicked note button; setting an alternate writes `{ alternateDegree,
+  alternateMidi }`.
 - Playback in `triggerStepPlay()` reads `entry.midi` or `entry.alternateMidi`
   directly. Do not reintroduce `_midiForStepDegree()` in the playback path.
 - Step chips render by sequence order (`1`, `2`, `3`, ...), not by scale degree,
@@ -486,6 +488,31 @@ palette." The important details:
 
 Keep this distinction clear in future work: the palette is scale-aware; the
 composition is note-stable.
+
+## Step Play Editor Octave Clamp 0.1.53
+
+The 0.1.52 stable-note change exposed an older editor-range bug: the Step Play
+editor treated its arrow buttons as unbounded degree-page offsets and allowed
+pages like D11-C#12. That range is outside the rest of Notenotes and makes saved
+Step Play sequences feel broken.
+
+The editor palette now uses an independent absolute octave row:
+
+- `STEP_PLAY_DEFAULT_OCTAVE = 4`
+- `STEP_PLAY_MIN_OCTAVE = 1`
+- `STEP_PLAY_MAX_OCTAVE = 6`
+
+`_stepEditorOctave` is now the actual octave shown by the palette. The left and
+right arrow buttons clamp to octaves 1-6. `_renderStepEditorNotes()` calls
+`getScaleNotes(scaleName, rootNote, this._stepEditorOctave, degreeCount)` and
+puts the resolved MIDI note on `data-midi`. Clicking a note button appends
+`_entryForStepMidi(button.dataset.midi, degree)`.
+
+Legacy/default degree conversion still uses `_midiForStepDegree()`, but that
+helper now starts from `STEP_PLAY_DEFAULT_OCTAVE` instead of `this.octave`, so
+Step Play no longer inherits whatever octave the user last selected in another
+Pads mode. Do not make Step Play palette range depend on global Pads octave
+again; Step Play is its own composition surface.
 
 ## Canvas
 

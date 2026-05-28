@@ -35,6 +35,10 @@ import { showToast } from '../ui/Toast.js';
 import { syllabify, extractPlayableSyllables, sanitizePhraseInput } from './voice/syllabify.js';
 import { dwellSettings, tremorAllows } from '../ui/AccessibilityProfiles.js';
 
+const STEP_PLAY_DEFAULT_OCTAVE = 4;
+const STEP_PLAY_MIN_OCTAVE = 1;
+const STEP_PLAY_MAX_OCTAVE = 6;
+
 export class ScaleBoard {
   /**
    * @param {WebAudioSynth} synth - The synth engine to play through
@@ -527,7 +531,7 @@ export class ScaleBoard {
   }
 
   _stepScaleNotes(requiredCount = 32) {
-    return getScaleNotes(this.scaleName, this.rootNote, this.octave, Math.max(32, requiredCount));
+    return getScaleNotes(this.scaleName, this.rootNote, STEP_PLAY_DEFAULT_OCTAVE, Math.max(32, requiredCount));
   }
 
   _midiForStepDegree(degree) {
@@ -539,6 +543,15 @@ export class ScaleBoard {
     const midi = this._midiForStepDegree(degree);
     const note = midiToNoteName(midi);
     return { degree, midi, note };
+  }
+
+  _entryForStepMidi(midi, degree = null) {
+    const normalizedMidi = this._normalizeStepMidi(midi);
+    if (!Number.isInteger(normalizedMidi)) return null;
+    const normalized = { midi: normalizedMidi };
+    const normalizedDegree = this._normalizeStepDegree(degree);
+    if (normalizedDegree) normalized.degree = normalizedDegree;
+    return normalized;
   }
 
   _stepEntryLabel(entry) {
@@ -822,7 +835,7 @@ export class ScaleBoard {
 
   _openStepEditor() {
     this._closeStepEditor();
-    this._stepEditorOctave = 0;
+    this._stepEditorOctave = STEP_PLAY_DEFAULT_OCTAVE;
     this._stepEditorSequence = this._stepEntries().map(entry => ({ ...entry }));
     this._stepEditorAltTarget = null;
     this._stepEditorUndoStack = [];
@@ -851,7 +864,7 @@ export class ScaleBoard {
       <div class="step-editor" role="dialog" aria-modal="true" aria-label="Edit Step Play sequence">
         <div class="step-editor__header">
           <h2>Edit Sequence</h2>
-          <p>Tap notes to add them. Numbers keep walking up the current scale, so 8 is the next octave in a 7-note scale.</p>
+          <p>Tap notes from the current scale to add them. Saved steps keep their exact pitch even if key, scale, or Pads octave changes later.</p>
         </div>
         <div class="step-editor__palette">
           <button class="btn btn--icon btn--ghost" id="step-editor-oct-down" type="button" aria-label="Lower note row">◀</button>
@@ -871,19 +884,20 @@ export class ScaleBoard {
 
   _renderStepEditorNotes() {
     const degreeCount = this._scaleDegreeCount();
-    const start = this._stepEditorOctave * degreeCount + 1;
+    const notes = getScaleNotes(this.scaleName, this.rootNote, this._stepEditorOctave, degreeCount);
     return Array.from({ length: degreeCount }, (_, index) => {
-      const degree = start + index;
-      const { midi, note } = this._stepLabel(degree);
+      const degree = index + 1;
+      const midi = notes[index];
+      const note = midiToNoteName(midi);
       const degreeMeta = this._degreeMetaForMidi(midi);
       const degreeClass = degreeMeta?.colorEnabled ? ' step-editor__note--degree-color' : '';
       const degreeStyle = degreeMeta?.colorEnabled
         ? ` style="--degree-color: ${this._escapeAttr(degreeMeta.color)}; --degree-intensity: ${this._escapeAttr(degreeMeta.intensityPercent)};"`
         : '';
       return `
-        <button class="step-editor__note${degreeClass}"${degreeStyle} type="button" data-degree="${degree}">
-          <span>${degree}</span>
-          <small>${this._escapeHtml(note.display)}</small>
+        <button class="step-editor__note${degreeClass}"${degreeStyle} type="button" data-degree="${degree}" data-midi="${midi}">
+          <span>${this._escapeHtml(note.display)}</span>
+          <small>${degree}</small>
         </button>
       `;
     }).join('');
@@ -948,13 +962,13 @@ export class ScaleBoard {
     });
     overlay.querySelector('#step-editor-oct-down')?.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      this._stepEditorOctave = Math.max(0, this._stepEditorOctave - 1);
+      this._stepEditorOctave = Math.max(STEP_PLAY_MIN_OCTAVE, this._stepEditorOctave - 1);
       overlay.querySelector('#step-editor-notes').innerHTML = this._renderStepEditorNotes();
       this._bindStepEditorNoteEvents();
     });
     overlay.querySelector('#step-editor-oct-up')?.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      this._stepEditorOctave = Math.min(7, this._stepEditorOctave + 1);
+      this._stepEditorOctave = Math.min(STEP_PLAY_MAX_OCTAVE, this._stepEditorOctave + 1);
       overlay.querySelector('#step-editor-notes').innerHTML = this._renderStepEditorNotes();
       this._bindStepEditorNoteEvents();
     });
@@ -1009,7 +1023,7 @@ export class ScaleBoard {
         e.preventDefault();
         const degree = this._normalizeStepDegree(button.dataset.degree);
         if (!degree) return;
-        const nextEntry = this._entryForStepDegree(degree);
+        const nextEntry = this._entryForStepMidi(button.dataset.midi, degree);
         if (!nextEntry) return;
         this._pushStepEditorUndo();
         if (Number.isInteger(this._stepEditorAltTarget) && this._stepEditorSequence[this._stepEditorAltTarget]) {

@@ -321,11 +321,13 @@ continue scale degrees into the next octave for Single and normal Chords modes.
 
 Step Play is a Pads mode, not a top-level instrument. It renders a dedicated
 one-trigger surface plus a saved numeric sequence at
-`project.settings.stepPlaySequence`. The sequence is typed as visible pad
-numbers (`1 3 5 8`); invalid or unavailable numbers are ignored and an empty
-sequence falls back to the current visible pad order. Each trigger plays one
-single note for a short fixed gate, advances the pointer, and records the
-user's timing through the normal note callbacks.
+`project.settings.stepPlaySequence`. The sequence is typed as scale-degree
+numbers (`1 3 5 8`), not visible pad indexes. Degrees continue upward through
+the active scale, so `8` is the next octave in a seven-note scale and `6` is the
+next octave in pentatonic. Invalid or unavailable numbers are ignored and an
+empty sequence falls back to the current scale's first octave. Each trigger
+plays one single note for a short fixed gate, advances the pointer, and records
+the user's timing through the normal note callbacks.
 
 Scale definitions live in `MusicTheory.js`. They include family metadata,
 intervals, degree patterns, descriptions, and optional aliases. `chromatic`
@@ -426,7 +428,9 @@ Notenotes playable before a user has to navigate Settings.
 Step Play now lives in the Pads mode dropdown. It gives switch-style users a
 large single trigger while still working for keyboard and MIDI input. Any
 performance key or MIDI note-on advances the sequence; keyup/note-off do not
-release because Step Play uses its own short note gate.
+release because Step Play uses its own short note gate. Text editing is kept in
+the Step Play editor modal so the main performance surface can claim keyboard
+input without accidentally typing into a field.
 
 ## Keyboard And MIDI Input
 
@@ -528,3 +532,24 @@ This release makes two Create-mode performance-input changes.
 - Step Play sanitizes by parsing numbers and ignoring unavailable pad indexes. If the saved sequence is empty or invalid for the current scale/pad count, playback falls back to the current visible pad order. This lets users change key/scale without creating a dead surface.
 - Step Play always plays single notes for now. It uses a short fixed gate and releases the previous step before firing the next one, so one switch/key/MIDI note-on can advance the phrase while recording captures the user's rhythm through the normal note callbacks.
 - Creative keyboard routing treats any performance key as a Step Play trigger while Pads are in Step Play mode. Web MIDI note-on does the same; note-off is ignored because Step Play is not a held-note surface. Pointer clicks on the Step button use the same `triggerStepPlay()` path.
+
+## Step Play Editor 0.1.49
+
+Step Play was tightened after QA showed that the inline sequence input stole
+computer-keyboard performance events. The main Step Play surface is now play
+first: it contains the Step trigger, wrapping sequence chips, Reset, and an Edit
+Sequence button. The Pad octave controls are hidden in Step Play mode because
+octave movement is expressed by degree continuation inside the sequence.
+
+The editor is a modal with no visible X button, matching the app's newer picker
+language. It offers a row of scale-degree note buttons plus left/right arrows to
+move that row through higher scale octaves. Tapping a note appends that degree to
+the manual sequence field; sequence chips inside the modal can remove individual
+steps. Save writes the same `project.settings.stepPlaySequence` string, so this
+is an additive UI/storage refinement rather than a schema change.
+
+Important semantic change: Step Play numbers are now scale degrees over time,
+not indexes into `_notes`. `_midiForStepDegree(degree)` resolves degree `n` via
+`getScaleNotes(scaleName, rootNote, octave, n)`. This makes pentatonic `6`
+resolve to the next octave's first scale note and major `8` resolve to the next
+octave tonic. Keep future Step Play features on this degree-continuation model.

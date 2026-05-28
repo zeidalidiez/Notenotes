@@ -1407,6 +1407,7 @@ export class CreativeMode {
 
   _shiftActiveInstrumentOctave(delta) {
     if (this.activeInstrument === INSTRUMENTS.SCALEBOARD) {
+      if (this.scaleBoard?.padMode === 'step') return false;
       this.scaleBoard.shiftOctave(delta);
       return true;
     }

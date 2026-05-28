@@ -199,8 +199,10 @@ Steps:
 5. Switch to Kit and confirm the same keyboard rows trigger visible kit pads in pad order.
 6. Connect a MIDI keyboard in a browser that supports Web MIDI.
 7. Play MIDI notes while viewing Pads, Piano, and Kit.
-8. Return to Pads, set Pad Mode to Step Play, and enter `1 3 5`.
-9. Press the Step button, then press a few computer keyboard performance keys, then press a few MIDI notes.
+8. Return to Pads, set Pad Mode to Step Play, and confirm the octave controls are hidden.
+9. Open Edit Sequence, add notes from the note row, use the arrow buttons to reach the next octave, and save `1 3 5 8`.
+10. Press the Step button, then press a few computer keyboard performance keys, then press a few MIDI notes.
+11. Switch to a pentatonic scale, edit the Step Play sequence to `1 3 5 6`, and confirm `6` resolves to the next octave's first scale note.
 
 Expected:
 
@@ -208,7 +210,8 @@ Expected:
 - Pads and Piano keyboard notes hold until keyup; Kit hits fire immediately.
 - Kit pads show the keyboard key that triggers each visible pad.
 - MIDI notes route through the active surface: nearest visible Pads target, exact Piano MIDI, and Kit drum mapping.
-- Step Play advances one note per Step button press, keyboard keydown, or MIDI note-on, and records the user's timing when recording is armed.
+- Step Play keeps text editing inside the modal so keyboard performance keys do not type into the sequence during play.
+- Step Play advances one note per Step button press, keyboard keydown, or MIDI note-on, resolves degrees above the visible pad count into higher scale octaves, and records the user's timing when recording is armed.
 - Global pitch/mod digit shortcuts still work when the active Create surface does not claim that key.
 
 ## 2. Audio In Recording

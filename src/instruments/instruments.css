@@ -1829,19 +1829,21 @@
 
   .instrument-switcher__tab {
     flex: 0 0 auto;
-    min-width: 106px;
-    min-height: 54px;
-    padding: var(--space-sm);
+    min-width: 92px;
+    min-height: 44px;
+    padding: var(--space-xs) var(--space-sm);
     font-size: var(--font-size-sm);
   }
 
   .patch-selector {
-    display: grid;
-    grid-template-columns: 56px minmax(180px, 1fr);
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
     gap: var(--space-xs);
     padding: var(--space-xs) var(--space-sm);
-    overflow-x: visible;
-    touch-action: auto;
+    overflow-x: auto;
+    scrollbar-width: none;
+    touch-action: pan-x;
   }
 
   .patch-selector::-webkit-scrollbar {
@@ -1849,24 +1851,27 @@
   }
 
   .patch-selector__label {
+    flex: 0 0 52px;
     align-self: center;
   }
 
   .patch-selector__picker {
-    min-width: 180px;
+    flex: 1 1 calc(100% - 60px);
+    min-width: 220px;
     max-width: none;
-    width: 100%;
   }
 
   .patch-selector .tone-button,
   .patch-selector .tone-trigger-indicator {
-    grid-row: 2;
+    flex: 0 0 auto;
   }
 
   .patch-selector .tone-button {
     white-space: nowrap;
-    min-height: 38px;
+    min-height: 34px;
     min-width: 0;
+    padding: 0 var(--space-sm);
+    font-size: var(--font-size-sm);
   }
 
   .instrument-container {
@@ -1879,39 +1884,70 @@
   }
 
   .scaleboard__controls {
-    gap: var(--space-sm);
-    align-items: flex-end;
+    display: grid;
+    grid-template-columns: minmax(132px, 1fr) auto auto;
+    gap: var(--space-xs);
+    align-items: end;
   }
 
   .scaleboard__control-group {
     min-width: 0;
   }
 
+  .scaleboard__control-group:first-child {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .scaleboard__control-group:first-child .scaleboard__label {
+    line-height: 1;
+  }
+
   .scaleboard__select {
     max-width: 100%;
+    min-height: 34px;
   }
 
   .scaleboard__octave {
     margin-left: 0;
-  }
-
-  .scaleboard__pads {
-    gap: 8px !important;
-    grid-auto-rows: minmax(48px, 1fr);
-  }
-
-  .scaleboard__pad {
-    min-height: 48px;
-    border-radius: 14px;
     gap: 2px;
   }
 
+  .scaleboard__oct-btn {
+    min-width: 30px !important;
+    min-height: 34px !important;
+  }
+
+  .scaleboard__oct-display {
+    min-width: 42px;
+    font-size: var(--font-size-xs);
+  }
+
+  .scaleboard__extensions-btn {
+    min-height: 34px;
+    padding: 0 var(--space-sm);
+    font-size: var(--font-size-sm);
+  }
+
+  .scaleboard__pads {
+    gap: 6px !important;
+    grid-auto-rows: minmax(42px, 1fr);
+  }
+
+  .scaleboard__pad {
+    min-height: 42px;
+    border-radius: 12px;
+    border-width: 1px;
+    gap: 1px;
+  }
+
   .scaleboard__pad-degree {
-    font-size: 2rem;
+    font-size: 1.55rem;
   }
 
   .scaleboard__pad-note {
-    font-size: 0.78rem;
+    font-size: 0.7rem;
   }
 
   .micropiano__key-label,

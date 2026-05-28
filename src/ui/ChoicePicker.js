@@ -133,8 +133,7 @@ export class ChoicePicker {
     }
 
     this.el.querySelectorAll('.choice-picker__group-tab').forEach(button => {
-      button.addEventListener('pointerdown', (event) => {
-        event.preventDefault();
+      this._bindTap(button, () => {
         this._activeGroupId = button.dataset.groupId;
         this._query = '';
         this._render();
@@ -142,14 +141,41 @@ export class ChoicePicker {
     });
 
     this.el.querySelectorAll('.choice-picker__option').forEach(button => {
-      button.addEventListener('pointerdown', (event) => {
-        event.preventDefault();
+      this._bindTap(button, () => {
         const value = button.dataset.value;
         const item = this.groups.flatMap(group => group.items || []).find(candidate => candidate.value === value);
         this.selectedValue = value;
         this.onSelect?.(value, item);
         this.close();
       });
+    });
+  }
+
+  _bindTap(button, fn) {
+    let startX = 0;
+    let startY = 0;
+    let pointerId = null;
+    button.addEventListener('pointerdown', (event) => {
+      pointerId = event.pointerId;
+      startX = event.clientX;
+      startY = event.clientY;
+    });
+    button.addEventListener('pointerup', (event) => {
+      if (pointerId !== null && event.pointerId !== pointerId) return;
+      pointerId = null;
+      const dx = Math.abs(event.clientX - startX);
+      const dy = Math.abs(event.clientY - startY);
+      if (dx > 10 || dy > 10) return;
+      event.preventDefault();
+      fn();
+    });
+    button.addEventListener('pointercancel', () => {
+      pointerId = null;
+    });
+    button.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      fn();
     });
   }
 

@@ -732,3 +732,53 @@ Hotkey badge labels are hidden at `max-width: 700px`:
 
 Important: keyboard and MIDI input routing still works. Only the visual hint
 badges are hidden on small screens.
+
+## Mobile Create Layout Rebalance 0.1.56
+
+The first mobile layout tightening made the Patch picker readable, but the grid
+layout produced oversized implicit columns for the action buttons. On iPhone 15
+portrait this made `Create Instrument`, `Tone`, `AI`, `Controller`, and
+`Layout` look comically large and stole vertical space from the pads.
+
+### Patch selector
+
+`src/instruments/instruments.css` mobile rules now use wrapping flex for
+`.patch-selector`:
+
+- The `Patch` label keeps a small fixed lane.
+- `.patch-selector__picker` claims the rest of the first row with a `220px`
+  minimum.
+- Action buttons wrap below at their natural compact width.
+- The row allows horizontal pan gestures again (`touch-action: pan-x`) instead
+  of acting like a static grid.
+
+This keeps the patch name readable without turning the action buttons into
+giant columns.
+
+### ScaleBoard mobile controls and pads
+
+The ScaleBoard control row is now explicitly compact on phones:
+
+- `.scaleboard__controls` uses three compact columns so Pad Mode, Octave, and
+  Extensions can share the same row when possible.
+- The Pad Mode group stacks its label above the select on mobile, reducing
+  horizontal pressure.
+- Octave buttons/display and the Extensions button use smaller mobile heights.
+- Pad tiles use smaller gaps, `42px` minimum row height, thinner borders, and
+  smaller degree/note typography.
+
+The goal is not to make every 13-pad extension layout fully visible on every
+browser chrome combination, but to stop the controls from consuming the whole
+screen before the pad grid gets a fair chance.
+
+### ChoicePicker mobile scrolling
+
+`src/ui/ChoicePicker.js` no longer selects options or group tabs on
+`pointerdown`. It now uses a small tap helper:
+
+- remember pointer-down coordinates
+- ignore the action if pointer-up moved more than 10px
+- support Enter/Space for keyboard activation
+
+This lets finger drags scroll instrument/scale/tone picker lists on mobile
+instead of accidentally selecting the item touched at the start of the drag.

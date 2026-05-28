@@ -792,12 +792,17 @@ Steps:
 2. Tap the BPM value in the transport, change it with the modal +/- buttons, and save.
 3. Drag horizontally across the instrument tab row.
 4. Drag horizontally across the Patch/Tone/AI/Controller/Layout row.
-5. Tap the Snippets header/count to collapse and expand the snippet tray.
+5. Open the Patch picker or Scale picker and drag vertically through its list before choosing an item.
+6. Enable Extensions and confirm Pad Mode, Octave, and Extensions share the control area without Extensions taking a full row by itself.
+7. Tap the Snippets header/count to collapse and expand the snippet tray.
 
 Expected:
 
 - BPM is readable as a touch target and opens a modal editor instead of relying on tiny number steppers.
 - Horizontal dragging scrolls the instrument and toolbar rows without immediately firing the first touched button.
+- Picker lists scroll with finger drags and only select on a deliberate tap.
+- Mobile control buttons stay compact; action buttons should not stretch into giant blocks.
+- Keyboard hotkey hint labels are hidden on phone layouts.
 - The snippet tray collapses to its header/count and expands again without losing snippets.
 - Patch, Pad Mode, and the main pad grid remain usable without pinch-zooming.
 

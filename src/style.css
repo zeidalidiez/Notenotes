@@ -321,6 +321,21 @@ input, textarea, select, [contenteditable] {
   box-shadow: var(--shadow-glow);
 }
 
+.transport-bar__bpm-button {
+  display: none;
+  min-width: 80px;
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  border: var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-3);
+  color: var(--accent-bright);
+  font: inherit;
+  font-size: 1.2rem;
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
 .transport-bar__project-key {
   display: flex;
   align-items: center;
@@ -435,6 +450,16 @@ input, textarea, select, [contenteditable] {
     flex-wrap: wrap;
   }
 
+  .transport-bar__bpm input {
+    display: none;
+  }
+
+  .transport-bar__bpm-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   .transport-bar__project-key {
     order: 3;
     flex: 1 1 100%;
@@ -536,6 +561,74 @@ input, textarea, select, [contenteditable] {
     color: var(--accent-light);
     border-color: var(--surface-5);
   }
+}
+
+.bpm-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal-backdrop);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.bpm-modal {
+  width: min(340px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid var(--surface-4);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  box-shadow: 0 18px 52px rgba(0, 0, 0, 0.55);
+}
+
+.bpm-modal__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.bpm-modal__header strong {
+  color: var(--accent-bright);
+  font-size: 2rem;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.bpm-modal__input {
+  width: 100%;
+  min-height: 54px;
+  border: 1px solid var(--surface-4);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: 1.4rem;
+  font-weight: var(--font-weight-bold);
+  text-align: center;
+}
+
+.bpm-modal__steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-xs);
+}
+
+.bpm-modal__steps .btn {
+  min-height: 44px;
+}
+
+.bpm-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
 }
 
 /* --- Beat Indicator --- */

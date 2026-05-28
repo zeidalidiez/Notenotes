@@ -1813,3 +1813,63 @@
   opacity: 1;
   pointer-events: auto;
 }
+
+@media (max-width: 700px) {
+  .instrument-switcher {
+    gap: var(--space-xs);
+    padding: var(--space-sm);
+    overflow-x: auto;
+    scrollbar-width: none;
+    touch-action: pan-x;
+  }
+
+  .instrument-switcher::-webkit-scrollbar {
+    display: none;
+  }
+
+  .instrument-switcher__tab {
+    flex: 0 0 auto;
+    min-width: 106px;
+    min-height: 54px;
+    padding: var(--space-sm);
+    font-size: var(--font-size-sm);
+  }
+
+  .patch-selector {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--space-xs);
+    padding: var(--space-xs) var(--space-sm);
+    overflow-x: auto;
+    scrollbar-width: none;
+    touch-action: pan-x;
+  }
+
+  .patch-selector::-webkit-scrollbar {
+    display: none;
+  }
+
+  .patch-selector__label {
+    align-self: center;
+  }
+
+  .patch-selector__picker {
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+  }
+
+  .patch-selector .tone-button,
+  .patch-selector .tone-trigger-indicator {
+    grid-row: 2;
+  }
+
+  .patch-selector .tone-button {
+    white-space: nowrap;
+    min-height: 38px;
+  }
+
+  .instrument-container {
+    min-height: 0;
+  }
+}

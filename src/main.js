@@ -220,6 +220,11 @@ class App {
     this.transportBar.onProjectMeterChange = (meter) => {
       this._setProjectMeter(meter);
     };
+    this.transportBar.onBpmChange = (bpm) => {
+      if (!this.project) return;
+      this.project.bpm = bpm;
+      this.store?.scheduleAutoSave(this.project);
+    };
     this.creativeMode.onProjectKeyChange = (context) => {
       this._setProjectMusicalContext(context, { source: 'creative' });
     };

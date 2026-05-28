@@ -784,6 +784,23 @@ Expected:
 - Tapping `...` while Settings is open closes Settings and opens the dropdown.
 - The dropdown does not remain awkwardly open behind Settings.
 
+### 9.3 Mobile Create Layout
+
+Steps:
+
+1. On iPhone 15, open Create > Pads.
+2. Tap the BPM value in the transport, change it with the modal +/- buttons, and save.
+3. Drag horizontally across the instrument tab row.
+4. Drag horizontally across the Patch/Tone/AI/Controller/Layout row.
+5. Tap the Snippets header/count to collapse and expand the snippet tray.
+
+Expected:
+
+- BPM is readable as a touch target and opens a modal editor instead of relying on tiny number steppers.
+- Horizontal dragging scrolls the instrument and toolbar rows without immediately firing the first touched button.
+- The snippet tray collapses to its header/count and expands again without losing snippets.
+- Patch, Pad Mode, and the main pad grid remain usable without pinch-zooming.
+
 ## 10. Debug Logs
 
 ### 10.1 Debug Snapshot

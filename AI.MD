@@ -458,6 +458,31 @@ active surface decides what the input does. If the performance key layout ever
 changes, update `PerformanceKeys.js` instead of duplicating labels in individual
 instruments.
 
+## Mobile Create Layout Hardening 0.1.54
+
+Create mode gained a first responsive hardening pass for iPhone-sized screens:
+
+- `TransportBar` renders a mobile-only BPM button next to the desktop number
+  input. On narrow screens CSS hides the input and shows the button. Pressing it
+  opens a small modal with numeric entry, `-10`, `-1`, `+1`, `+10`, Cancel, and
+  Save. `TransportBar.onBpmChange` lets `main.js` persist the chosen BPM back to
+  `project.bpm`.
+- `SnippetTray` has a collapsed state. It defaults collapsed on `max-width:
+  700px`, the header is a real button with `aria-expanded`, and collapse only
+  hides the list. It never removes snippets.
+- Create's instrument tab row and patch/action toolbar use `_bindToolbarTap()`
+  so controls activate on pointer-up only if the pointer did not move more than
+  10px. This keeps horizontal dragging from immediately opening Pads, AI,
+  Controller, Layout, or other toolbar actions.
+- Mobile CSS turns the instrument switcher into a horizontal, touch-scrollable
+  row and makes the patch selector a two-row grid: label + high-priority patch
+  picker first, action buttons second. This is deliberately a layout pass only;
+  it does not change instrument, Tone, AI, or controller behavior.
+
+Future mobile work should still test on real iPhone Chrome/Safari. The current
+pass makes controls reachable and less hostile to touch, but browser chrome,
+safe-area height, and drag-and-drop still need device QA.
+
 ## Step Play Stable Notes 0.1.52
 
 Step Play pattern storage moved from "degree formulas that re-resolve every time

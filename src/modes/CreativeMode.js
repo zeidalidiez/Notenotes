@@ -388,8 +388,7 @@ export class CreativeMode {
       btn.className = `instrument-switcher__tab${t.id === this.activeInstrument ? ' is-active' : ''}`;
       btn.dataset.instrument = t.id;
       btn.innerHTML = `<span>${t.icon}</span><span>${t.label}</span>`;
-      btn.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
+      this._bindToolbarTap(btn, () => {
         this._switchInstrument(t.id);
       });
       switcher.appendChild(btn);
@@ -414,36 +413,29 @@ export class CreativeMode {
       <button class="tone-button" id="layout-button" type="button" aria-expanded="false" aria-controls="layout-popover">Layout</button>
       <span class="tone-trigger-indicator" id="tone-trigger-indicator" aria-live="polite"></span>
     `;
-    patchSel.querySelector('#patch-picker-button').addEventListener('pointerdown', async (e) => {
-      e.preventDefault();
-      this._openPatchPicker(e.currentTarget);
+    this._bindToolbarTap(patchSel.querySelector('#patch-picker-button'), (button) => {
+      this._openPatchPicker(button);
       this._syncInstrumentButtons();
     });
-    patchSel.querySelector('#create-instrument-button').addEventListener('pointerdown', (e) => {
-      e.preventDefault();
+    this._bindToolbarTap(patchSel.querySelector('#create-instrument-button'), () => {
       this._toggleCreateInstrumentPopover(patchSel);
     });
-    patchSel.querySelector('#delete-instrument-button').addEventListener('pointerdown', (e) => {
-      e.preventDefault();
+    this._bindToolbarTap(patchSel.querySelector('#delete-instrument-button'), () => {
       this._deleteSelectedCustomInstrument();
     });
-    patchSel.querySelector('#tone-button').addEventListener('pointerdown', (e) => {
-      e.preventDefault();
+    this._bindToolbarTap(patchSel.querySelector('#tone-button'), () => {
       this._toggleTonePopover(patchSel);
     });
-    patchSel.querySelector('#ai-seed-button').addEventListener('click', (e) => {
-      e.preventDefault();
+    this._bindToolbarTap(patchSel.querySelector('#ai-seed-button'), () => {
       this._toggleAISeedPopover(patchSel, patchSel.querySelector('#ai-seed-button'));
     });
-    patchSel.querySelector('#controller-map-button').addEventListener('click', (e) => {
-      e.preventDefault();
+    this._bindToolbarTap(patchSel.querySelector('#controller-map-button'), () => {
       this._toggleControllerMapperPopover(patchSel, patchSel.querySelector('#controller-map-button'));
     });
-    patchSel.querySelector('#layout-button').addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      if (e.currentTarget.disabled) return;
-      if (this.activeInstrument === INSTRUMENTS.SCALEBOARD) this._togglePadsPopover(patchSel, e.currentTarget);
-      else if (this.activeInstrument === INSTRUMENTS.PIANO) this._toggleKeysPopover(patchSel, e.currentTarget);
+    this._bindToolbarTap(patchSel.querySelector('#layout-button'), (button) => {
+      if (button.disabled) return;
+      if (this.activeInstrument === INSTRUMENTS.SCALEBOARD) this._togglePadsPopover(patchSel, button);
+      else if (this.activeInstrument === INSTRUMENTS.PIANO) this._toggleKeysPopover(patchSel, button);
     });
     this.el.appendChild(patchSel);
     this._syncInstrumentButtons();
@@ -478,6 +470,35 @@ export class CreativeMode {
     this._bindKeyboardPerformance();
 
     return this.el;
+  }
+
+  _bindToolbarTap(button, fn) {
+    if (!button) return;
+    let startX = 0;
+    let startY = 0;
+    let pointerId = null;
+    button.addEventListener('pointerdown', (e) => {
+      pointerId = e.pointerId;
+      startX = e.clientX;
+      startY = e.clientY;
+    });
+    button.addEventListener('pointerup', (e) => {
+      if (pointerId !== null && e.pointerId !== pointerId) return;
+      const dx = Math.abs(e.clientX - startX);
+      const dy = Math.abs(e.clientY - startY);
+      pointerId = null;
+      if (dx > 10 || dy > 10) return;
+      e.preventDefault();
+      fn(button, e);
+    });
+    button.addEventListener('pointercancel', () => {
+      pointerId = null;
+    });
+    button.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      fn(button, e);
+    });
   }
 
   _patchDisplayName(id = this._activePatchId) {
@@ -1439,7 +1460,7 @@ export class CreativeMode {
 
     const patchSel = this.el.querySelector('#patch-selector');
     const showToolbar = id === INSTRUMENTS.SCALEBOARD || id === INSTRUMENTS.PIANO || id === INSTRUMENTS.CONTROLLER;
-    patchSel.style.display = showToolbar ? 'flex' : 'none';
+    patchSel.hidden = !showToolbar;
     if (!showToolbar) {
       this._closeTonePopover();
       this._closePadsPopover();

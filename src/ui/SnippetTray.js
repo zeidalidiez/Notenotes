@@ -14,6 +14,9 @@ export class SnippetTray {
     this.snippets = [];
     this._onSnippetSelected = null;
     this._snippetUsageProvider = null;
+    this._collapsed = typeof window !== 'undefined'
+      ? window.matchMedia?.('(max-width: 700px)')?.matches ?? false
+      : false;
   }
 
   /**
@@ -33,20 +36,29 @@ export class SnippetTray {
 
   render() {
     this.el = document.createElement('div');
-    this.el.className = 'snippet-tray';
+    this.el.className = `snippet-tray${this._collapsed ? ' is-collapsed' : ''}`;
     this.el.id = 'snippet-tray';
 
     this.el.innerHTML = `
-      <div class="snippet-tray__header">
+      <button class="snippet-tray__header" id="snippet-tray-toggle" type="button" aria-expanded="${this._collapsed ? 'false' : 'true'}">
         <span class="snippet-tray__title">Snippets</span>
         <span class="snippet-tray__count" id="snippet-count">0</span>
-      </div>
+      </button>
       <div class="snippet-tray__list" id="snippet-list">
         <div class="snippet-tray__empty" id="snippet-empty">
           Record a loop to capture snippets
         </div>
       </div>
     `;
+    this.el.querySelector('#snippet-tray-toggle')?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this._toggleCollapsed();
+    });
+    this.el.querySelector('#snippet-tray-toggle')?.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      this._toggleCollapsed();
+    });
 
     return this.el;
   }
@@ -84,7 +96,9 @@ export class SnippetTray {
   _renderSnippets() {
     const list = this.el.querySelector('#snippet-list');
     const count = this.el.querySelector('#snippet-count');
+    const toggle = this.el.querySelector('#snippet-tray-toggle');
     count.textContent = this.snippets.length;
+    if (toggle) toggle.setAttribute('aria-expanded', this._collapsed ? 'false' : 'true');
 
     if (this.snippets.length === 0) {
       list.innerHTML = `<div class="snippet-tray__empty" id="snippet-empty">
@@ -167,6 +181,12 @@ export class SnippetTray {
         e.dataTransfer.setData('text/snippet-id', item.dataset.id);
       });
     });
+  }
+
+  _toggleCollapsed() {
+    this._collapsed = !this._collapsed;
+    this.el?.classList.toggle('is-collapsed', this._collapsed);
+    this.el?.querySelector('#snippet-tray-toggle')?.setAttribute('aria-expanded', this._collapsed ? 'false' : 'true');
   }
 
   /**

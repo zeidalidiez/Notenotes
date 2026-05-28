@@ -28,6 +28,7 @@ export class TransportBar {
     this.onArmRecordClick = null;
     this.onProjectKeyChange = null;
     this.onProjectMeterChange = null;
+    this.onBpmChange = null;
     this.onMoreOpen = null;
     this._lastMoreToggle = 0;
     this._lastStopPress = 0;
@@ -68,6 +69,7 @@ export class TransportBar {
 
       <div class="transport-bar__bpm">
         <input type="number" id="bpm-input" value="${this.transport.bpm}" min="40" max="240" aria-label="BPM" style="width:56px;" />
+        <button class="transport-bar__bpm-button" id="bpm-button" type="button" aria-label="Change BPM">${this.transport.bpm}</button>
         <span>BPM</span>
       </div>
 
@@ -176,8 +178,16 @@ export class TransportBar {
     // BPM input
     const bpmInput = this.el.querySelector('#bpm-input');
     bpmInput.addEventListener('change', () => {
-      this.transport.bpm = parseInt(bpmInput.value, 10) || 120;
-      bpmInput.value = this.transport.bpm;
+      this._setBpm(parseInt(bpmInput.value, 10) || 120);
+    });
+    this.el.querySelector('#bpm-button')?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this._openBpmModal();
+    });
+    this.el.querySelector('#bpm-button')?.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      this._openBpmModal();
     });
 
     this.el.querySelector('#project-root-select')?.addEventListener('change', () => this._emitProjectKeyChange());
@@ -421,11 +431,87 @@ export class TransportBar {
   }
 
   syncFromTransport() {
-    const bpmInput = this.el?.querySelector('#bpm-input');
-    if (bpmInput) bpmInput.value = this.transport.bpm;
+    this._syncBpmUi();
     this.setProjectMeter(this.transport.meter || this.transport.timeSignature);
     this.updateTimeSignature();
     this._clearBeatIndicator();
+  }
+
+  _setBpm(value) {
+    this.transport.bpm = value;
+    this._syncBpmUi();
+    if (this.onBpmChange) this.onBpmChange(this.transport.bpm);
+  }
+
+  _syncBpmUi() {
+    const bpmInput = this.el?.querySelector('#bpm-input');
+    const bpmButton = this.el?.querySelector('#bpm-button');
+    if (bpmInput) bpmInput.value = this.transport.bpm;
+    if (bpmButton) bpmButton.textContent = this.transport.bpm;
+  }
+
+  _openBpmModal() {
+    this._closeBpmModal();
+    let draft = this.transport.bpm;
+    const overlay = document.createElement('div');
+    overlay.className = 'bpm-modal-backdrop';
+    overlay.innerHTML = `
+      <div class="bpm-modal" role="dialog" aria-modal="true" aria-label="Change BPM">
+        <div class="bpm-modal__header">
+          <span>BPM</span>
+          <strong id="bpm-modal-value">${draft}</strong>
+        </div>
+        <input class="bpm-modal__input" id="bpm-modal-input" type="number" inputmode="numeric" min="40" max="240" value="${draft}" aria-label="BPM value" />
+        <div class="bpm-modal__steps" aria-label="BPM adjustments">
+          <button class="btn btn--ghost" type="button" data-bpm-step="-10">-10</button>
+          <button class="btn btn--ghost" type="button" data-bpm-step="-1">-1</button>
+          <button class="btn btn--ghost" type="button" data-bpm-step="1">+1</button>
+          <button class="btn btn--ghost" type="button" data-bpm-step="10">+10</button>
+        </div>
+        <div class="bpm-modal__actions">
+          <button class="btn btn--ghost" id="bpm-modal-cancel" type="button">Cancel</button>
+          <button class="btn btn--primary" id="bpm-modal-save" type="button">Save</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    this._bpmModal = overlay;
+
+    const input = overlay.querySelector('#bpm-modal-input');
+    const value = overlay.querySelector('#bpm-modal-value');
+    const syncDraft = (next) => {
+      draft = Math.max(40, Math.min(240, Math.round(Number(next) || 120)));
+      input.value = draft;
+      value.textContent = draft;
+    };
+    input.addEventListener('input', () => {
+      const parsed = Number(input.value);
+      if (Number.isFinite(parsed)) {
+        draft = Math.max(40, Math.min(240, Math.round(parsed)));
+        value.textContent = draft;
+      }
+    });
+    overlay.querySelectorAll('[data-bpm-step]').forEach(button => {
+      button.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        syncDraft(draft + Number(button.dataset.bpmStep));
+      });
+    });
+    overlay.querySelector('#bpm-modal-cancel')?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this._closeBpmModal();
+    });
+    overlay.querySelector('#bpm-modal-save')?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      syncDraft(input.value);
+      this._setBpm(draft);
+      this._closeBpmModal();
+    });
+  }
+
+  _closeBpmModal() {
+    this._bpmModal?.remove();
+    this._bpmModal = null;
   }
 
   updateTimeSignature() {

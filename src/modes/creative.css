@@ -36,8 +36,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
   padding: var(--space-xs) var(--space-md);
+  border: 0;
   border-bottom: var(--border-subtle);
+  background: transparent;
+  font-family: var(--font-family);
+  cursor: pointer;
 }
 
 .snippet-tray__title {
@@ -193,6 +198,33 @@
 .snippet-tray__action-btn:hover {
   color: var(--color-error);
   background: rgba(232, 64, 64, 0.1);
+}
+
+@media (max-width: 700px) {
+  .snippet-tray {
+    max-height: 118px;
+  }
+
+  .snippet-tray.is-collapsed {
+    max-height: 42px;
+  }
+
+  .snippet-tray.is-collapsed .snippet-tray__list {
+    display: none;
+  }
+
+  .snippet-tray__header {
+    min-height: 42px;
+    padding: var(--space-xs) var(--space-md);
+  }
+
+  .snippet-tray__list {
+    padding: var(--space-xs) var(--space-md);
+  }
+
+  .snippet-tray__item {
+    min-width: 116px;
+  }
 }
 
 .custom-instrument-popover {

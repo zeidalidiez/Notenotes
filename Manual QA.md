@@ -330,14 +330,18 @@ Steps:
 2. Drag horizontally across the snippet dock.
 3. Drag one dock snippet upward into a matching track.
 4. Touch and drag an already-placed Canvas clip left/right.
-5. Tap a track delete button and cancel the confirmation.
-6. Tap it again and confirm.
+5. Drag empty timeline space left/right and up/down.
+6. Long-press an already-placed Canvas clip, cancel the delete prompt, then long-press again and confirm.
+7. Tap a track delete button and cancel the confirmation.
+8. Tap it again and confirm.
 
 Expected:
 
 - The dock scrolls horizontally without accidentally starting a drag.
 - Dragging upward from a dock snippet still places the clip on a matching track.
 - Existing Canvas clips move when held and dragged.
+- Empty Canvas space pans the timeline without needing a scrollbar.
+- Long-pressing a placed clip gives mobile users a delete path.
 - Track delete buttons are visible on mobile and require one clear confirmation.
 
 ### 3.4 Canvas WAV With Mixed Tracks

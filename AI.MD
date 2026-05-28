@@ -822,3 +822,38 @@ depending on hover. `_removeTrack()` now asks for confirmation before deleting a
 track, including clip count when the track contains clips. This matches the
 existing "confirm before destructive snippet delete" direction and avoids
 ambiguous double-tap behavior.
+
+## Canvas Pan And Clip Long-Press 0.1.58
+
+Mobile QA then showed two remaining Canvas gesture gaps:
+
+1. Dragging empty Canvas timeline space did not reliably pan left/right.
+2. Mobile users still had no direct way to delete an individual placed clip.
+
+### Empty timeline panning
+
+`CanvasMode` already had a drag-to-pan handler on `.canvas-tracks`, but mobile
+browsers could still claim the gesture. The handler now:
+
+- calls `preventDefault()` when a pan starts outside clips/track headers/buttons
+- captures the initiating pointer
+- ignores unrelated pointers
+- updates both `scrollLeft` and `scrollTop`
+- cleans up on pointer up/cancel
+
+`.canvas-tracks` now uses `touch-action: none` so this custom pan path is the
+owner of empty-timeline dragging. Clip drags still opt out because the pan
+handler ignores `.canvas-clip` targets.
+
+### Clip long-press delete
+
+Touching a Canvas clip no longer immediately starts a drag. It enters
+`_startTouchClipIntent()`:
+
+- if the finger moves more than 8px, the hold timer is cancelled and the normal
+  clip drag starts
+- if the finger stays still for 650ms, Notenotes prompts to delete that clip
+- pointer up/cancel clears the timer with no destructive action
+
+Mouse and trackpad behavior stays immediate: pointer down on a clip still starts
+dragging, and modifier-key delete/resize behavior is unchanged.

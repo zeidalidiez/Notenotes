@@ -526,7 +526,6 @@ export class CanvasMode {
       ${this._renderModOverlay(clip, w)}
     `;
 
-    // Click to select
     el.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
       this._selectClip(clip.id, el);
@@ -538,6 +537,8 @@ export class CanvasMode {
 
       if (e.altKey) {
         this._startClipResize(e, clip, el);
+      } else if (e.pointerType === 'touch') {
+        this._startTouchClipIntent(e, clip, el);
       } else {
         this._startClipDrag(e, clip, el);
       }
@@ -1048,6 +1049,52 @@ export class CanvasMode {
   }
 
   /** Handle clip drag-to-move */
+  _startTouchClipIntent(e, clip, el) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const pointerId = e.pointerId;
+    let consumed = false;
+
+    const cleanup = () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointercancel', onUp);
+    };
+
+    const askDelete = () => {
+      consumed = true;
+      cleanup();
+      const name = clip.snippet?.name || 'this clip';
+      if (window.confirm(`Delete "${name}" from Canvas?`)) {
+        this._selectedClip = clip.id;
+        this._deleteSelectedClip();
+      }
+    };
+
+    const timer = window.setTimeout(askDelete, 650);
+
+    const onMove = (me) => {
+      if (me.pointerId !== pointerId || consumed) return;
+      const dx = me.clientX - startX;
+      const dy = me.clientY - startY;
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      consumed = true;
+      cleanup();
+      this._startClipDrag(e, clip, el);
+    };
+
+    const onUp = (ue) => {
+      if (ue.pointerId !== pointerId) return;
+      cleanup();
+    };
+
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
+  }
+
   _startClipDrag(e, clip, el) {
     e.preventDefault();
     const startX = e.clientX;
@@ -1509,32 +1556,41 @@ export class CanvasMode {
       // Ignore if clicking on a clip, track header, or scrollbar
       if (e.target.closest('.canvas-clip') || e.target.closest('.canvas-lane__header')) return;
       if (e.target.closest('button') || e.target.closest('select')) return;
+      e.preventDefault();
       this._clearClipSelection();
 
       const startX = e.clientX;
       const startY = e.clientY;
       const startScrollLeft = this._tracksContainer.scrollLeft;
       const startScrollTop = this._tracksContainer.scrollTop;
+      const pointerId = e.pointerId;
       
       this._tracksContainer.style.cursor = 'grabbing';
       this._tracksContainer.style.userSelect = 'none';
+      this._tracksContainer.setPointerCapture?.(pointerId);
 
       const onMove = (me) => {
+        if (me.pointerId !== pointerId) return;
+        me.preventDefault();
         const dx = me.clientX - startX;
         const dy = me.clientY - startY;
         this._tracksContainer.scrollLeft = startScrollLeft - dx;
         this._tracksContainer.scrollTop = startScrollTop - dy;
       };
 
-      const onUp = () => {
+      const onUp = (ue) => {
+        if (ue.pointerId !== pointerId) return;
         this._tracksContainer.style.cursor = '';
         this._tracksContainer.style.userSelect = '';
+        this._tracksContainer.releasePointerCapture?.(pointerId);
         document.removeEventListener('pointermove', onMove);
         document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onUp);
       };
 
       document.addEventListener('pointermove', onMove);
       document.addEventListener('pointerup', onUp);
+      document.addEventListener('pointercancel', onUp);
     });
   }
 

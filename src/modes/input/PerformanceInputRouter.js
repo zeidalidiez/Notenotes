@@ -72,7 +72,7 @@ export class PerformanceInputRouter {
           scaleBoard.triggerStepPlay();
           return;
         }
-        const idx = performanceIndexForSurface(e.code, scaleBoard?._notes?.length || 0, { reverse: true });
+        const idx = padPerformanceIndex(e.code, scaleBoard?._notes?.length || 0);
         if (idx === -1) return;
 
         e.preventDefault();
@@ -84,7 +84,7 @@ export class PerformanceInputRouter {
       }
 
       if (activeInstrument === this.instrumentIds.PIANO) {
-        const idx = performanceIndexForSurface(e.code, microPiano?.visibleMidis?.().length || 0, { reverse: true });
+        const idx = pianoPerformanceIndex(e.code, microPiano?.visibleMidis?.().length || 0);
         if (idx === -1) return;
 
         e.preventDefault();
@@ -138,10 +138,10 @@ export class PerformanceInputRouter {
 
     if (activeInstrument === this.instrumentIds.SCALEBOARD) {
       if (scaleBoard?.padMode === 'step') return PERFORMANCE_KEYS.includes(code);
-      return performanceIndexForSurface(code, scaleBoard?._notes?.length || 0, { reverse: true }) !== -1;
+      return padPerformanceIndex(code, scaleBoard?._notes?.length || 0) !== -1;
     }
     if (activeInstrument === this.instrumentIds.PIANO) {
-      return performanceIndexForSurface(code, microPiano?.visibleMidis?.().length || 0, { reverse: true }) !== -1;
+      return pianoPerformanceIndex(code, microPiano?.visibleMidis?.().length || 0) !== -1;
     }
     if (activeInstrument === this.instrumentIds.KIT) {
       return performanceIndexForSurface(code, sketchKit?.visiblePadIds?.().length || 0, { reverse: false }) !== -1;
@@ -260,6 +260,14 @@ export function performanceIndexForSurface(code, count, { reverse = false } = {}
   const keyIndex = PERFORMANCE_KEYS.indexOf(code);
   if (keyIndex < 0 || keyIndex >= count) return -1;
   return reverse ? count - 1 - keyIndex : keyIndex;
+}
+
+export function padPerformanceIndex(code, count) {
+  return performanceIndexForSurface(code, count, { reverse: false });
+}
+
+export function pianoPerformanceIndex(code, count) {
+  return performanceIndexForSurface(code, count, { reverse: true });
 }
 
 function isTextInput(target) {

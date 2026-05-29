@@ -8,6 +8,7 @@ import {
   controllerTargetLabel,
   normalizeControllerTarget,
 } from '../src/ui/ControllerMapperPopover.js';
+import { padPerformanceIndex, pianoPerformanceIndex } from '../src/modes/input/PerformanceInputRouter.js';
 import {
   normalizeMeter,
   pulseCountForMeter,
@@ -80,6 +81,14 @@ test('AI instrument context maps Create surfaces without exposing unsupported au
     octave: 3,
     padCount: 5,
   });
+});
+
+test('performance keyboard maps Pads forward and Piano high-to-low', () => {
+  assert.equal(padPerformanceIndex('Digit1', 13), 0);
+  assert.equal(padPerformanceIndex('Equal', 13), 11);
+  assert.equal(padPerformanceIndex('KeyQ', 13), 12);
+  assert.equal(pianoPerformanceIndex('Digit1', 22), 21);
+  assert.equal(pianoPerformanceIndex('KeyQ', 22), 9);
 });
 
 test('controller mapper helpers normalize targets without sharing preset references', () => {

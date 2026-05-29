@@ -840,7 +840,7 @@ class App {
         <hr style="border:none;border-top:1px solid var(--surface-3);margin:var(--space-sm) 0;" />
         <h4 style="margin:var(--space-sm) 0;font-size:var(--font-size-sm);">Creative Mode</h4>
         <table style="width:100%;font-size:var(--font-size-sm);border-collapse:collapse;">
-          <tr><td style="padding:4px 8px;color:var(--accent-light);font-weight:var(--font-weight-semibold);">1-=, Q-], A-', Z-/</td><td style="padding:4px 8px;color:var(--text-secondary);">Play the active Create surface. Pads/Piano map high to low; Kit maps through visible pads.</td></tr>
+          <tr><td style="padding:4px 8px;color:var(--accent-light);font-weight:var(--font-weight-semibold);">1-=, Q-], A-', Z-/</td><td style="padding:4px 8px;color:var(--text-secondary);">Play the active Create surface. Pads map 1 to pad 1; Piano maps high to low; Kit maps through visible pads.</td></tr>
           <tr><td style="padding:4px 8px;color:var(--accent-light);font-weight:var(--font-weight-semibold);">MIDI keyboard</td><td style="padding:4px 8px;color:var(--text-secondary);">Routes to the active Create surface: Pads, Piano, or Kit.</td></tr>
           <tr><td style="padding:4px 8px;color:var(--accent-light);font-weight:var(--font-weight-semibold);">Up / Down</td><td style="padding:4px 8px;color:var(--text-secondary);">Shift octave on active Pads, Piano, or Ctrl screen</td></tr>
           <tr><td style="padding:4px 8px;color:var(--accent-light);font-weight:var(--font-weight-semibold);">1/4/7</td><td style="padding:4px 8px;color:var(--text-secondary);">Modulation down/reset/up when not playing Pads/Kit/Piano keys</td></tr>

@@ -194,8 +194,8 @@ Steps:
 
 1. Open Create > Pads.
 2. Press keys across `1-=`, `Q-]`, `A-'`, and `Z-/`.
-3. Confirm `1` plays the highest visible pad and later keys move downward through visible pads.
-4. Switch to Piano and repeat with enough visible keys to cover more than the number row.
+3. Confirm `1` plays pad 1, `2` plays pad 2, and `Q` continues after the number row on extended Pad layouts.
+4. Switch to Piano and confirm `1` plays the highest visible key and later keys move downward through visible keys.
 5. Switch to Kit and confirm the same keyboard rows trigger visible kit pads in pad order.
 6. Connect a MIDI keyboard in a browser that supports Web MIDI.
 7. Play MIDI notes while viewing Pads, Piano, and Kit.

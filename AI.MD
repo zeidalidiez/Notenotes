@@ -449,11 +449,13 @@ Create-mode performance input is surface-routed. The active Create surface owns
 the input meaning:
 
 - Computer keyboard uses `PERFORMANCE_KEYS` from `src/ui/PerformanceKeys.js`:
-  `1-=`, `Q-]`, `A-'`, `Z-/`. Pads and Piano reverse-map this list so `1` is
-  the highest visible note and later keys move downward. Kit maps forward through
-  visible drum pads because drums are not pitch-ordered. Kit pads display the
-  matching `PERFORMANCE_KEY_LABELS` value so the playable shortcut is visible
-  on the only pad surface that is not pitch-numbered.
+  `1-=`, `Q-]`, `A-'`, `Z-/`. Pads map forward so `1` triggers pad 1, `2`
+  triggers pad 2, and `Q` continues after the number row for extended layouts.
+  Piano reverse-maps the same list so `1` is the highest visible note and later
+  keys move downward, which feels closer to a small computer-keyboard piano. Kit
+  maps forward through visible drum pads because drums are not pitch-ordered. Kit
+  pads display the matching `PERFORMANCE_KEY_LABELS` value so the playable
+  shortcut is visible on the only pad surface that is not pitch-numbered.
 - Global digit modulation shortcuts must yield when the active Create surface
   can play that key. `main.js` asks `creativeMode.handlesPerformanceKey(code)`
   before starting pitch/mod ramps.

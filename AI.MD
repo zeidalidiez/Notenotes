@@ -46,6 +46,7 @@ src/main.js
     GamepadInputManager.js  gamepad polling and bindable buttons
   ai/
     AIController.js         constrained snippet-generation orchestration
+    AIInstrumentContext.js  Create-surface to AI-surface mapping helpers
     aiSettings.js           non-secret project AI settings + live-only keys
     PromptBuilder.js        prompt contract and allowed AI sequence lengths
     SequenceValidator.js    schema/range checks before execution
@@ -67,6 +68,7 @@ src/main.js
   ui/
     TransportBar.js         top bar transport, key/scale/meter
     ChoicePicker.js         shared categorized picker for large creative lists
+    AISeedPopover.js        AI Seed popover lifecycle around AISeedPanel
     ControllerMapperPopover.js controller learn/list/preset popover UI
     SettingsPanel.js        settings, export, backup, milestones, diagnostics
     SnippetTray.js          snippet strip
@@ -490,6 +492,14 @@ project JSON, backups, or logs. Non-secret settings, including provider/model
 selection and default length in bars, live in `project.settings.aiSettings` and
 must be saved when changed.
 
+`src/ai/AIInstrumentContext.js` is the pure mapping layer between Create-mode
+surfaces and the smaller AI instrument vocabulary. Controller maps to
+`scaleboard`, Piano maps to `piano`, Kit maps to `kit`, and Mic intentionally
+falls back to `scaleboard` because AI Seed does not generate audio recordings.
+`src/ui/AISeedPopover.js` owns popover open/close/click-outside behavior around
+`AISeedPanel`; `CreativeMode` remains responsible for adding seeded snippets to
+the project and scheduling saves.
+
 `referencedSnippet` plumbing exists in the AI prompt/controller layer, but there
 is no current user-facing UI that supplies it. Treat it as dormant/deferred
 context support, not an active feature. If a future UI exposes it, document the
@@ -516,9 +526,10 @@ from the health check unless a separate explicit user action is added.
 `npm run test:smoke` runs `tests/smoke.mjs` with Node and no extra test
 dependency. Keep this harness focused on pure module logic that does not need a
 browser, IndexedDB, Web Audio, or DOM rendering. It currently guards meter math,
-backup validation, AI settings persistence helpers, controller binding helper
-normalization, and the pure audio storage audit. Browser-only behavior still
-belongs in Manual QA until a browser test harness exists.
+backup validation, AI settings persistence helpers, AI instrument-context
+mapping, controller binding helper normalization, and the pure audio storage
+audit. Browser-only behavior still belongs in Manual QA until a browser test
+harness exists.
 
 ## Mobile Create Layout Hardening 0.1.54
 

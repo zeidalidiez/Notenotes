@@ -21,10 +21,11 @@ import { MicRecorder } from '../instruments/MicRecorder.js';
 import { ControllerMode } from '../instruments/ControllerMode.js';
 import { RecordingManager } from '../engine/RecordingManager.js';
 import { SnippetTray } from '../ui/SnippetTray.js';
-import { AISeedPanel } from '../ui/AISeedPanel.js';
+import { AISeedPopover } from '../ui/AISeedPopover.js';
 import '../ui/AISeedPanel.css';
 import { ChoicePicker } from '../ui/ChoicePicker.js';
 import { AIController } from '../ai/AIController.js';
+import { buildAIInstrumentInfo, mapCreativeInstrumentToAi } from '../ai/AIInstrumentContext.js';
 import { VoiceEngine } from '../instruments/voice/VoiceEngine.js';
 import englishBaseVoice from '../instruments/voice/voices/english-base.json';
 import { LoopProgress } from '../ui/LoopProgress.js';
@@ -78,7 +79,7 @@ export class CreativeMode {
     // hiding the button entirely (the user might want to see the AI button
     // is there, just not usable right now).
     this.scaleBoard.onPadModeChange = () => {
-      this._aiSeedPanelInstance?.refresh();
+      this.aiSeedPopover?.refresh();
       this._syncCreateToolbarButtons();
     };
     this.microPiano = new MicroPiano(this.synth, this.project);
@@ -150,8 +151,19 @@ export class CreativeMode {
       getProject: () => this.project,
       getActiveInstrumentInfo: () => this._buildAIInstrumentInfo(),
     });
-    this._aiSeedPopover = null;
-    this._aiSeedPanelInstance = null;
+    this.aiSeedPopover = new AISeedPopover({
+      controller: this.aiController,
+      getProject: () => this.project,
+      getActiveInstrumentId: () => this._mapInstrumentToAi(this.activeInstrument),
+      getAvailability: () => this._isAISeedAvailable(),
+      onSnippetCreated: (snippet) => this._onAISnippetCreated(snippet),
+      onOpenSettings: () => {
+        window.dispatchEvent(new CustomEvent('notenotes-open-settings', {
+          detail: { section: 'settings', focus: 'ai' },
+        }));
+      },
+      onSettingsChanged: () => this.store?.scheduleAutoSave(this.project),
+    });
 
     this._initialized = false;
     this._tonePopover = null;
@@ -619,7 +631,7 @@ export class CreativeMode {
     this.scaleBoard?.setProjectKey?.(next);
     this.controllerMode?.setProjectKey?.(next);
     this.microPiano?.refreshDegreeHighlights?.();
-    this._aiSeedPanelInstance?.refresh?.();
+    this.aiSeedPopover?.refresh?.();
   }
 
   _emitProjectKeyChange(context) {
@@ -1056,18 +1068,7 @@ export class CreativeMode {
    * generate audio (intentional scope limit).
    */
   _mapInstrumentToAi(creativeInstrumentId) {
-    switch (creativeInstrumentId) {
-      case 'scaleboard':
-      case 'controller':
-        return 'scaleboard';
-      case 'piano':
-        return 'piano';
-      case 'kit':
-        return 'kit';
-      case 'mic':
-      default:
-        return 'scaleboard';
-    }
+    return mapCreativeInstrumentToAi(creativeInstrumentId);
   }
 
   /**
@@ -1076,17 +1077,7 @@ export class CreativeMode {
    * locked, etc.).
    */
   _buildAIInstrumentInfo() {
-    const aiInstrument = this._mapInstrumentToAi(this.activeInstrument);
-    const info = {
-      instrument: aiInstrument,
-      scaleName: this.scaleBoard?.scaleName || 'major',
-      rootNote: this.scaleBoard?.rootNote || 'C',
-      octave: this.scaleBoard?.octave || 4,
-    };
-    if (aiInstrument === 'scaleboard') {
-      info.padCount = this.scaleBoard?._notes?.length || 7;
-    }
-    return info;
+    return buildAIInstrumentInfo(this.activeInstrument, { scaleBoard: this.scaleBoard });
   }
 
   /**
@@ -1434,70 +1425,11 @@ export class CreativeMode {
    *   handler when re-clicking the button itself.
    */
   _toggleAISeedPopover(anchor, buttonEl = null) {
-    if (buttonEl?.disabled) return;
-    if (this._aiSeedPopover) {
-      this._closeAISeedPopover();
-      return;
-    }
-
-    const popover = document.createElement('div');
-    popover.className = 'ai-seed-popover';
-    popover.id = 'ai-seed-popover';
-
-    this._aiSeedPanelInstance = new AISeedPanel({
-      controller: this.aiController,
-      getProject: () => this.project,
-      getActiveInstrumentId: () => this._mapInstrumentToAi(this.activeInstrument),
-      getAvailability: () => this._isAISeedAvailable(),
-      onSnippetCreated: (snippet) => this._onAISnippetCreated(snippet),
-      onClose: () => this._closeAISeedPopover(),
-      onOpenSettings: () => {
-        this._closeAISeedPopover();
-        window.dispatchEvent(new CustomEvent('notenotes-open-settings', {
-          detail: { section: 'settings', focus: 'ai' },
-        }));
-      },
-      onSettingsChanged: () => this.store?.scheduleAutoSave(this.project),
-    });
-    popover.appendChild(this._aiSeedPanelInstance.render());
-
-    anchor.appendChild(popover);
-    if (buttonEl) buttonEl.setAttribute('aria-expanded', 'true');
-    this._aiSeedPopover = popover;
-    this._aiSeedAnchorButton = buttonEl;
-
-    // Click-outside to close. Listen on capture so we beat the popover's
-    // own click handlers. Bound on next microtask so the click that opened
-    // the popover doesn't immediately close it.
-    const handlePointer = (e) => {
-      if (!this._aiSeedPopover) return;
-      if (this._aiSeedPopover.contains(e.target)) return;
-      if (buttonEl && buttonEl.contains(e.target)) return;
-      this._closeAISeedPopover();
-    };
-    queueMicrotask(() => {
-      document.addEventListener('pointerdown', handlePointer, true);
-    });
-    this._aiSeedClickOutsideHandler = handlePointer;
+    this.aiSeedPopover?.toggle(anchor, buttonEl);
   }
 
   _closeAISeedPopover() {
-    if (this._aiSeedClickOutsideHandler) {
-      document.removeEventListener('pointerdown', this._aiSeedClickOutsideHandler, true);
-      this._aiSeedClickOutsideHandler = null;
-    }
-    if (this._aiSeedPanelInstance) {
-      this._aiSeedPanelInstance.destroy();
-      this._aiSeedPanelInstance = null;
-    }
-    if (this._aiSeedPopover) {
-      this._aiSeedPopover.remove();
-      this._aiSeedPopover = null;
-    }
-    if (this._aiSeedAnchorButton) {
-      this._aiSeedAnchorButton.setAttribute('aria-expanded', 'false');
-      this._aiSeedAnchorButton = null;
-    }
+    this.aiSeedPopover?.close();
   }
 
   _releaseKeyboardPerformance() {

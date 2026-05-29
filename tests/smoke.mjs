@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 
 import { validateBackup, workspaceBackup } from '../src/export/BackupExporter.js';
 import { readAiSettings, writeAiSettings } from '../src/ai/aiSettings.js';
+import { buildAIInstrumentInfo, mapCreativeInstrumentToAi } from '../src/ai/AIInstrumentContext.js';
 import {
   cloneControllerBindings,
   controllerTargetLabel,
@@ -60,6 +61,25 @@ test('AI non-secret settings persist on the project object', () => {
   writeAiSettings(project, { defaultLengthBars: 8, provider: 'mock' });
   assert.equal(readAiSettings(project).defaultLengthBars, 8);
   assert.equal(project.settings.aiSettings.defaultLengthBars, 8);
+});
+
+test('AI instrument context maps Create surfaces without exposing unsupported audio', () => {
+  assert.equal(mapCreativeInstrumentToAi('scaleboard'), 'scaleboard');
+  assert.equal(mapCreativeInstrumentToAi('controller'), 'scaleboard');
+  assert.equal(mapCreativeInstrumentToAi('piano'), 'piano');
+  assert.equal(mapCreativeInstrumentToAi('kit'), 'kit');
+  assert.equal(mapCreativeInstrumentToAi('mic'), 'scaleboard');
+
+  const info = buildAIInstrumentInfo('scaleboard', {
+    scaleBoard: { scaleName: 'minor', rootNote: 'D', octave: 3, _notes: [1, 2, 3, 4, 5] },
+  });
+  assert.deepEqual(info, {
+    instrument: 'scaleboard',
+    scaleName: 'minor',
+    rootNote: 'D',
+    octave: 3,
+    padCount: 5,
+  });
 });
 
 test('controller mapper helpers normalize targets without sharing preset references', () => {

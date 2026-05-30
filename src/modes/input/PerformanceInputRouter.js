@@ -199,7 +199,7 @@ export class PerformanceInputRouter {
     }
 
     if (activeInstrument === this.instrumentIds.PIANO) {
-      microPiano?.pressControllerMidi(note, velocity);
+      microPiano?.pressControllerMidi(note, velocity, { source: 'midi', correct: true });
       this._activeMidiNotes.set(note, { type: 'piano', midi: note });
       return;
     }
@@ -213,7 +213,7 @@ export class PerformanceInputRouter {
     const held = this._activeMidiNotes.get(note);
     if (!held) return;
     if (held.type === 'scale') this._getScaleBoard()?.releaseControllerPadBinding(held.bindingKey);
-    else if (held.type === 'piano') this._getMicroPiano()?.releaseControllerMidi(held.midi);
+    else if (held.type === 'piano') this._getMicroPiano()?.releaseControllerMidi(held.midi, { source: 'midi' });
     this._activeMidiNotes.delete(note);
   }
 

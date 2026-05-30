@@ -66,7 +66,7 @@ src/main.js
     CanvasMode.js           timeline/arrangement
     EditMode.js             Inspect mode for MIDI, drum, audio snippets
   ui/
-    TransportBar.js         top bar transport, key/scale/meter
+    TransportBar.js         top bar transport, key/scale/correction/meter
     ChoicePicker.js         shared categorized picker for large creative lists
     AISeedPopover.js        AI Seed popover lifecycle around AISeedPanel
     ControllerMapperPopover.js controller learn/list/preset popover UI
@@ -171,7 +171,7 @@ Project sketch:
   bpm,
   meter,              // canonical
   timeSignature,      // legacy mirror
-  musicalContext: { root: 'C', scale: 'major' },
+  musicalContext: { root: 'C', scale: 'major', correction: 'off' },
   tracks: [],
   snippets: [],
   settings: {
@@ -475,6 +475,14 @@ the input meaning:
   MIDI note, and Kit prefers General MIDI drum notes with a visible-pad fallback.
   In Step Play mode, any MIDI note-on advances the Step sequence and note-off is
   ignored.
+- `project.musicalContext.correction` is the optional top-bar Piano/MIDI note
+  correction mode. It is additive and defaults to `off`. `off` preserves current
+  chromatic Micro Piano behavior. `closest`, `up`, and `down` only affect Micro
+  Piano pointer/QWERTY input and external Web MIDI routed to Piano; Pads remain
+  scale-locked through their own pad logic, Kit remains drum-mapped, and learned
+  controller MIDI bindings stay exact. `correctMidiToScale()` in
+  `MusicTheory.js` is the pure helper: in-scale notes pass unchanged, chromatic
+  scale passes unchanged, and `closest` resolves equal-distance ties upward.
 
 Keep computer-keyboard, MIDI, and controller routing conceptually aligned: the
 active surface decides what the input does. If the performance key layout ever

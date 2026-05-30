@@ -421,7 +421,7 @@ class App {
     if (!this.project) return;
     const next = normalizeMusicalContext(context);
     const prev = normalizeMusicalContext(this.project.musicalContext);
-    if (prev.root === next.root && prev.scale === next.scale) return;
+    if (prev.root === next.root && prev.scale === next.scale && prev.correction === next.correction) return;
     this.project.musicalContext = next;
     this.transportBar.setProjectKey(next);
     this.creativeMode?.applyProjectMusicalContext?.(next, { source: options.source });

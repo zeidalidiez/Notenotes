@@ -18,6 +18,7 @@ import {
   rootNoteOptions,
 } from '../src/ui/CreateInstrumentPopover.js';
 import { padPerformanceIndex, pianoPerformanceIndex } from '../src/modes/input/PerformanceInputRouter.js';
+import { correctMidiToScale, normalizeMusicalContext } from '../src/engine/MusicTheory.js';
 import {
   normalizeMeter,
   pulseCountForMeter,
@@ -62,6 +63,16 @@ test('compound and asymmetric meter math keeps bar durations pulse-based', () =>
 
   assert.equal(pulseCountForMeter('7/8'), 3);
   assert.equal(Math.round(quarterBpmForMeter('7/8', 120)), 140);
+});
+
+test('note correction quantizes piano and MIDI notes only when enabled', () => {
+  const context = normalizeMusicalContext({ root: 'C', scale: 'major' });
+  assert.equal(correctMidiToScale(61, context, 'off'), 61);
+  assert.equal(correctMidiToScale(64, context, 'closest'), 64);
+  assert.equal(correctMidiToScale(61, context, 'closest'), 62);
+  assert.equal(correctMidiToScale(61, context, 'up'), 62);
+  assert.equal(correctMidiToScale(61, context, 'down'), 60);
+  assert.equal(correctMidiToScale(66, { root: 'C', scale: 'chromatic' }, 'down'), 66);
 });
 
 test('backup validation accepts current workspace backups and rejects newer app versions', () => {

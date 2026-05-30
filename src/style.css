@@ -463,12 +463,30 @@ input, textarea, select, [contenteditable] {
   .transport-bar__project-key {
     order: 3;
     flex: 1 1 100%;
+    flex-wrap: wrap;
     padding-left: 0;
   }
 
   .transport-bar__project-key select {
     flex: 1;
     max-width: none;
+  }
+
+  .transport-bar__project-key .choice-picker-button {
+    flex: 1 1 118px;
+    max-width: none;
+  }
+
+  #project-root-select {
+    flex: 0 1 78px;
+  }
+
+  #project-correction-select {
+    flex: 1 1 112px;
+  }
+
+  #project-meter-select {
+    flex: 1 1 92px;
   }
 
   .transport-bar__more {

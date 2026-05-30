@@ -52,7 +52,15 @@ export const SCALES = {
 
 export const DEFAULT_MUSICAL_CONTEXT = {
   root: 'C',
-  scale: 'major'
+  scale: 'major',
+  correction: 'off'
+};
+
+export const NOTE_CORRECTION_MODES = {
+  off: { id: 'off', label: 'Off' },
+  closest: { id: 'closest', label: 'Closest' },
+  up: { id: 'up', label: 'Up' },
+  down: { id: 'down', label: 'Down' }
 };
 
 export const DEFAULT_DEGREE_COLORS = {
@@ -132,7 +140,12 @@ export const CLASSICAL_FUNCTION_NAMES = {
 export function normalizeMusicalContext(context = {}) {
   const root = NOTE_NAMES.includes(context?.root) ? context.root : DEFAULT_MUSICAL_CONTEXT.root;
   const scale = SCALES[context?.scale] ? context.scale : DEFAULT_MUSICAL_CONTEXT.scale;
-  return { root, scale };
+  const correction = normalizeNoteCorrectionMode(context?.correction);
+  return { root, scale, correction };
+}
+
+export function normalizeNoteCorrectionMode(mode = DEFAULT_MUSICAL_CONTEXT.correction) {
+  return NOTE_CORRECTION_MODES[mode] ? mode : DEFAULT_MUSICAL_CONTEXT.correction;
 }
 
 export function normalizeDegreeHighlighting(value = {}) {
@@ -177,6 +190,51 @@ export function degreeForMidi(midi, context = DEFAULT_MUSICAL_CONTEXT) {
     name: INTERVAL_NAMES[interval] || `Interval ${interval}`,
     functionName: CLASSICAL_FUNCTION_NAMES[interval] || ''
   };
+}
+
+export function correctMidiToScale(midi, context = DEFAULT_MUSICAL_CONTEXT, mode = null) {
+  const note = Math.round(Number(midi));
+  if (!Number.isFinite(note)) return midi;
+  const normalized = normalizeMusicalContext(context);
+  const correction = normalizeNoteCorrectionMode(mode ?? normalized.correction);
+  if (correction === 'off') return note;
+
+  const scale = SCALES[normalized.scale] || SCALES[DEFAULT_MUSICAL_CONTEXT.scale];
+  const intervals = scale?.intervals || SCALES.major.intervals;
+  if (intervals.length >= 12) return note;
+
+  const inScale = (candidate) => (
+    candidate >= 0
+    && candidate <= 127
+    && intervals.includes(intervalFromRoot(candidate, normalized.root))
+  );
+
+  if (inScale(note)) return note;
+
+  if (correction === 'up') {
+    for (let offset = 1; offset <= 12; offset++) {
+      const candidate = note + offset;
+      if (inScale(candidate)) return candidate;
+    }
+  }
+
+  if (correction === 'down') {
+    for (let offset = 1; offset <= 12; offset++) {
+      const candidate = note - offset;
+      if (inScale(candidate)) return candidate;
+    }
+  }
+
+  if (correction === 'closest') {
+    for (let offset = 1; offset <= 12; offset++) {
+      const up = note + offset;
+      if (inScale(up)) return up;
+      const down = note - offset;
+      if (inScale(down)) return down;
+    }
+  }
+
+  return Math.max(0, Math.min(127, note));
 }
 
 /**

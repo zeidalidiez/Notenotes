@@ -5,7 +5,7 @@
 
 import { TransportState } from '../engine/Transport.js';
 import { ARP_MODES } from '../engine/ArpeggioManager.js';
-import { NOTE_NAMES, SCALES, normalizeMusicalContext, scaleDescription, scaleFamilyLabel } from '../engine/MusicTheory.js';
+import { NOTE_CORRECTION_MODES, NOTE_NAMES, SCALES, normalizeMusicalContext, normalizeNoteCorrectionMode, scaleDescription, scaleFamilyLabel } from '../engine/MusicTheory.js';
 import { ALLOWED_GROUPINGS, METER_PICKER_IDS, METER_PRESETS, meterLabel, normalizeMeter, pulseCountForMeter } from '../engine/Meter.js';
 import { ChoicePicker } from './ChoicePicker.js';
 
@@ -82,6 +82,10 @@ export class TransportBar {
           <span class="choice-picker-button__label" id="project-scale-label">${this._scaleLabel(this._projectKey.scale)}</span>
           <span class="choice-picker-button__chevron" aria-hidden="true">▼</span>
         </button>
+        <span class="transport-bar__project-key-label">Correction</span>
+        <select id="project-correction-select" aria-label="Piano and MIDI scale correction">
+          ${Object.values(NOTE_CORRECTION_MODES).map(mode => `<option value="${mode.id}" ${mode.id === this._projectKey.correction ? 'selected' : ''}>${mode.label}</option>`).join('')}
+        </select>
         <span class="transport-bar__project-key-label">Meter</span>
         <select id="project-meter-select" aria-label="Project meter">
           ${METER_PICKER_IDS.map(id => {
@@ -195,6 +199,7 @@ export class TransportBar {
       event.preventDefault();
       this._openScalePicker(event.currentTarget);
     });
+    this.el.querySelector('#project-correction-select')?.addEventListener('change', () => this._emitProjectKeyChange());
     this.el.querySelector('#project-meter-select')?.addEventListener('change', () => this._emitProjectMeterChange());
     this.el.querySelector('#project-meter-grouping-select')?.addEventListener('change', () => this._emitProjectMeterChange());
 
@@ -373,9 +378,11 @@ export class TransportBar {
   setProjectKey(context = {}) {
     this._projectKey = normalizeMusicalContext(context);
     const root = this.el?.querySelector('#project-root-select');
+    const correction = this.el?.querySelector('#project-correction-select');
     const scaleLabel = this.el?.querySelector('#project-scale-label');
     const scaleButton = this.el?.querySelector('#project-scale-picker');
     if (root) root.value = this._projectKey.root;
+    if (correction) correction.value = normalizeNoteCorrectionMode(this._projectKey.correction);
     if (scaleLabel) scaleLabel.textContent = this._scaleLabel(this._projectKey.scale);
     if (scaleButton) {
       scaleButton.title = scaleDescription(this._projectKey.scale);
@@ -400,7 +407,8 @@ export class TransportBar {
   _emitProjectKeyChange(partial = {}) {
     const root = this.el?.querySelector('#project-root-select')?.value;
     const scale = partial.scale || this._projectKey.scale;
-    this.setProjectKey({ root, scale });
+    const correction = partial.correction || this.el?.querySelector('#project-correction-select')?.value || this._projectKey.correction;
+    this.setProjectKey({ root, scale, correction });
     if (this.onProjectKeyChange) this.onProjectKeyChange({ ...this._projectKey });
   }
 

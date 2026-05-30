@@ -3,7 +3,7 @@
  * Supports 1 or 2 stacked keyboards with configurable key count via Settings.
  */
 
-import { degreeForMidi, normalizeDegreeHighlighting, normalizeMusicalContext } from '../engine/MusicTheory.js';
+import { correctMidiToScale, degreeForMidi, normalizeDegreeHighlighting, normalizeMusicalContext } from '../engine/MusicTheory.js';
 import { dwellSettings, tremorAllows } from '../ui/AccessibilityProfiles.js';
 
 export class MicroPiano {
@@ -13,6 +13,8 @@ export class MicroPiano {
     this.el = null;
     this._baseOctave = 4;
     this._activeKeys = new Set();
+    this._activeInputMap = new Map();
+    this._activeKeyCounts = new Map();
     this._dwellTimers = new Map();
     this._dwellActiveKeys = new Set();
 
@@ -283,7 +285,14 @@ export class MicroPiano {
   releaseAllKeys() {
     for (const key of [...this._dwellTimers.keys()]) this._cancelDwell(key);
     this._dwellActiveKeys.clear();
-    [...this._activeKeys].forEach(midi => this.releaseMidi(midi));
+    [...this._activeKeys].forEach(midi => {
+      this.synth.noteOff(midi);
+      this.el?.querySelector(`.micropiano__key[data-midi="${midi}"]`)?.classList.remove('is-active');
+      if (this._onNoteOff) this._onNoteOff(midi);
+    });
+    this._activeKeys.clear();
+    this._activeInputMap.clear();
+    this._activeKeyCounts.clear();
   }
 
   shiftOctave(delta) {
@@ -295,35 +304,44 @@ export class MicroPiano {
   }
 
   pressMidi(midi) {
-    if (this._activeKeys.has(midi)) return;
-    const key = this.el?.querySelector(`.micropiano__key[data-midi="${midi}"]`);
-    if (!key) return;
-
-    if (this._onBeforeNoteOn) this._onBeforeNoteOn();
-    this.synth.noteOn(midi);
-    key.classList.add('is-active');
-    this._activeKeys.add(midi);
-    if (this._onNoteOn) this._onNoteOn(midi, 0.8);
+    return this._pressResolvedMidi(midi, 0.8, { source: 'piano', correct: true, requireVisibleInput: true });
   }
 
-  pressControllerMidi(midi, velocity = 0.8) {
-    if (this._activeKeys.has(midi)) return true;
+  pressControllerMidi(midi, velocity = 0.8, options = {}) {
+    return this._pressResolvedMidi(midi, velocity, {
+      source: options.source || 'controller',
+      correct: !!options.correct,
+      requireVisibleInput: false
+    });
+  }
+
+  _pressResolvedMidi(inputMidi, velocity = 0.8, options = {}) {
+    const numeric = Math.round(Number(inputMidi));
+    if (!Number.isFinite(numeric)) return false;
+    if (options.requireVisibleInput && !this.el?.querySelector(`.micropiano__key[data-midi="${numeric}"]`)) return false;
+    const source = options.source || 'piano';
+    const inputKey = `${source}:${numeric}`;
+    if (this._activeInputMap.has(inputKey)) return true;
+    const midi = options.correct
+      ? correctMidiToScale(numeric, normalizeMusicalContext(this.project?.musicalContext))
+      : numeric;
+
     if (this._onBeforeNoteOn) this._onBeforeNoteOn();
-    this.synth.noteOn(midi);
+    const count = this._activeKeyCounts.get(midi) || 0;
     const key = this.el?.querySelector(`.micropiano__key[data-midi="${midi}"]`);
-    if (key) key.classList.add('is-active');
-    this._activeKeys.add(midi);
-    if (this._onNoteOn) this._onNoteOn(midi, velocity);
+    if (count === 0) {
+      this.synth.noteOn(midi);
+      if (key) key.classList.add('is-active');
+      this._activeKeys.add(midi);
+      if (this._onNoteOn) this._onNoteOn(midi, velocity);
+    }
+    this._activeKeyCounts.set(midi, count + 1);
+    this._activeInputMap.set(inputKey, midi);
     return true;
   }
 
-  releaseControllerMidi(midi) {
-    if (!this._activeKeys.has(midi)) return;
-    this.synth.noteOff(midi);
-    const key = this.el?.querySelector(`.micropiano__key[data-midi="${midi}"]`);
-    if (key) key.classList.remove('is-active');
-    this._activeKeys.delete(midi);
-    if (this._onNoteOff) this._onNoteOff(midi);
+  releaseControllerMidi(midi, options = {}) {
+    this._releaseResolvedMidi(midi, options.source || 'controller');
   }
 
   _controllerLearnTargetForMidi(midi) {
@@ -338,6 +356,22 @@ export class MicroPiano {
   }
 
   releaseMidi(midi) {
+    this._releaseResolvedMidi(midi, 'piano');
+  }
+
+  _releaseResolvedMidi(inputMidi, source = 'piano') {
+    const numeric = Math.round(Number(inputMidi));
+    if (!Number.isFinite(numeric)) return;
+    const inputKey = `${source}:${numeric}`;
+    const midi = this._activeInputMap.get(inputKey);
+    if (!Number.isFinite(midi)) return;
+    this._activeInputMap.delete(inputKey);
+    const nextCount = Math.max(0, (this._activeKeyCounts.get(midi) || 1) - 1);
+    if (nextCount > 0) {
+      this._activeKeyCounts.set(midi, nextCount);
+      return;
+    }
+    this._activeKeyCounts.delete(midi);
     if (!this._activeKeys.has(midi)) return;
     const key = this.el?.querySelector(`.micropiano__key[data-midi="${midi}"]`);
     this.synth.noteOff(midi);

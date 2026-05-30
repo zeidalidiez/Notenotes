@@ -199,18 +199,20 @@ Steps:
 5. Switch to Kit and confirm the same keyboard rows trigger visible kit pads in pad order.
 6. While viewing Piano, hold `M` and `R` as performance keys.
 7. Confirm `M` does not toggle the metronome and `R` does not start recording. Space and Enter should still control transport.
-8. Connect a MIDI keyboard in a browser that supports Web MIDI.
-9. Play MIDI notes while viewing Pads, Piano, and Kit.
-10. Switch between Pads, Piano, Kit, and Controller while holding a keyboard or MIDI note.
-11. Return to Pads, set Pad Mode to Step Play, and confirm the octave controls are hidden.
-12. Open Edit Sequence, add notes from the note row, use the arrow buttons to move between octave rows, and save a short sequence.
-13. Press the Step button, then press a few computer keyboard performance keys, then press a few MIDI notes.
-14. Switch to a pentatonic scale, edit the Step Play sequence, use the right arrow to reach the next octave row, and add its first note.
-15. Reopen Edit Sequence, click a sequence chip to remove it, then add it back.
-16. Use a chip's Alt button, pick a different note from the note row, save, and step through the sequence twice.
-17. Change the project key and scale, then return to Step Play.
-18. Open Layout, enable Highlight scale degrees, return to Step Play, and reopen Edit Sequence.
-19. Add and remove a few chips, press Undo, then tap outside the editor backdrop and press Escape.
+8. In the top bar, leave Correction set to Off and confirm Piano can play out-of-key black keys normally.
+9. Set Correction to Closest in C Major. Press C# on Piano and confirm D sounds/records; set Up and Down and confirm C# resolves to D and C respectively.
+10. Connect a MIDI keyboard in a browser that supports Web MIDI.
+11. Play MIDI notes while viewing Pads, Piano, and Kit. In Piano, repeat the Correction checks with external MIDI note C#.
+12. Switch between Pads, Piano, Kit, and Controller while holding a keyboard or MIDI note.
+13. Return to Pads, set Pad Mode to Step Play, and confirm the octave controls are hidden.
+14. Open Edit Sequence, add notes from the note row, use the arrow buttons to move between octave rows, and save a short sequence.
+15. Press the Step button, then press a few computer keyboard performance keys, then press a few MIDI notes.
+16. Switch to a pentatonic scale, edit the Step Play sequence, use the right arrow to reach the next octave row, and add its first note.
+17. Reopen Edit Sequence, click a sequence chip to remove it, then add it back.
+18. Use a chip's Alt button, pick a different note from the note row, save, and step through the sequence twice.
+19. Change the project key and scale, then return to Step Play.
+20. Open Layout, enable Highlight scale degrees, return to Step Play, and reopen Edit Sequence.
+21. Add and remove a few chips, press Undo, then tap outside the editor backdrop and press Escape.
 
 Expected:
 
@@ -218,6 +220,7 @@ Expected:
 - Pads and Piano keyboard notes hold until keyup; Kit hits fire immediately.
 - Kit pads show the keyboard key that triggers each visible pad.
 - MIDI notes route through the active surface: nearest visible Pads target, exact Piano MIDI, and Kit drum mapping.
+- Piano/MIDI Correction defaults to Off. Closest, Up, and Down affect only Piano and external MIDI routed to Piano; Pads, Kit, and exact controller note bindings keep their own behavior.
 - Held keyboard, MIDI, and controller notes release cleanly when switching surfaces; no stuck notes remain.
 - Step Play uses chips in the modal instead of manual text entry; clicking a sequence chip removes it.
 - Step Play's editor note row moves through app octaves 1-6 only. It should never show extremely high note names such as D10, D11, or D12.

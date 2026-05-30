@@ -549,6 +549,18 @@ moving musical input or transport logic.
   drum sounds, audio clips render as sustained blocks, and a vertical playhead
   anchors the motion. Keep this split unless a later Three.js renderer can show
   dense Canvas detail without turning into track-level visual noise.
+- `stageEventsForCanvasTracks()` must support both historical/manual note fields
+  (`midi`, `durationTicks`) and the current recording/export schema
+  (`pitch`, `durationTick`). If Canvas Stage shows `undefined` labels, this is
+  the first place to check. Labels should be derived from the resolved pitch,
+  not from one schema spelling.
+- Live Stage has a touch input strip rendered by `CanvasStageRenderer` in
+  `live` mode. `CreativeMode` supplies lane labels/colors and maps strip
+  pointer events back to the active surface (`ScaleBoard.pressPad/releasePad`,
+  `MicroPiano.pressVisibleKey/releaseVisibleKey`, or `SketchKit.triggerVisiblePad`).
+  This is required because the full-screen Stage overlay covers the underlying
+  pads on mobile; do not remove it unless another mobile input surface replaces
+  it.
 - `CreativeMode` owns Create Stage wiring. Scale/Piano/Controller note callbacks
   now emit Stage note start/end events before they pass through the existing
   recording manager; Sketch Kit hit callbacks emit Stage hit events before drum
@@ -562,6 +574,14 @@ moving musical input or transport logic.
   consume events, but audio remains scheduled by existing Web Audio/Transport
   paths. If Three.js is added, it should sit behind the same Stage event/model
   API rather than replacing the musical routing.
+
+Mobile toolbar panels: Create toolbar controls (`Tone`, `Controller`, `Layout`,
+`Create/Edit Instrument`, and AI Seed) are desktop popovers but become fixed
+viewport modals under 700px wide. The mobile CSS lives in
+`src/instruments/instruments.css` for `.tone-popover` descendants and
+`src/ui/AISeedPanel.css` for `.ai-seed-popover`. This avoids the iOS failure
+mode where an anchored popover inside the horizontally scrolling Create toolbar
+pushes the page or renders outside the visible viewport.
 
 ## AI Seed Boundaries
 

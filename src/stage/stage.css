@@ -1,10 +1,13 @@
 .stage-overlay {
   position: fixed;
   inset: 0;
+  height: 100dvh;
+  max-height: 100dvh;
   z-index: 460;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   min-width: 0;
+  overflow: hidden;
   background:
     radial-gradient(circle at 50% 12%, rgba(41, 221, 255, 0.16), transparent 34%),
     linear-gradient(180deg, rgba(8, 10, 15, 0.98), rgba(0, 0, 0, 0.98));
@@ -56,6 +59,65 @@
   min-height: 0;
 }
 
+.stage-overlay__input-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm, 8px);
+  min-width: 0;
+  padding: 8px var(--space-lg, 24px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.stage-overlay__input-notice {
+  flex: 0 0 auto;
+  max-width: 210px;
+  padding: 5px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.72rem;
+  font-weight: 750;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stage-overlay__input-buttons {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 6px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  touch-action: pan-x;
+}
+
+.stage-overlay__input-buttons::-webkit-scrollbar {
+  display: none;
+}
+
+.stage-overlay__input {
+  flex: 0 0 auto;
+  min-width: 48px;
+  min-height: 36px;
+  padding: 5px 10px;
+  border: 1px solid var(--stage-input-color, #7bd88f);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font: 800 0.78rem system-ui, sans-serif;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 0 14px rgba(255, 255, 255, 0.08);
+}
+
+.stage-overlay__input.is-active {
+  background: var(--stage-input-color, #7bd88f);
+  color: #050607;
+  box-shadow: 0 0 26px var(--stage-input-color, #7bd88f);
+}
+
 .stage-overlay__hint {
   padding: var(--space-xs, 6px) var(--space-lg, 24px) calc(var(--space-sm, 8px) + env(safe-area-inset-bottom));
   border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -69,6 +131,24 @@
   .stage-overlay__chrome {
     align-items: flex-start;
     padding-inline: var(--space-md, 16px);
+  }
+
+  .stage-overlay__input-strip {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 7px;
+    padding: 7px var(--space-md, 16px);
+  }
+
+  .stage-overlay__input-notice {
+    max-width: 100%;
+    align-self: flex-start;
+  }
+
+  .stage-overlay__input {
+    min-width: 46px;
+    min-height: 34px;
+    padding-inline: 9px;
   }
 
   .stage-overlay__subtitle {

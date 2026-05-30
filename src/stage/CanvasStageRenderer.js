@@ -47,6 +47,10 @@ export class CanvasStageRenderer {
     this.getLaneLabel = options.getLaneLabel || ((index) => `Lane ${index + 1}`);
     this.getNowTick = options.getNowTick || (() => 0);
     this.getUnitTicks = options.getUnitTicks || (() => 480);
+    this.getInputItems = options.getInputItems || (() => []);
+    this.getInputNotice = options.getInputNotice || (() => '');
+    this.onInputDown = options.onInputDown || null;
+    this.onInputUp = options.onInputUp || null;
     this.onClose = options.onClose || null;
 
     this.el = null;
@@ -71,18 +75,66 @@ export class CanvasStageRenderer {
         </div>
         <button class="btn btn--ghost stage-overlay__close" type="button">Close Stage</button>
       </div>
+      ${this.mode === 'live' ? this._renderInputStrip() : ''}
       <canvas class="stage-overlay__canvas" aria-label="Stage performance visualization"></canvas>
       <div class="stage-overlay__hint">${this.mode === 'canvas' ? 'Play the canvas to watch clips travel through their lanes.' : 'Play pads, keys, kit, or controller bindings to light the lanes.'}</div>
     `;
     this.canvas = this.el.querySelector('canvas');
     this.ctx = this.canvas.getContext('2d', { alpha: true });
     this.el.querySelector('.stage-overlay__close')?.addEventListener('click', () => this.close());
+    this._bindInputStrip();
     document.body.appendChild(this.el);
 
     if (this.eventStream) {
       this._unsubscribe = this.eventStream.subscribe(payload => this._receiveStreamEvent(payload));
     }
     this._draw();
+  }
+
+  _renderInputStrip() {
+    const items = (this.getInputItems() || []).slice(0, STAGE_TRACK_LIMIT);
+    if (!items.length) return '';
+    const notice = this.getInputNotice?.() || 'Tap these lanes or connect a controller.';
+    return `
+      <div class="stage-overlay__input-strip" aria-label="Stage touch input">
+        <span class="stage-overlay__input-notice">${notice}</span>
+        <div class="stage-overlay__input-buttons">
+          ${items.map((item, index) => `
+            <button class="stage-overlay__input" type="button" data-stage-input="${index}" style="--stage-input-color:${item.color || '#7bd88f'}">
+              <span>${item.label || index + 1}</span>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  _bindInputStrip() {
+    this.el?.querySelectorAll('[data-stage-input]').forEach(button => {
+      let pointerId = null;
+      const index = Number(button.dataset.stageInput);
+      button.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        pointerId = event.pointerId;
+        button.setPointerCapture?.(event.pointerId);
+        button.classList.add('is-active');
+        this.onInputDown?.(index);
+      });
+      const release = (event) => {
+        if (pointerId !== null && event.pointerId !== pointerId) return;
+        pointerId = null;
+        button.classList.remove('is-active');
+        this.onInputUp?.(index);
+      };
+      button.addEventListener('pointerup', release);
+      button.addEventListener('pointercancel', release);
+      button.addEventListener('lostpointercapture', () => {
+        if (pointerId === null) return;
+        pointerId = null;
+        button.classList.remove('is-active');
+        this.onInputUp?.(index);
+      });
+    });
   }
 
   close({ silent = false } = {}) {

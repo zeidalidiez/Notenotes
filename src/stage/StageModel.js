@@ -78,6 +78,16 @@ function hitLabel(hit = {}) {
   return hit.drum || hit.drumName || hit.hitType || 'Hit';
 }
 
+function notePitch(note = {}) {
+  const pitch = Number(note.pitch ?? note.midi);
+  return Number.isFinite(pitch) ? pitch : null;
+}
+
+function noteDurationTick(note = {}, unitTicks = 480) {
+  const duration = Number(note.durationTick ?? note.durationTicks);
+  return Number.isFinite(duration) && duration > 0 ? Math.round(duration) : unitTicks;
+}
+
 function trackSubLaneMap(track = {}) {
   const noteMidis = new Set();
   const hits = new Set();
@@ -85,7 +95,7 @@ function trackSubLaneMap(track = {}) {
   for (const clip of (track.clips || [])) {
     const snippet = clip?.snippet || {};
     for (const note of (snippet.notes || [])) {
-      const midi = Number(note.midi);
+      const midi = notePitch(note);
       if (Number.isFinite(midi)) noteMidis.add(midi);
     }
     for (const hit of (snippet.hits || [])) {
@@ -129,24 +139,26 @@ export function stageEventsForCanvasTracks(tracks = [], options = {}) {
       const source = laneInfo.id;
 
       for (const note of (snippet.notes || [])) {
+        const pitch = notePitch(note);
+        if (!Number.isFinite(pitch)) continue;
         const startTick = clipTick + Math.max(0, Math.round(Number(note.startTick) || 0));
-        const duration = Math.max(1, Math.round(Number(note.durationTicks) || unitTicks));
+        const duration = Math.max(1, noteDurationTick(note, unitTicks));
         const endTick = startTick + duration;
         events.push({
           id: `${source}:note:${events.length}`,
           type: 'note',
           source,
           lane: laneIndex,
-          subLane: subLanes.map.get(`note:${Number(note.midi)}`) ?? 0,
+          subLane: subLanes.map.get(`note:${pitch}`) ?? 0,
           subLaneCount: subLanes.count,
-          pitch: Number(note.midi),
+          pitch,
           startTick,
           endTick,
           durationTick: duration,
           velocity: Math.max(0, Math.min(1, Number(note.velocity) || 0.8)),
           color,
           accentColor: color,
-          label: midiToNoteName(note.midi)?.display || String(note.midi),
+          label: midiToNoteName(pitch)?.display || String(pitch),
           intensity: eventIntensity(startTick, endTick, unitTicks),
         });
       }

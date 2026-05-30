@@ -243,11 +243,13 @@ Expected:
 
 - Stage opens as a full-screen visual layer with a labeled Close Stage button, not a small corner X.
 - Create Stage shows lane activity while playing, whether or not recording is armed.
+- On mobile/touch, the Stage lane pill strip plays the active surface even when no controller is connected.
 - Pads/Piano lanes use degree colors when degree highlighting is enabled; otherwise they use the surface fallback colors.
 - Kit hits appear as short lane bursts.
 - Canvas Stage uses a horizontal track map rather than the Create highway.
 - Canvas Stage respects muted/soloed tracks, caps to the audible lane set, keeps track colors, and shows audio clips as sustained blocks instead of omitting them.
 - Multiple notes or drum sounds inside the same Canvas track appear on separate internal sublanes. A chord should not collapse into one undifferentiated block.
+- MIDI labels in Canvas Stage show real note names, not `undefined`.
 - Stage does not start, stop, or alter audio playback. It only mirrors input and transport state.
 
 ## 2. Audio In Recording
@@ -854,6 +856,21 @@ Expected:
 - Picker lists scroll with finger drags and only select on a deliberate tap.
 - Mobile control buttons stay compact; action buttons should not stretch into giant blocks.
 - Keyboard hotkey hint labels are hidden on phone layouts.
+
+### 9.4 Mobile Create Toolbar Panels
+
+Steps:
+
+1. On iPhone 15 or mobile emulation, open Create > Pads.
+2. Tap Create Instrument, Tone, AI, Controller, and Layout one at a time.
+3. Scroll inside any panel that is taller than the viewport.
+4. Close each panel by tapping outside or using its own action flow.
+
+Expected:
+
+- Each toolbar panel opens as a fixed viewport modal instead of pushing the page downward.
+- Panels stay above the Create toolbar and remain visible within the iOS browser viewport.
+- Tone and Layout controls can be adjusted without horizontal toolbar scrolling interfering.
 - The snippet tray collapses to its header/count and expands again without losing snippets.
 - Patch, Pad Mode, and the main pad grid remain usable without pinch-zooming.
 

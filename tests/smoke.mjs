@@ -205,7 +205,7 @@ test('stage model maps canvas clips into absolute lane events', () => {
           startBar: 2,
           durationBars: 1,
           snippet: {
-            notes: [{ midi: 60, startTick: 120, durationTicks: 360 }],
+            notes: [{ pitch: 60, startTick: 120, durationTick: 360 }],
             hits: [],
           },
         },
@@ -281,9 +281,9 @@ test('stage model gives same canvas track events internal sublanes', () => {
           startBar: 0,
           snippet: {
             notes: [
-              { midi: 67, startTick: 0, durationTicks: 480 },
-              { midi: 60, startTick: 0, durationTicks: 960 },
-              { midi: 67, startTick: 960, durationTicks: 480 },
+              { pitch: 67, startTick: 0, durationTick: 480 },
+              { pitch: 60, startTick: 0, durationTick: 960 },
+              { pitch: 67, startTick: 960, durationTick: 480 },
             ],
             hits: [],
           },

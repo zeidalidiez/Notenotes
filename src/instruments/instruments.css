@@ -1874,6 +1874,20 @@
     font-size: var(--font-size-sm);
   }
 
+  .tone-popover {
+    position: fixed;
+    top: calc(env(safe-area-inset-top) + 72px);
+    right: 12px;
+    bottom: calc(env(safe-area-inset-bottom) + 12px);
+    left: 12px;
+    z-index: var(--z-modal, 600);
+    width: auto;
+    max-height: none;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: var(--radius-md);
+  }
+
   .instrument-container {
     min-height: 0;
   }

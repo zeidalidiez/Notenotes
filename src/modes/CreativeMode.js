@@ -1183,6 +1183,47 @@ export class CreativeMode {
     return midiToNoteName(midi)?.display || String(index + 1);
   }
 
+  _stageInputItems() {
+    return Array.from({ length: this._stageLaneCount() }, (_, index) => {
+      const label = this._stageLaneLabel(index);
+      if (this.activeInstrument === INSTRUMENTS.KIT) {
+        const drum = this.sketchKit?._visibleSounds?.()[index];
+        return { label, color: this._stageColorForDrum(drum?.id || label) };
+      }
+      const midi = this.activeInstrument === INSTRUMENTS.PIANO
+        ? this.microPiano?.visibleMidis?.()[index]
+        : this.scaleBoard?._notes?.[index];
+      return { label, color: Number.isFinite(midi) ? this._stageColorForMidi(midi) : '#7bd88f' };
+    });
+  }
+
+  _stageInputNotice() {
+    return this.gamepadInput?.state?.().connected
+      ? 'Controller connected. Tap lanes too.'
+      : 'No controller detected. Tap lanes here.';
+  }
+
+  _stageInputDown(index) {
+    if (this.activeInstrument === INSTRUMENTS.PIANO) {
+      this.microPiano?.pressVisibleKey?.(index);
+      return;
+    }
+    if (this.activeInstrument === INSTRUMENTS.KIT) {
+      this.sketchKit?.triggerVisiblePad?.(index);
+      return;
+    }
+    this.scaleBoard?.pressPad?.(index);
+  }
+
+  _stageInputUp(index) {
+    if (this.activeInstrument === INSTRUMENTS.PIANO) {
+      this.microPiano?.releaseVisibleKey?.(index);
+      return;
+    }
+    if (this.activeInstrument === INSTRUMENTS.KIT) return;
+    this.scaleBoard?.releasePad?.(index);
+  }
+
   _stageLaneForMidi(midi) {
     if (this.activeInstrument === INSTRUMENTS.PIANO) {
       const visible = this.microPiano?.visibleMidis?.() || [];
@@ -1278,6 +1319,10 @@ export class CreativeMode {
       getLaneLabel: (index) => this._stageLaneLabel(index),
       getNowTick: () => this.transport?.currentTick || 0,
       getUnitTicks: () => stageUnitTicksForMeter(this.transport),
+      getInputItems: () => this._stageInputItems(),
+      getInputNotice: () => this._stageInputNotice(),
+      onInputDown: (index) => this._stageInputDown(index),
+      onInputUp: (index) => this._stageInputUp(index),
       onClose: () => {
         this._stageOverlay = null;
         this._syncStageButton();

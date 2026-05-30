@@ -13,6 +13,8 @@ import { normalizeMeter, pulseCountForMeter, subBeatsForPulse } from '../engine/
 import { showToast } from '../ui/Toast.js';
 import { ChoicePicker } from '../ui/ChoicePicker.js';
 import { renderToneBadges, toneBadgeItemsForClip } from '../ui/ToneBadges.js';
+import { CanvasStageRenderer } from '../stage/CanvasStageRenderer.js';
+import { stageEventsForCanvasTracks, stageTracksForCanvas, stageUnitTicksForMeter } from '../stage/StageModel.js';
 
 /** Pixels per bar at default zoom */
 const DEFAULT_BAR_WIDTH = 120;
@@ -51,6 +53,7 @@ export class CanvasMode {
     this._rulerEl = null;
     this._audioPeakLoads = new Set();
     this._tonePicker = null;
+    this._stageOverlay = null;
 
     /** Called when a track's instrument changes */
     this.onTrackInstrumentChanged = null;
@@ -190,6 +193,8 @@ export class CanvasMode {
           <span class="choice-picker-button__chevron" aria-hidden="true">▼</span>
         </button>
         <button class="btn btn--ghost canvas-toolbar__btn" id="canvas-tone-apply" title="Select a MIDI or drum clip first" disabled>Apply to Clip</button>
+        <div class="canvas-toolbar__divider"></div>
+        <button class="btn btn--ghost canvas-toolbar__btn canvas-stage-button" id="canvas-stage-button" type="button" title="Open the Canvas performance visual layer">Stage</button>
       </div>
     `;
     this.el.appendChild(toolbar);
@@ -1418,6 +1423,10 @@ export class CanvasMode {
       this._applyTonePresetToSelectedClip();
     });
 
+    this.el.querySelector('#canvas-stage-button')?.addEventListener('click', () => {
+      this._toggleStageOverlay();
+    });
+
     this.el.querySelector('#canvas-tone-preset')?.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       this._openTonePresetPicker(e.currentTarget);
@@ -1728,7 +1737,47 @@ export class CanvasMode {
     showToast(`Canvas zoom ${Math.round(this._zoomLevel * 100)}%`);
   }
 
+  _canvasStageTracks() {
+    return stageTracksForCanvas(this.project?.tracks || []);
+  }
+
+  _toggleStageOverlay() {
+    if (this._stageOverlay) {
+      this._stageOverlay.close();
+      return;
+    }
+    this._stageOverlay = new CanvasStageRenderer({
+      title: 'Canvas Stage',
+      subtitle: "A bird's-eye performance view of audible canvas tracks.",
+      mode: 'canvas',
+      getLaneCount: () => this._canvasStageTracks().length || 1,
+      getLaneLabel: (index) => this._canvasStageTracks()[index]?.name || `Track ${index + 1}`,
+      getNowTick: () => this.transport?.currentTick || 0,
+      getUnitTicks: () => stageUnitTicksForMeter(this.transport),
+      getEvents: () => stageEventsForCanvasTracks(this.project?.tracks || [], {
+        maxTracks: 20,
+        ticksPerBar: this.transport?.ticksPerBar || 1920,
+        unitTicks: stageUnitTicksForMeter(this.transport),
+      }),
+      onClose: () => {
+        this._stageOverlay = null;
+        this._syncStageButton();
+      },
+    });
+    this._stageOverlay.open();
+    this._syncStageButton();
+  }
+
+  _syncStageButton() {
+    const btn = this.el?.querySelector('#canvas-stage-button');
+    if (!btn) return;
+    btn.classList.toggle('is-active', !!this._stageOverlay);
+    btn.setAttribute('aria-pressed', String(!!this._stageOverlay));
+  }
+
   destroy() {
     if (this._animFrame) cancelAnimationFrame(this._animFrame);
+    this._stageOverlay?.close({ silent: true });
+    this._stageOverlay = null;
   }
 }

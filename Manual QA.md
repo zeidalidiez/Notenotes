@@ -226,6 +226,28 @@ Expected:
 - A step with an alternate plays the normal note on the first pass through the sequence, the alternate note on the second pass, and alternates on later passes.
 - Global pitch/mod digit shortcuts still work when the active Create surface does not claim that key.
 
+### 1.11 Stage Visual Layer
+
+Steps:
+
+1. Open Create > Pads and click Stage.
+2. Play several pads, including held notes and quick taps.
+3. Switch to Piano, open Stage, and play visible keys.
+4. Switch to Kit, open Stage, and hit several drum pads.
+5. Create a MIDI snippet, a drum snippet, and an Audio In snippet, then place them on separate Canvas tracks with different track colors.
+6. Open Canvas and click Stage.
+7. Press Play and watch the Canvas Stage lanes while clips pass the playhead.
+8. Close Stage and confirm normal app controls are usable again.
+
+Expected:
+
+- Stage opens as a full-screen visual layer with a labeled Close Stage button, not a small corner X.
+- Create Stage shows lane activity while playing, whether or not recording is armed.
+- Pads/Piano lanes use degree colors when degree highlighting is enabled; otherwise they use the surface fallback colors.
+- Kit hits appear as short lane bursts.
+- Canvas Stage respects muted/soloed tracks, caps to the audible lane set, keeps track colors, and shows audio clips as sustained blocks instead of omitting them.
+- Stage does not start, stop, or alter audio playback. It only mirrors input and transport state.
+
 ## 2. Audio In Recording
 
 ### 2.1 Audio In Creates A Snippet

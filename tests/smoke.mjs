@@ -28,6 +28,7 @@ import {
 import { StageEventStream } from '../src/stage/StageEventStream.js';
 import {
   STAGE_TRACK_LIMIT,
+  stageEventsForCanvasTracks,
   stageIntensityForUnits,
   stageTracksForCanvas,
 } from '../src/stage/StageModel.js';
@@ -190,6 +191,77 @@ test('stage model caps canvas tracks and scales intensity by musical units', () 
   assert.deepEqual(stageIntensityForUnits(1).tier, 'solid');
   assert.deepEqual(stageIntensityForUnits(2.5).tier, 'bright');
   assert.deepEqual(stageIntensityForUnits(4).tier, 'sustain');
+});
+
+test('stage model maps canvas clips into absolute lane events', () => {
+  const tracks = [
+    {
+      id: 'midi-track',
+      name: 'Keys',
+      color: '#44ccff',
+      type: 'midi',
+      clips: [
+        {
+          startBar: 2,
+          durationBars: 1,
+          snippet: {
+            notes: [{ midi: 60, startTick: 120, durationTicks: 360 }],
+            hits: [],
+          },
+        },
+      ],
+    },
+    {
+      id: 'audio-track',
+      name: 'Line',
+      color: '#ff8844',
+      type: 'audio',
+      clips: [
+        {
+          startBar: 0.5,
+          durationBars: 1.5,
+          snippet: { type: 'audio', notes: [], hits: [] },
+        },
+      ],
+    },
+  ];
+
+  const events = stageEventsForCanvasTracks(tracks, { ticksPerBar: 1920, unitTicks: 480 });
+  assert.equal(events.length, 2);
+  assert.deepEqual(
+    events.map(event => ({
+      type: event.type,
+      source: event.source,
+      lane: event.lane,
+      startTick: event.startTick,
+      endTick: event.endTick,
+      color: event.color,
+      label: event.label,
+      tier: event.intensity.tier,
+    })),
+    [
+      {
+        type: 'clip',
+        source: 'audio-track',
+        lane: 1,
+        startTick: 960,
+        endTick: 3840,
+        color: '#ff8844',
+        label: 'Audio',
+        tier: 'sustain',
+      },
+      {
+        type: 'note',
+        source: 'midi-track',
+        lane: 0,
+        startTick: 3960,
+        endTick: 4320,
+        color: '#44ccff',
+        label: 'C4',
+        tier: 'spark',
+      },
+    ]
+  );
 });
 
 test('audio audit reports missing, orphaned, and backup readiness without mutating project', () => {

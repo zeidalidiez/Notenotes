@@ -7,6 +7,8 @@
 import '../modes/creative.css';
 import { WebAudioSynth, PRESETS, SOUND_TRAITS, normalizeSoundTraits } from '../instruments/WebAudioSynth.js';
 import {
+  degreeForMidi,
+  midiToNoteName,
   normalizeDegreeHighlighting,
   normalizeMusicalContext,
   SCALES
@@ -34,6 +36,9 @@ import { ControllerMapperPopover, controllerTargetLabel } from '../ui/Controller
 import { CreateLayoutPopover } from '../ui/CreateLayoutPopover.js';
 import { CreateInstrumentPopover } from '../ui/CreateInstrumentPopover.js';
 import { showToast } from '../ui/Toast.js';
+import { StageEventStream } from '../stage/StageEventStream.js';
+import { CanvasStageRenderer } from '../stage/CanvasStageRenderer.js';
+import { stageUnitTicksForMeter } from '../stage/StageModel.js';
 
 const INSTRUMENTS = {
   SCALEBOARD: 'scaleboard',
@@ -52,6 +57,7 @@ export class CreativeMode {
     this.project = project;
     this._modManager = modManager;
     this.gamepadInput = new GamepadInputManager();
+    this.stageEvents = new StageEventStream();
     this.el = null;
     this.activeInstrument = INSTRUMENTS.SCALEBOARD;
 
@@ -89,6 +95,7 @@ export class CreativeMode {
     this.sketchKit.onKitChanged = () => this.store?.scheduleAutoSave(this.project);
     this.sketchKit.onAISeedClick = (anchor, buttonEl) => this._toggleAISeedPopover(anchor, buttonEl);
     this.sketchKit.onControllerMapperClick = (anchor, buttonEl) => this._toggleControllerMapperPopover(anchor, buttonEl);
+    this.sketchKit.onStageClick = () => this._toggleStageOverlay();
     this.micRecorder = new MicRecorder();
     this.controllerMode = new ControllerMode(this.synth, this.project, modManager, this.gamepadInput);
     this.controllerMode.onToneAssignmentChanged = () => this.store?.scheduleAutoSave(this.project);
@@ -212,6 +219,8 @@ export class CreativeMode {
     this.onRecordArmChanged = null;
     this._activePatchId = 'chip_lead';
     this._currentToneTraits = this._currentToneTraits || null;
+    this._stageOverlay = null;
+    this._stageHeldNotes = new Map();
     this.onProjectKeyChange = null;
   }
 
@@ -267,8 +276,14 @@ export class CreativeMode {
     this.arpManager.wrapSynth(this.synth);
 
     // Wire up note callbacks for recording
-    const noteOn = (midi, vel, meta) => this.recordingManager.noteOn(midi, vel, meta);
-    const noteOff = (midi) => this.recordingManager.noteOff(midi);
+    const noteOn = (midi, vel, meta) => {
+      this._stageNoteOn(midi, vel, meta);
+      this.recordingManager.noteOn(midi, vel, meta);
+    };
+    const noteOff = (midi) => {
+      this._stageNoteOff(midi);
+      this.recordingManager.noteOff(midi);
+    };
     this.scaleBoard.setNoteCallbacks(noteOn, noteOff);
     this.microPiano.setNoteCallbacks(noteOn, noteOff);
     this.controllerMode.setNoteCallbacks(noteOn, noteOff);
@@ -277,7 +292,10 @@ export class CreativeMode {
     this.microPiano.setBeforeNoteCallback(startArmedRecording);
     this.controllerMode.setBeforeNoteCallback(startArmedRecording);
     this.sketchKit.setBeforeHitCallback(startArmedRecording);
-    this.sketchKit.setHitCallback((drumName) => this.recordingManager.drumHit(drumName));
+    this.sketchKit.setHitCallback((drumName) => {
+      this._stageDrumHit(drumName);
+      this.recordingManager.drumHit(drumName);
+    });
     this.scaleBoard.setControllerLearnCallback((target) => this._handleControllerLearnTarget(target));
     this.microPiano.setControllerLearnCallback((target) => this._handleControllerLearnTarget(target));
     this.sketchKit.setControllerLearnCallback((target) => this._handleControllerLearnTarget(target));
@@ -471,6 +489,7 @@ export class CreativeMode {
       <button class="tone-button ai-seed-button" id="ai-seed-button" type="button" aria-expanded="false" aria-controls="ai-seed-popover" title="Seed a snippet with AI">AI</button>
       <button class="tone-button controller-map-button" id="controller-map-button" type="button" aria-expanded="false" aria-controls="controller-map-popover" title="Learn gamepad bindings">Controller</button>
       <button class="tone-button" id="layout-button" type="button" aria-expanded="false" aria-controls="layout-popover">Layout</button>
+      <button class="tone-button stage-button" id="stage-button" type="button" aria-pressed="false" title="Open the performance visual layer">Stage</button>
       <span class="tone-trigger-indicator" id="tone-trigger-indicator" aria-live="polite"></span>
     `;
     this._bindToolbarTap(patchSel.querySelector('#patch-picker-button'), (button) => {
@@ -496,6 +515,9 @@ export class CreativeMode {
       if (button.disabled) return;
       if (this.activeInstrument === INSTRUMENTS.SCALEBOARD) this._togglePadsPopover(patchSel, button);
       else if (this.activeInstrument === INSTRUMENTS.PIANO) this._toggleKeysPopover(patchSel, button);
+    });
+    this._bindToolbarTap(patchSel.querySelector('#stage-button'), () => {
+      this._toggleStageOverlay();
     });
     this.el.appendChild(patchSel);
     this._syncInstrumentButtons();
@@ -1138,6 +1160,140 @@ export class CreativeMode {
     return false;
   }
 
+  _stageLaneCount() {
+    if (this.activeInstrument === INSTRUMENTS.PIANO) {
+      return Math.max(1, Math.min(32, this.microPiano?.visibleMidis?.().length || 12));
+    }
+    if (this.activeInstrument === INSTRUMENTS.KIT) {
+      return Math.max(1, Math.min(10, this.sketchKit?._visibleSounds?.().length || 10));
+    }
+    if (this.activeInstrument === INSTRUMENTS.MIC) return 1;
+    return Math.max(1, Math.min(16, this.scaleBoard?._notes?.length || 8));
+  }
+
+  _stageLaneLabel(index) {
+    if (this.activeInstrument === INSTRUMENTS.PIANO) {
+      const midi = this.microPiano?.visibleMidis?.()[index];
+      return midiToNoteName(midi)?.display || String(index + 1);
+    }
+    if (this.activeInstrument === INSTRUMENTS.KIT) {
+      return this.sketchKit?._visibleSounds?.()[index]?.label || String(index + 1);
+    }
+    const midi = this.scaleBoard?._notes?.[index];
+    return midiToNoteName(midi)?.display || String(index + 1);
+  }
+
+  _stageLaneForMidi(midi) {
+    if (this.activeInstrument === INSTRUMENTS.PIANO) {
+      const visible = this.microPiano?.visibleMidis?.() || [];
+      const exact = visible.indexOf(midi);
+      if (exact >= 0) return exact;
+      if (visible.length) {
+        return visible.reduce((best, value, index) => (
+          Math.abs(value - midi) < Math.abs(visible[best] - midi) ? index : best
+        ), 0);
+      }
+    }
+    const notes = this.scaleBoard?._notes || [];
+    const exact = notes.indexOf(midi);
+    if (exact >= 0) return exact;
+    if (notes.length) {
+      return notes.reduce((best, value, index) => (
+        Math.abs(value - midi) < Math.abs(notes[best] - midi) ? index : best
+      ), 0);
+    }
+    return 0;
+  }
+
+  _stageColorForMidi(midi) {
+    const degree = this._ensureDegreeHighlighting();
+    if (degree?.enabled) {
+      const meta = degreeForMidi(midi, this._ensureMusicalContext());
+      if (meta && degree.colors?.[meta.interval]) return degree.colors[meta.interval];
+    }
+    if (this.activeInstrument === INSTRUMENTS.PIANO) return '#7d8cff';
+    if (this.activeInstrument === INSTRUMENTS.CONTROLLER) return '#d783ff';
+    return '#7bd88f';
+  }
+
+  _stageColorForDrum(drumName) {
+    const sounds = this.sketchKit?._visibleSounds?.() || [];
+    const index = Math.max(0, sounds.findIndex(sound => sound.id === drumName));
+    const palette = ['#ff6b6b', '#f7b267', '#7bd88f', '#5bd6d6', '#7d8cff', '#d783ff', '#ff77c8', '#f05d8e', '#ff8a5c', '#6fb4ff'];
+    return palette[index % palette.length];
+  }
+
+  _stageNoteOn(midi, velocity = 0.8, meta = {}) {
+    const key = `${this.activeInstrument}:${midi}`;
+    if (this._stageHeldNotes.has(key)) return;
+    const note = midiToNoteName(midi)?.display || String(midi);
+    const id = this.stageEvents.beginNote({
+      source: this.activeInstrument,
+      pitch: midi,
+      lane: this._stageLaneForMidi(midi),
+      startTick: this.transport?.currentTick || 0,
+      velocity,
+      color: this._stageColorForMidi(midi),
+      label: note,
+      meta,
+    });
+    this._stageHeldNotes.set(key, id);
+  }
+
+  _stageNoteOff(midi) {
+    const key = `${this.activeInstrument}:${midi}`;
+    const id = this._stageHeldNotes.get(key);
+    if (!id) return;
+    this.stageEvents.endNote(id, { endTick: this.transport?.currentTick || 0 });
+    this._stageHeldNotes.delete(key);
+  }
+
+  _stageDrumHit(drumName) {
+    const sounds = this.sketchKit?._visibleSounds?.() || [];
+    const index = Math.max(0, sounds.findIndex(sound => sound.id === drumName));
+    this.stageEvents.hit({
+      source: INSTRUMENTS.KIT,
+      drum: drumName,
+      lane: index,
+      startTick: this.transport?.currentTick || 0,
+      color: this._stageColorForDrum(drumName),
+      label: sounds[index]?.label || drumName,
+    });
+  }
+
+  _toggleStageOverlay() {
+    if (this._stageOverlay) {
+      this._stageOverlay.close();
+      return;
+    }
+    const title = this.activeInstrument === INSTRUMENTS.KIT
+      ? 'Kit Stage'
+      : (this.activeInstrument === INSTRUMENTS.PIANO ? 'Piano Stage' : 'Pad Stage');
+    this._stageOverlay = new CanvasStageRenderer({
+      title,
+      subtitle: 'A first-pass performance highway for the active Create surface.',
+      mode: 'live',
+      eventStream: this.stageEvents,
+      getLaneCount: () => this._stageLaneCount(),
+      getLaneLabel: (index) => this._stageLaneLabel(index),
+      getNowTick: () => this.transport?.currentTick || 0,
+      getUnitTicks: () => stageUnitTicksForMeter(this.transport),
+      onClose: () => {
+        this._stageOverlay = null;
+        this._syncStageButton();
+      },
+    });
+    this._stageOverlay.open();
+    this._syncStageButton();
+  }
+
+  _syncStageButton() {
+    this.el?.querySelectorAll('.stage-button').forEach(btn => {
+      btn.classList.toggle('is-active', !!this._stageOverlay);
+      btn.setAttribute('aria-pressed', String(!!this._stageOverlay));
+    });
+  }
+
   _switchInstrument(id) {
     if (id === this.activeInstrument) return;
     this._releaseKeyboardPerformance();
@@ -1208,6 +1364,7 @@ export class CreativeMode {
   _syncCreateToolbarButtons() {
     this._syncAISeedButtonVisibility();
     this._syncControllerMapperButtonVisibility();
+    this._syncStageButton();
     const layoutBtn = this.el?.querySelector('#layout-button');
     if (layoutBtn) {
       const isScale = this.activeInstrument === INSTRUMENTS.SCALEBOARD;
@@ -1340,6 +1497,8 @@ export class CreativeMode {
     this.synth?.panic?.();
     this.sketchKit?.panic?.();
     this.voiceEngine?.allNotesOff?.();
+    this.stageEvents?.clear?.();
+    this._stageHeldNotes?.clear?.();
     this.arpManager?.setMode?.(ARP_MODES.OFF);
   }
 

@@ -514,10 +514,11 @@ while CreativeMode decides what the form means for project data.
 
 ## Stage / Performance Visual Foundation
 
-Stage is the planned full-screen visual performance layer for live Create input
-and Canvas playback. Keep it renderer-agnostic. The first committed foundation
-does not mount UI yet; it defines the event/model contract that a Canvas 2D
-renderer or a later Three.js renderer can consume.
+Stage is the full-screen visual performance layer for live Create input and
+Canvas playback. Keep it renderer-agnostic. The current shipped surface uses a
+Canvas 2D renderer for footprint/mobile safety, but the event/model contract is
+kept separate so a later Three.js renderer can replace the drawing layer without
+moving musical input or transport logic.
 
 - `src/stage/StageEventStream.js` is a small pub/sub stream for live visual
   events. `beginNote()` emits a note start and stores the active line,
@@ -529,8 +530,27 @@ renderer or a later Three.js renderer can consume.
   defaults Canvas Stage to 20 audible lanes, `stageTracksForCanvas()` filters
   muted tracks, honors solo, caps lanes, and preserves track color/type, while
   `stageIntensityForUnits()` maps contextual length units into `spark`,
-  `solid`, `bright`, and `sustain` tiers. Future Free mode can feed seconds as
-  units; metered mode can feed pulse/beat units.
+  `solid`, `bright`, and `sustain` tiers. `stageEventsForCanvasTracks()` maps
+  Canvas clips into absolute tick events per lane. MIDI notes keep their pitch
+  labels, drum hits become short lane events, and audio clips become sustained
+  blocks so Canvas Stage does not silently omit recordings. Future Free mode can
+  feed seconds as units; metered mode can feed pulse/beat units.
+- `src/stage/CanvasStageRenderer.js` owns the current visual layer. It renders a
+  fixed full-screen highway overlay with a design-language-friendly Close Stage
+  button, not a corner X. In `live` mode it subscribes to `StageEventStream` and
+  keeps a short recent-event tail so idle playing, armed recording, and active
+  recording all visualize the same way. In `canvas` mode it reads project tracks
+  and `transport.currentTick` each frame, drawing upcoming/active clip events in
+  the capped audible-lane set.
+- `CreativeMode` owns Create Stage wiring. Scale/Piano/Controller note callbacks
+  now emit Stage note start/end events before they pass through the existing
+  recording manager; Sketch Kit hit callbacks emit Stage hit events before drum
+  recording capture. This does not change recording ownership. Stage only sees
+  mirrored event data.
+- `CanvasMode` owns Canvas Stage wiring. The Canvas toolbar has a Stage button
+  that opens a bird's-eye track overlay. The renderer reads `project.tracks`,
+  track mute/solo/color state, `transport.ticksPerBar`, and
+  `transport.currentTick`; it does not mutate clips and does not drive playback.
 - Do not let Stage drive audio. Stage renderers may read transport time and
   consume events, but audio remains scheduled by existing Web Audio/Transport
   paths. If Three.js is added, it should sit behind the same Stage event/model

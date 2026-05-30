@@ -594,6 +594,14 @@ viewport modals under 700px wide. The mobile CSS lives in
 mode where an anchored popover inside the horizontally scrolling Create toolbar
 pushes the page or renders outside the visible viewport.
 
+The Create toolbar itself also switches from loose flex wrapping to an explicit
+grid under 700px. Keep `Patch` label + picker on the first row and action
+buttons on compact follow-up rows. This is intentional: flex wrapping allowed a
+single action such as Tone to balloon across the screen while adjacent actions
+were clipped on iPhone-width layouts. Pads also use denser mobile row heights
+and contained scrolling so 13-pad Extensions layouts can be reached without the
+snippets tray covering the final row.
+
 ## AI Seed Boundaries
 
 AI Seed is intentionally narrow. `AIController` builds a snippet through the

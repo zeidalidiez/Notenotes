@@ -1836,14 +1836,13 @@
   }
 
   .patch-selector {
-    display: flex;
+    display: grid;
+    grid-template-columns: 56px repeat(4, minmax(0, 1fr));
     align-items: center;
-    flex-wrap: wrap;
     gap: var(--space-xs);
     padding: var(--space-xs) var(--space-sm);
-    overflow-x: auto;
+    overflow: visible;
     scrollbar-width: none;
-    touch-action: pan-x;
   }
 
   .patch-selector::-webkit-scrollbar {
@@ -1851,27 +1850,62 @@
   }
 
   .patch-selector__label {
-    flex: 0 0 52px;
+    grid-column: 1;
+    grid-row: 1;
     align-self: center;
   }
 
   .patch-selector__picker {
-    flex: 1 1 calc(100% - 60px);
-    min-width: 220px;
+    grid-column: 2 / -1;
+    grid-row: 1;
+    width: 100%;
+    min-width: 0;
     max-width: none;
-  }
-
-  .patch-selector .tone-button,
-  .patch-selector .tone-trigger-indicator {
-    flex: 0 0 auto;
   }
 
   .patch-selector .tone-button {
     white-space: nowrap;
-    min-height: 34px;
+    width: 100%;
+    min-height: 32px;
     min-width: 0;
-    padding: 0 var(--space-sm);
-    font-size: var(--font-size-sm);
+    padding: 0 var(--space-xs);
+    font-size: var(--font-size-xs);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #create-instrument-button,
+  #sk-create-instrument-button {
+    grid-column: 1 / span 2;
+  }
+
+  #delete-instrument-button,
+  #sk-delete-instrument-button {
+    grid-column: 3;
+  }
+
+  #tone-button,
+  #sk-tone-button {
+    grid-column: 3;
+  }
+
+  #ai-seed-button,
+  #sk-ai-seed-button {
+    grid-column: 4;
+  }
+
+  #controller-map-button,
+  #sk-controller-map-button {
+    grid-column: 1 / span 2;
+  }
+
+  #layout-button {
+    grid-column: 3;
+  }
+
+  #stage-button,
+  #sk-stage-button {
+    grid-column: 4 / span 2;
   }
 
   .tone-popover {
@@ -1929,35 +1963,40 @@
   }
 
   .scaleboard__oct-btn {
-    min-width: 30px !important;
-    min-height: 34px !important;
+    min-width: 26px !important;
+    min-height: 32px !important;
+    padding-inline: 0 !important;
   }
 
   .scaleboard__oct-display {
-    min-width: 42px;
+    min-width: 38px;
     font-size: var(--font-size-xs);
   }
 
   .scaleboard__extensions-btn {
-    min-height: 34px;
-    padding: 0 var(--space-sm);
-    font-size: var(--font-size-sm);
+    min-height: 32px;
+    padding: 0 var(--space-xs);
+    font-size: var(--font-size-xs);
   }
 
   .scaleboard__pads {
-    gap: 6px !important;
-    grid-auto-rows: minmax(42px, 1fr);
+    gap: 5px !important;
+    grid-auto-rows: minmax(36px, 1fr);
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .scaleboard__pad {
-    min-height: 42px;
-    border-radius: 12px;
+    min-height: 36px;
+    border-radius: 10px;
     border-width: 1px;
     gap: 1px;
   }
 
   .scaleboard__pad-degree {
-    font-size: 1.55rem;
+    font-size: 1.34rem;
   }
 
   .scaleboard__pad-note {

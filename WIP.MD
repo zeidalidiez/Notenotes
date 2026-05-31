@@ -72,26 +72,32 @@ Later polish:
 
 - Apply Tone preset directly to an editable snippet from Inspect. Do not describe this as "from the snippet library" unless the tray gains a real editing action.
 
-## 3. Manual QA: Controller Trigger Polish
+## 3. Labs Controller Cleanup
 
 Goal:
 
-Make trigger behavior obvious and consistent for users who do not already think like musicians.
+Keep controller setup useful without letting Labs become a second instrument
+surface or repeating controls that already live elsewhere.
 
 Checklist:
 
-- Trigger Notes in single-note mode.
-- Trigger Notes in chord mode.
-- Tone trigger hotswitch behavior while recording.
-- Helper text on mobile.
-- Real controller trigger pressure on desktop Chrome.
-- Real controller trigger behavior on mobile browsers where gamepads are supported.
+- Move the current controller setup into a dedicated tab or section inside Labs.
+- Remove the Labs octave controls. Octave already belongs to the active surface
+  and should not be duplicated in controller setup.
+- Remove the fallback scale / unbound-button list from Labs. It is redundant
+  with the live fallback behavior and makes the panel feel like a playable
+  surface instead of setup.
+- Keep learned bindings, controller presets, and held modifier slot assignment
+  visible from the controller tab.
+- Confirm `LB`, `LT`, `RB`, and `RT` remain reserved for held modifiers and do
+  not appear in the controller button learn flow.
 
 Decisions to revisit:
 
-- Whether the Trigger Notes list should stay as-is or be simplified after testing.
-- Whether README copy should better explain that LT and RT are independent slots, so each trigger can be Tone, Trigger Note, or None.
-- Whether Create mode needs a small always-visible trigger assignment reminder.
+- Whether Labs should use simple tabs, an accordion, or a compact section list
+  as more experimental/accessibility surfaces are added.
+- Whether controller presets should be managed from the controller tab only or
+  also surfaced near the global Controller button.
 
 ## 4. Migration Discipline
 

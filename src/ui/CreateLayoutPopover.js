@@ -5,6 +5,7 @@ import {
   normalizeDegreeHighlighting,
   SCALES,
 } from '../engine/MusicTheory.js';
+import { DEFAULT_PROGRESSION_GLOW, normalizeProgressionGlow } from '../engine/Progressions.js';
 
 export function clampCustomPadCount(value) {
   const parsed = parseInt(value, 10);
@@ -139,6 +140,7 @@ export class CreateLayoutPopover {
       <p class="create-control-popover__hint">Used by Pads Custom mode.</p>
       ` : `<p class="create-control-popover__hint">Custom pad count appears here in Custom mode.</p>`}
       ${this._renderDegreeControls()}
+      ${this._renderProgressionGlowControls()}
     `;
 
     anchor.appendChild(popover);
@@ -157,6 +159,7 @@ export class CreateLayoutPopover {
       this.onPadsChanged?.(value);
     });
     this._bindDegreeControls(popover);
+    this._bindProgressionGlowControls(popover);
 
     const handleOutside = (event) => {
       if (!this._padsPopover) return;
@@ -192,6 +195,7 @@ export class CreateLayoutPopover {
         <input class="tone-row__slider" id="keys-count-slider" type="range" min="10" max="32" value="${keys}" aria-label="Piano key count">
       </label>
       ${this._renderDegreeControls()}
+      ${this._renderProgressionGlowControls()}
     `;
 
     anchor.appendChild(popover);
@@ -217,6 +221,7 @@ export class CreateLayoutPopover {
       this.onPianoChanged?.();
     });
     this._bindDegreeControls(popover);
+    this._bindProgressionGlowControls(popover);
 
     const handleOutside = (event) => {
       if (!this._keysPopover) return;
@@ -312,6 +317,76 @@ export class CreateLayoutPopover {
         showLabels: DEFAULT_DEGREE_HIGHLIGHTING.showLabels,
         intensity: DEFAULT_DEGREE_HIGHLIGHTING.intensity,
         colors: { ...DEFAULT_DEGREE_COLORS },
+      });
+      notify();
+      if (popover.id === 'pads-popover') {
+        const anchor = this._padsAnchor;
+        const button = this._padsButton;
+        this.closePads();
+        if (anchor) this.togglePads(anchor, button);
+      } else {
+        const anchor = this._keysAnchor;
+        const button = this._keysButton;
+        this.closeKeys();
+        if (anchor) this.toggleKeys(anchor, button);
+      }
+    });
+  }
+
+  _ensureProgressionGlow() {
+    const project = this.getProject?.();
+    if (!project) return normalizeProgressionGlow();
+    project.settings ||= {};
+    project.settings.progressionGlow = normalizeProgressionGlow(project.settings.progressionGlow);
+    return project.settings.progressionGlow;
+  }
+
+  _renderProgressionGlowControls() {
+    const glow = this._ensureProgressionGlow();
+    return `
+      <div class="degree-controls progression-glow-controls" data-progression-glow-controls>
+        <div class="degree-controls__head">
+          <span>Chord tone glow</span>
+          <button class="btn btn--ghost btn--sm" type="button" data-progression-glow-reset>Reset</button>
+        </div>
+        <label class="degree-controls__check">
+          <input type="checkbox" data-progression-glow-enabled ${glow.enabled ? 'checked' : ''}>
+          <span>Show Changes glow</span>
+        </label>
+        <label class="create-control-popover__row create-control-popover__row--slider">
+          <span>Glow intensity</span>
+          <span class="create-control-popover__value" data-progression-glow-intensity-value>${Math.round((glow.intensity ?? DEFAULT_PROGRESSION_GLOW.intensity) * 100)}%</span>
+          <input class="tone-row__slider" type="range" min="8" max="85" value="${Math.round((glow.intensity ?? DEFAULT_PROGRESSION_GLOW.intensity) * 100)}" data-progression-glow-intensity aria-label="Changes glow intensity">
+        </label>
+      </div>
+    `;
+  }
+
+  _bindProgressionGlowControls(popover) {
+    if (!popover) return;
+    const notify = () => {
+      this.onScheduleSave?.();
+      this.getScaleBoard?.()?._refreshPads?.();
+      this.getMicroPiano?.()?.refreshDegreeHighlights?.();
+    };
+    popover.querySelector('[data-progression-glow-enabled]')?.addEventListener('change', (event) => {
+      const glow = this._ensureProgressionGlow();
+      glow.enabled = !!event.target.checked;
+      notify();
+    });
+    popover.querySelector('[data-progression-glow-intensity]')?.addEventListener('input', (event) => {
+      const glow = this._ensureProgressionGlow();
+      glow.intensity = Math.max(0.08, Math.min(0.85, Number(event.target.value) / 100));
+      popover.querySelector('[data-progression-glow-intensity-value]')?.replaceChildren(`${Math.round(glow.intensity * 100)}%`);
+      notify();
+    });
+    popover.querySelector('[data-progression-glow-reset]')?.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      const project = this.getProject?.();
+      project.settings ||= {};
+      project.settings.progressionGlow = normalizeProgressionGlow({
+        enabled: DEFAULT_PROGRESSION_GLOW.enabled,
+        intensity: DEFAULT_PROGRESSION_GLOW.intensity,
       });
       notify();
       if (popover.id === 'pads-popover') {

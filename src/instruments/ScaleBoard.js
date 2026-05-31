@@ -31,7 +31,7 @@ import {
   NOTE_NAMES
 } from '../engine/MusicTheory.js';
 import { scaleChordRecipes } from '../engine/ScaleChords.js';
-import { activeProgressionResolution } from '../engine/Progressions.js';
+import { activeProgressionResolution, normalizeProgressionGlow } from '../engine/Progressions.js';
 import { showToast } from '../ui/Toast.js';
 import { syllabify, extractPlayableSyllables, sanitizePhraseInput } from './voice/syllabify.js';
 import { dwellSettings, tremorAllows } from '../ui/AccessibilityProfiles.js';
@@ -423,6 +423,7 @@ export class ScaleBoard {
       }
       if (progressionMeta) {
         styleVars.push(`--progression-color: ${this._escapeAttr(progressionMeta.color)}`);
+        styleVars.push(`--progression-intensity: ${this._escapeAttr(progressionMeta.intensityPercent)}`);
       }
       const padStyle = styleVars.length ? ` style="${styleVars.join('; ')};"` : '';
       const degreeLabel = degreeMeta?.functionName || '';
@@ -460,12 +461,15 @@ export class ScaleBoard {
   }
 
   _progressionMetaForMidi(midi, degreeMeta = null) {
+    const glow = normalizeProgressionGlow(this.project?.settings?.progressionGlow);
+    if (!glow.enabled) return null;
     const active = activeProgressionResolution(this.project?.progression, this.project?.musicalContext);
     if (!active?.pitchClasses?.length) return null;
     const pitchClass = ((midi % 12) + 12) % 12;
     if (!active.pitchClasses.includes(pitchClass)) return null;
     return {
       color: degreeMeta?.color || '#79c8ff',
+      intensityPercent: `${Math.round(glow.intensity * 100)}%`,
       degree: active.degree,
     };
   }

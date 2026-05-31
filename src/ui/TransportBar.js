@@ -340,7 +340,7 @@ export class TransportBar {
     this._progressionPicker?.close();
     this._progressionPicker = new ChoicePicker({
       title: 'Choose Changes',
-      groups: progressionChoiceGroups(),
+      groups: progressionChoiceGroups(this._projectKey),
       selectedValue: this._projectProgression.enabled ? this._projectProgression.id : 'off',
       searchPlaceholder: 'Search changes...',
       onSelect: (value) => {

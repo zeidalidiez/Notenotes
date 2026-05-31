@@ -24,7 +24,7 @@ import { PlaybackEngine } from './engine/PlaybackEngine.js';
 import { ModulationManager } from './engine/ModulationManager.js';
 import { normalizeMusicalContext } from './engine/MusicTheory.js';
 import { meterToTimeSignature, normalizeMeter, pulseCountForMeter } from './engine/Meter.js';
-import { normalizeProgressionContext, progressionLabel } from './engine/Progressions.js';
+import { normalizeProgressionContext, progressionFitsContext, progressionLabel } from './engine/Progressions.js';
 import { workspaceBackupStatus } from './utils/BackupStatus.js';
 import {
   AUTO_FOLDER_BACKUP_DELAY_MS,
@@ -444,6 +444,13 @@ class App {
     const prev = normalizeMusicalContext(this.project.musicalContext);
     if (prev.root === next.root && prev.scale === next.scale && prev.correction === next.correction) return;
     this.project.musicalContext = next;
+    const currentProgression = normalizeProgressionContext(this.project.progression);
+    if (currentProgression.enabled && !progressionFitsContext(currentProgression, next)) {
+      this.project.progression = normalizeProgressionContext();
+      this.transportBar.setProjectProgression(this.project.progression);
+      window.dispatchEvent(new CustomEvent('project-progression-changed', { detail: { ...this.project.progression } }));
+      showToast('Changes turned off for this scale');
+    }
     this.transportBar.setProjectKey(next);
     this.creativeMode?.applyProjectMusicalContext?.(next, { source: options.source });
     this.store?.scheduleAutoSave(this.project);

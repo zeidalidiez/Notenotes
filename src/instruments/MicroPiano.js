@@ -4,6 +4,7 @@
  */
 
 import { correctMidiToScale, degreeForMidi, normalizeDegreeHighlighting, normalizeMusicalContext } from '../engine/MusicTheory.js';
+import { activeProgressionResolution, normalizeProgressionGlow } from '../engine/Progressions.js';
 import { dwellSettings, tremorAllows } from '../ui/AccessibilityProfiles.js';
 
 export class MicroPiano {
@@ -24,6 +25,9 @@ export class MicroPiano {
     this._onControllerLearnTarget = null;
 
     window.addEventListener('settings-piano-changed', () => {
+      if (this.el) this._refreshAll();
+    });
+    window.addEventListener('project-progression-changed', () => {
       if (this.el) this._refreshAll();
     });
   }
@@ -131,11 +135,22 @@ export class MicroPiano {
         ? `C${oct}`
         : key.name;
       const degreeMeta = this._degreeMetaForMidi(midi);
+      const progressionMeta = this._progressionMetaForMidi(midi, degreeMeta);
       const degreeClass = degreeMeta
         ? `${degreeMeta.colorEnabled ? ' micropiano__key--degree-color' : ''}${degreeMeta.label ? ' micropiano__key--degree-label' : ''}`
         : '';
-      const degreeStyle = degreeMeta ? ` style="--degree-color: ${this._escapeAttr(degreeMeta.color)}; --degree-intensity: ${this._escapeAttr(degreeMeta.intensityPercent)};"` : '';
-      html += `<button class="micropiano__key ${cls}${degreeClass}"${degreeStyle} data-midi="${midi}"
+      const progressionClass = progressionMeta ? ' micropiano__key--progression-hot' : '';
+      const styleVars = [];
+      if (degreeMeta) {
+        styleVars.push(`--degree-color: ${this._escapeAttr(degreeMeta.color)}`);
+        styleVars.push(`--degree-intensity: ${this._escapeAttr(degreeMeta.intensityPercent)}`);
+      }
+      if (progressionMeta) {
+        styleVars.push(`--progression-color: ${this._escapeAttr(progressionMeta.color)}`);
+        styleVars.push(`--progression-intensity: ${this._escapeAttr(progressionMeta.intensityPercent)}`);
+      }
+      const keyStyle = styleVars.length ? ` style="${styleVars.join('; ')};"` : '';
+      html += `<button class="micropiano__key ${cls}${degreeClass}${progressionClass}"${keyStyle} data-midi="${midi}"
                 aria-label="${key.name}${oct}">
                 <span class="micropiano__key-label">${label}</span>
                 ${degreeMeta?.label ? `<span class="micropiano__degree-label">${this._escapeHtml(degreeMeta.label)}</span>` : ''}
@@ -154,6 +169,19 @@ export class MicroPiano {
       colorEnabled: degree.enabled,
       intensityPercent: `${Math.round((degree.intensity ?? 0.22) * 100)}%`,
       label: degree.showLabels ? meta.label : ''
+    };
+  }
+
+  _progressionMetaForMidi(midi, degreeMeta = null) {
+    const glow = normalizeProgressionGlow(this.project?.settings?.progressionGlow);
+    if (!glow.enabled) return null;
+    const active = activeProgressionResolution(this.project?.progression, this.project?.musicalContext);
+    if (!active?.pitchClasses?.length) return null;
+    const pitchClass = ((midi % 12) + 12) % 12;
+    if (!active.pitchClasses.includes(pitchClass)) return null;
+    return {
+      color: degreeMeta?.color || '#79c8ff',
+      intensityPercent: `${Math.round(glow.intensity * 100)}%`,
     };
   }
 

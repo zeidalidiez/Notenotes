@@ -31,7 +31,9 @@ import {
 import {
   activeProgressionResolution,
   normalizeProgressionContext,
+  normalizeProgressionGlow,
   progressionChoiceGroups,
+  progressionFitsContext,
   progressionLabel,
   progressionPreset,
   resolveProgressionStep,
@@ -151,6 +153,20 @@ test('progression picker helpers expose a compact Off state and preset groups', 
   assert.equal(groups[0].id, 'basic');
   assert.equal(groups[0].items[0].value, 'off');
   assert.equal(groups.flatMap(group => group.items).some(item => item.value === 'jazzTurnaround'), true);
+});
+
+test('progression picker hides presets that cannot resolve in the current scale', () => {
+  assert.equal(progressionFitsContext(progressionPreset('sadHopeful'), { root: 'C', scale: 'major' }), true);
+  assert.equal(progressionFitsContext(progressionPreset('sadHopeful'), { root: 'C', scale: 'todi' }), false);
+  const todiChoices = progressionChoiceGroups({ root: 'C', scale: 'todi' }).flatMap(group => group.items);
+  assert.equal(todiChoices.some(item => item.value === 'off'), true);
+  assert.equal(todiChoices.some(item => item.value === 'sadHopeful'), false);
+});
+
+test('progression glow settings normalize as an additive visual preference', () => {
+  assert.deepEqual(normalizeProgressionGlow(), { enabled: true, intensity: 0.28 });
+  assert.deepEqual(normalizeProgressionGlow({ enabled: false, intensity: 2 }), { enabled: false, intensity: 0.85 });
+  assert.deepEqual(normalizeProgressionGlow({ intensity: 0.01 }), { enabled: true, intensity: 0.08 });
 });
 
 test('note correction quantizes piano and MIDI notes only when enabled', () => {

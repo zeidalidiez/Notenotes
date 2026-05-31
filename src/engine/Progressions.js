@@ -34,6 +34,11 @@ export const DEFAULT_PROGRESSION_CONTEXT = {
   steps: [],
 };
 
+export const DEFAULT_PROGRESSION_GLOW = {
+  enabled: true,
+  intensity: 0.28,
+};
+
 export const PROGRESSION_PRESETS = {
   axis: {
     id: 'axis',
@@ -85,7 +90,14 @@ export function progressionLabel(value = null) {
   return context.enabled ? context.name : 'Off';
 }
 
-export function progressionChoiceGroups() {
+export function progressionChoiceGroups(context = null) {
+  const musicalContext = context ? normalizeMusicalContext(context) : null;
+  const visiblePresetItem = (id) => {
+    if (musicalContext && !progressionFitsContext(progressionPreset(id), musicalContext)) return null;
+    return presetItem(id);
+  };
+  const visiblePresetItems = (ids) => ids.map(visiblePresetItem).filter(Boolean);
+
   return [
     {
       id: 'basic',
@@ -98,15 +110,15 @@ export function progressionChoiceGroups() {
           description: 'No progression context. Notes and clips behave normally.',
           tags: ['none', 'silent', 'default'],
         },
-        ...['axis', 'dooWop', 'sadHopeful', 'threeChord'].map(presetItem),
+        ...visiblePresetItems(['axis', 'dooWop', 'sadHopeful', 'threeChord']),
       ],
     },
     {
       id: 'color',
       label: 'Color',
-      items: ['jazzTurnaround', 'mixolydianRock', 'twelveBarBlues'].map(presetItem),
+      items: visiblePresetItems(['jazzTurnaround', 'mixolydianRock', 'twelveBarBlues']),
     },
-  ];
+  ].filter(group => group.items.length);
 }
 
 const ROMAN_DEGREES = {
@@ -253,6 +265,24 @@ export function activeProgressionResolution(progression = {}, context = {}) {
   if (!normalized.enabled || !normalized.steps.length) return null;
   const step = normalized.steps[normalized.activeStepIndex] || normalized.steps[0];
   return resolveProgressionStep(step, context, { chordType: normalized.chordType });
+}
+
+export function progressionFitsContext(progression = {}, context = {}) {
+  const normalized = normalizeProgressionContext(progression);
+  if (!normalized.enabled) return true;
+  return normalized.steps.every(step =>
+    !!resolveProgressionStep(step, context, { chordType: normalized.chordType })
+  );
+}
+
+export function normalizeProgressionGlow(value = {}) {
+  const intensity = Number(value?.intensity);
+  return {
+    enabled: value?.enabled !== false,
+    intensity: Number.isFinite(intensity)
+      ? Math.max(0.08, Math.min(0.85, intensity))
+      : DEFAULT_PROGRESSION_GLOW.intensity,
+  };
 }
 
 function resolveCuratedStep(step, context) {

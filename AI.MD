@@ -303,8 +303,8 @@ references or embeds it unless code intentionally clones it.
 
 `src/engine/Progressions.js` is the foundation slice for project-level harmonic
 context. The current shipped behavior is visual-only: selecting Changes can
-highlight current chord tones on Pads, but it does not change playback,
-recording, export, or snippets.
+highlight current chord tones on Pads and Piano, but it does not change
+playback, recording, export, or snippets.
 
 Rules:
 
@@ -324,17 +324,30 @@ Rules:
   `MusicTheory.getScaleNotes()`.
 - `chordType` currently supports `triad` and `seventh` only. Add extensions
   deliberately once the UI has a real need.
+- `progressionFitsContext(progression, musicalContext)` is the guard for
+  scale compatibility. `progressionChoiceGroups(context)` filters out presets
+  that cannot resolve every step in the current scale, so a scale such as Todi
+  Approx. does not offer progressions whose degrees would produce no glow.
+  `NotenotesApp._setProjectMusicalContext()` also turns the current Changes
+  setting off if a scale switch makes the selected progression invalid.
 - `TransportBar` renders a compact top-bar `Changes: ...` picker using
   `progressionChoiceGroups()`. The closed button carries the noun for
   visibility (`Changes: Off`, `Changes: The Axis`), while the modal rows stay
   plain (`Off`, `The Axis`, etc.) so picker content does not become noisy.
   Selecting `Off` writes the inactive default; selecting a preset writes a
   normalized `project.progression` and dispatches `project-progression-changed`.
+- `project.settings.progressionGlow` is an additive visual preference normalized
+  by `normalizeProgressionGlow()`: `{ enabled: true, intensity: 0.28 }` by
+  default. Layout renders a "Chord tone glow" checkbox and intensity slider in
+  both Pads and Keys popovers; changing it refreshes ScaleBoard and MicroPiano.
 - `ScaleBoard` listens for `project-progression-changed` and refreshes Pads.
   `_progressionMetaForMidi()` calls `activeProgressionResolution()` and adds
   `.scaleboard__pad--progression-hot` to pads whose pitch class is in the
   current active chord. This is a halo/outline emphasis channel, not a fill
   color, so it can layer over degree colors.
+- `MicroPiano` uses the same `activeProgressionResolution()` and
+  `progressionGlow` settings for `.micropiano__key--progression-hot`, so Piano
+  and Pads agree about which pitch classes belong to the active Changes chord.
 - Progression glow means "current chord tones are hot", not "notes are in
   scale." In-scale identity already belongs to degree colors.
 - The active step currently stays whatever `project.progression.activeStepIndex`

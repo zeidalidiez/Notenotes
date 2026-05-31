@@ -6,7 +6,7 @@
 import { openDB } from 'idb';
 import { DEFAULT_DEGREE_HIGHLIGHTING, DEFAULT_MUSICAL_CONTEXT } from '../engine/MusicTheory.js';
 import { METER_PRESETS, meterToTimeSignature, normalizeMeter } from '../engine/Meter.js';
-import { DEFAULT_PROGRESSION_CONTEXT, normalizeProgressionContext } from '../engine/Progressions.js';
+import { DEFAULT_PROGRESSION_CONTEXT, DEFAULT_PROGRESSION_GLOW, normalizeProgressionContext, normalizeProgressionGlow } from '../engine/Progressions.js';
 import { ACCESSIBILITY_DEFAULTS, ensureAccessibilitySettings } from '../ui/AccessibilityProfiles.js';
 
 const DB_NAME = 'notenotes';
@@ -77,6 +77,10 @@ export function createProject(name = 'Untitled Sketch') {
         showLabels: DEFAULT_DEGREE_HIGHLIGHTING.showLabels,
         intensity: DEFAULT_DEGREE_HIGHLIGHTING.intensity,
         colors: { ...DEFAULT_DEGREE_HIGHLIGHTING.colors }
+      },
+      progressionGlow: {
+        enabled: DEFAULT_PROGRESSION_GLOW.enabled,
+        intensity: DEFAULT_PROGRESSION_GLOW.intensity,
       },
       accessibility: {
         tremorFilter: { ...ACCESSIBILITY_DEFAULTS.tremorFilter },
@@ -500,7 +504,9 @@ export class ProjectStore {
     const meter = normalizeMeter(project.meter || project.timeSignature);
     project.meter = meter;
     project.timeSignature = meterToTimeSignature(meter);
+    project.settings ||= {};
     project.progression = normalizeProgressionContext(project.progression);
+    project.settings.progressionGlow = normalizeProgressionGlow(project.settings.progressionGlow);
     ensureAccessibilitySettings(project);
     return project;
   }

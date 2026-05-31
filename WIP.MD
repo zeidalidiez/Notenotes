@@ -15,8 +15,9 @@ After that, the next visible work should be:
 
 Progression/Changes work has started as a foundation slice: the project now has
 an inactive-by-default, degree-based progression context, resolver, compact
-`Changes: ...` top-bar picker, and Pads chord-tone glow. There is no playback,
-recording, export, or automatic progression-advance behavior yet.
+`Changes: ...` top-bar picker, scale-compatible preset filtering, and adjustable
+Pads/Piano chord-tone glow. There is no playback, recording, export, or
+automatic progression-advance behavior yet.
 
 Release/deploy strategy is worth doing before a true `1.0.0`, but it does not need to block the beta hardening work unless accidental GitHub Pages deploys become a real problem.
 
@@ -418,7 +419,6 @@ Next slices:
 - Add a shared progression editor/authoring surface, likely reachable from the
   selector and from Step Play, without stuffing more complexity directly into
   `ScaleBoard.js`.
-- Add Piano chord-tone glow using the same "current chord tone" meaning as Pads.
 - Add a progression advance model so the active step can move manually or follow
   bars. The current shipped glow only reflects `activeStepIndex`.
 - Keep progression steps stored as degrees so changing project key/scale can

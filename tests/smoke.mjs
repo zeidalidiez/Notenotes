@@ -37,6 +37,10 @@ import {
   ticksPerBarForMeter,
 } from '../src/engine/Meter.js';
 import {
+  velocityAdjustedDrive,
+  velocityAdjustedFilterFrequency,
+} from '../src/engine/VelocityResponse.js';
+import {
   activeProgressionResolution,
   normalizeProgressionContext,
   normalizeProgressionGlow,
@@ -207,7 +211,19 @@ test('modern synth presets keep a richer produced-voice floor', () => {
     assert.ok((patch.unison?.voices || 0) >= 2, `${id} uses at least light unison`);
     assert.ok(Number.isFinite(patch.keyTrack), `${id} has explicit key tracking`);
     assert.ok((patch.drive || 0) > 0, `${id} has a touch of patch drive`);
+    assert.ok((patch.velocityResponse?.filter || 0) > 0, `${id} responds to velocity brightness`);
   }
+});
+
+test('velocity response changes timbre without changing legacy patches', () => {
+  assert.equal(velocityAdjustedFilterFrequency(2000, 1, null), 2000);
+  assert.equal(velocityAdjustedDrive(0.1, 1, null), 0.1);
+
+  const response = { filter: 0.5, drive: 0.08 };
+  assert.ok(velocityAdjustedFilterFrequency(2000, 1, response) > 2000);
+  assert.ok(velocityAdjustedFilterFrequency(2000, 0.2, response) < 2000);
+  assert.ok(velocityAdjustedDrive(0.1, 1, response) > 0.1);
+  assert.equal(velocityAdjustedDrive(0.1, 0.2, response), 0.1);
 });
 
 test('backup validation accepts current workspace backups and rejects newer app versions', () => {

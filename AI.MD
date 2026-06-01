@@ -1397,3 +1397,46 @@ the new Modern-family minimum. If a future Modern preset is deliberately sparse,
 either move it out of the `modern` family or update the test and document the
 exception here. Do not silently add bone-dry single-oscillator patches back into
 Modern.
+
+## Expressive Velocity Response 0.1.90
+
+Velocity now has an optional patch-level timbre response in addition to normal
+gain scaling. This is deliberately additive and quiet by default:
+
+```js
+velocityResponse: {
+  filter: 0.34, // 0-1: harder notes brighten cutoff, soft notes darken it
+  drive: 0.015  // 0-0.3: harder notes add a small amount of patch drive
+}
+```
+
+Legacy patches and custom patches without `velocityResponse` behave exactly as
+before. `DEFAULT_PATCH.velocityResponse` and `DEFAULT_EXPORT_PATCH` are `null`;
+`normalizeVelocityResponse()` clamps fields and returns zero-response defaults
+when callers pass nothing.
+
+The shared math lives in `src/engine/VelocityResponse.js`:
+
+- `velocityAdjustedFilterFrequency(baseFrequency, velocity, response)` applies
+  a bounded multiplier after key tracking and before any filter envelope opens
+  the cutoff.
+- `velocityAdjustedDrive(baseDrive, velocity, response)` only increases drive
+  on harder hits; soft notes do not subtract from the patch's base drive.
+
+Live/export parity:
+
+- `WebAudioSynth._filterBaseFrequency(midi, velocity)` now runs key tracking and
+  velocity brightness through the shared helper.
+- Synth patch drive in `WebAudioSynth.noteOn()` is computed with
+  `velocityAdjustedDrive()` before creating the per-voice waveshaper.
+- `WavExporter.renderPatchTone()` uses the same filter and drive helpers so
+  snippet and Canvas WAV export keeps the same expressive response.
+- Sample patch export passes `instrument.velocityResponse` through the same
+  filter helper if a custom patch ever provides it.
+
+All built-in Modern-family presets opt in with restrained values. Chip presets
+stay direct and old-school for now. The smoke tests now guard both halves:
+`modern synth presets keep a richer produced-voice floor` requires Modern
+patches to expose filter velocity response, and
+`velocity response changes timbre without changing legacy patches` confirms
+that null response remains a no-op.

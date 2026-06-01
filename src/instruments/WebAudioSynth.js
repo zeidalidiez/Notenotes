@@ -9,6 +9,11 @@
 
 import { AudioEngine } from '../engine/AudioEngine.js';
 import { midiToFreq } from '../engine/MusicTheory.js';
+import {
+  normalizeVelocityResponse,
+  velocityAdjustedDrive,
+  velocityAdjustedFilterFrequency,
+} from '../engine/VelocityResponse.js';
 
 /** Maximum simultaneous voices */
 const MAX_VOICES = 8;
@@ -70,6 +75,7 @@ const DEFAULT_PATCH = {
   vibrato: null,
   unison: null,
   keyTrack: 0,
+  velocityResponse: null,
 };
 
 /** Built-in preset patches */
@@ -144,6 +150,7 @@ export const PRESETS = {
     vibrato: { rate: 4.1, depth: 4, delay: 0.45 },
     unison: { voices: 3, spread: 10 },
     keyTrack: 0.24,
+    velocityResponse: { filter: 0.34, drive: 0.015 },
     gain: 0.34,
     drive: 0.012,
   },
@@ -159,6 +166,7 @@ export const PRESETS = {
     vibrato: { rate: 5.4, depth: 5, delay: 0.16 },
     unison: { voices: 3, spread: 8 },
     keyTrack: 0.3,
+    velocityResponse: { filter: 0.42, drive: 0.03 },
     gain: 0.28,
     drive: 0.04,
   },
@@ -176,6 +184,7 @@ export const PRESETS = {
     vibrato: { rate: 3.6, depth: 5, delay: 0.12 },
     unison: { voices: 2, spread: 6 },
     keyTrack: 0.22,
+    velocityResponse: { filter: 0.36, drive: 0.035 },
     gain: 0.34,
     drive: 0.08,
   },
@@ -190,6 +199,7 @@ export const PRESETS = {
     filterEnv: { attack: 0.003, decay: 0.24, sustain: 0.2, depth: 0.46 },
     unison: { voices: 2, spread: 4 },
     keyTrack: 0.15,
+    velocityResponse: { filter: 0.32, drive: 0.06 },
     gain: 0.46,
     drive: 0.18,
   },
@@ -215,6 +225,7 @@ export const PRESETS = {
     vibrato: { rate: 5.8, depth: 3, delay: 0.22 },
     unison: { voices: 2, spread: 3 },
     keyTrack: 0.08,
+    velocityResponse: { filter: 0.22, drive: 0.015 },
     gain: 0.34,
     drive: 0.025,
   },
@@ -230,6 +241,7 @@ export const PRESETS = {
     vibrato: { rate: 4.8, depth: 5, delay: 0.18 },
     unison: { voices: 3, spread: 9 },
     keyTrack: 0.25,
+    velocityResponse: { filter: 0.44, drive: 0.025 },
     gain: 0.34,
     drive: 0.035,
   },
@@ -245,6 +257,7 @@ export const PRESETS = {
     vibrato: { rate: 4.2, depth: 7, delay: 0.35 },
     unison: { voices: 3, spread: 14 },
     keyTrack: 0.36,
+    velocityResponse: { filter: 0.3, drive: 0.012 },
     gain: 0.28,
     drive: 0.015,
   },
@@ -260,6 +273,7 @@ export const PRESETS = {
     vibrato: null,
     unison: { voices: 2, spread: 5 },
     keyTrack: 0.18,
+    velocityResponse: { filter: 0.34, drive: 0.06 },
     gain: 0.46,
     drive: 0.22,
   },
@@ -275,6 +289,7 @@ export const PRESETS = {
     vibrato: { rate: 5.2, depth: 4, delay: 0.2 },
     unison: { voices: 3, spread: 7 },
     keyTrack: 0.42,
+    velocityResponse: { filter: 0.48, drive: 0.02 },
     gain: 0.36,
     drive: 0.02,
   },
@@ -333,6 +348,7 @@ export class WebAudioSynth {
       vibrato: patch.vibrato ? { ...patch.vibrato } : null,
       unison: patch.unison ? { ...patch.unison } : null,
       keyTrack: patch.keyTrack ?? DEFAULT_PATCH.keyTrack,
+      velocityResponse: patch.velocityResponse ? normalizeVelocityResponse(patch.velocityResponse) : null,
     };
     if (this._output) {
       this._output.gain.setTargetAtTime(this.patch.gain, this.engine.currentTime, 0.01);
@@ -369,9 +385,10 @@ export class WebAudioSynth {
     return Math.pow(amount, 0.68);
   }
 
-  _filterBaseFrequency(midi) {
+  _filterBaseFrequency(midi, velocity = 0.8) {
     const keyTrack = Math.max(0, Math.min(1, this.patch.keyTrack || 0));
-    return Math.max(40, Math.min(18000, this.patch.filter.frequency * Math.pow(2, ((midi - 60) / 12) * keyTrack)));
+    const base = Math.max(40, Math.min(18000, this.patch.filter.frequency * Math.pow(2, ((midi - 60) / 12) * keyTrack)));
+    return velocityAdjustedFilterFrequency(base, velocity, this.patch.velocityResponse);
   }
 
   _scheduleFilterEnvelope(filter, baseFrequency, now) {
@@ -474,7 +491,7 @@ export class WebAudioSynth {
 
       const filter = ctx.createBiquadFilter();
       filter.type = p.filter.type;
-      const baseFilterFreq = this._filterBaseFrequency(midi);
+      const baseFilterFreq = this._filterBaseFrequency(midi, velocity);
       filter.frequency.setValueAtTime(baseFilterFreq, now);
       this._scheduleFilterEnvelope(filter, baseFilterFreq, now);
       filter.Q.setValueAtTime(p.filter.Q, now);
@@ -511,14 +528,15 @@ export class WebAudioSynth {
     // Filter
     const filter = ctx.createBiquadFilter();
     filter.type = p.filter.type;
-    const baseFilterFreq = this._filterBaseFrequency(midi);
+    const baseFilterFreq = this._filterBaseFrequency(midi, velocity);
     filter.frequency.setValueAtTime(baseFilterFreq, now);
     this._scheduleFilterEnvelope(filter, baseFilterFreq, now);
     filter.Q.setValueAtTime(p.filter.Q, now);
 
-    const drive = p.drive > 0 ? ctx.createWaveShaper() : null;
+    const driveAmount = velocityAdjustedDrive(p.drive, velocity, p.velocityResponse);
+    const drive = driveAmount > 0 ? ctx.createWaveShaper() : null;
     if (drive) {
-      drive.curve = this._makeDriveCurve(p.drive);
+      drive.curve = this._makeDriveCurve(driveAmount);
       drive.oversample = '2x';
     }
 

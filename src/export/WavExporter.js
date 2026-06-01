@@ -2,6 +2,11 @@ import { DRUM_KITS } from '../instruments/SketchKit.js';
 import { PRESETS } from '../instruments/WebAudioSynth.js';
 import { secondsPerTickForMeter, ticksPerBarForMeter } from '../engine/Meter.js';
 import { normalizeClipTimeScale } from '../engine/ClipTimeScale.js';
+import {
+  normalizeVelocityResponse,
+  velocityAdjustedDrive,
+  velocityAdjustedFilterFrequency,
+} from '../engine/VelocityResponse.js';
 
 const TICKS_PER_BEAT = 480;
 const SAMPLE_RATE = 44100;
@@ -19,6 +24,7 @@ const DEFAULT_EXPORT_PATCH = {
   vibrato: null,
   unison: null,
   keyTrack: 0,
+  velocityResponse: null,
   schemaVersion: 1,
 };
 
@@ -50,6 +56,7 @@ function normalizeExportPatch(patch = {}) {
     vibrato: patch.vibrato ? { ...patch.vibrato } : null,
     unison: patch.unison ? { ...patch.unison } : null,
     keyTrack: Number(patch.keyTrack) || 0,
+    velocityResponse: patch.velocityResponse ? normalizeVelocityResponse(patch.velocityResponse) : null,
     schemaVersion: patch.schemaVersion || 1,
   };
 }
@@ -76,13 +83,14 @@ function envelopeValue(t, durationSec, env) {
   return Math.max(0, sustain * (1 - ((t - durationSec) / release)));
 }
 
-function filterFrequencyForPatch(patch, midi, t) {
-  const base = clamp(
+function filterFrequencyForPatch(patch, midi, t, velocity = 0.8) {
+  const trackedBase = clamp(
     (patch.filter.frequency || DEFAULT_EXPORT_PATCH.filter.frequency)
       * Math.pow(2, ((midi - 60) / 12) * clamp(patch.keyTrack || 0, 0, 1)),
     40,
     18000,
   );
+  const base = velocityAdjustedFilterFrequency(trackedBase, velocity, patch.velocityResponse);
   const env = patch.filterEnv;
   if (!env || (env.depth || 0) <= 0) return base;
   const attack = Math.max(0.001, env.attack ?? 0.01);
@@ -286,8 +294,8 @@ function renderPatchTone(buffer, startSec, durationSec, midi, velocity = 0.8, pa
       }
     }
     let wave = (primaryWave / unisonVoices) + (secondaryWave / unisonVoices) * osc2Gain;
-    wave = driveSample(wave, patch.drive || 0);
-    const cutoff = filterFrequencyForPatch(patch, midi, t);
+    wave = driveSample(wave, velocityAdjustedDrive(patch.drive || 0, velocity, patch.velocityResponse));
+    const cutoff = filterFrequencyForPatch(patch, midi, t, velocity);
     const filtered = filterStep(wave, filterState, patch.filter.type, cutoff);
     mixSample(buffer, i, filtered * amp * envelopeValue(t, durationSec, patch.envelope));
   }
@@ -512,6 +520,7 @@ function renderSampleNote(target, decoded, instrument, note, startSec, bpm, gain
     },
     filterEnv: instrument.filterEnv || null,
     keyTrack: instrument.keyTrack || 0,
+    velocityResponse: instrument.velocityResponse || null,
   });
   const filterState = { low: 0, band: 0 };
 
@@ -523,7 +532,12 @@ function renderSampleNote(target, decoded, instrument, note, startSec, bpm, gain
     const a = Math.min(1, i / attack);
     const r = i < len - release ? 1 : Math.max(0, (len - i) / release);
     let sample = sampleAt(decoded, sourceIndex);
-    const cutoff = filterFrequencyForPatch(samplePatch, note.pitch || instrument.rootMidi || 60, i / SAMPLE_RATE);
+    const cutoff = filterFrequencyForPatch(
+      samplePatch,
+      note.pitch || instrument.rootMidi || 60,
+      i / SAMPLE_RATE,
+      note.velocity || 0.8,
+    );
     sample = filterStep(sample, filterState, samplePatch.filter.type, cutoff);
     mixSample(target, targetIndex, sample * renderGain * a * r);
   }

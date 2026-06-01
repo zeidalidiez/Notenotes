@@ -754,18 +754,20 @@ Expected:
 - Noise adds texture but does not explode into constant static as Drive increases.
 - Live playback and WAV export both keep the reduced-noise behavior.
 
-### 7.5 Modern Presets Speak On Short Taps
+### 7.5 Modern Presets Sound Fuller But Still Speak On Short Taps
 
 Steps:
 
-1. Select Soft Pad and Modern Pad.
+1. Select Soft Pad, Shimmer Lead, Lo-fi Keys, Warm Bass, Organ, and Modern Pad.
 2. Tap short notes on Pads and Piano.
-3. Hold longer notes to confirm the smoother pad character still exists.
+3. Hold longer notes to confirm the smoother modern character still exists.
+4. Export a short WAV from at least one older Modern preset such as Soft Pad or Organ.
 
 Expected:
 
 - Short taps produce audible sound.
-- Held notes still feel like modern/pad instruments rather than chip plucks.
+- Held notes feel fuller than chip presets, with mild width/motion instead of a bone-dry single oscillator.
+- WAV export sounds recognizably like the selected Modern preset.
 
 ## 8. Controller
 

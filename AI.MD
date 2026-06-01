@@ -1362,3 +1362,38 @@ Every live/export path must apply the same lens:
 Use `clipTimeScaleBadgeItem()` with the existing Tone badge renderer when a
 clip's timing is not normal. This intentionally places Time beside Tone so users
 can see both "this clip has effects" and "this clip has arrangement timing."
+
+## Fuller Modern Preset Floor 0.1.89
+
+The first sound-upgrade slice is intentionally conservative: no sampler, no
+AudioWorklet, no bundled IR files, and no renderer unification. It revoices the
+older Modern-family synth presets so the whole family has a produced synth floor
+instead of mixing rich v0.1.x presets with older single-oscillator patches.
+
+Affected presets in `src/instruments/WebAudioSynth.js`:
+
+- `soft_pad`
+- `shimmer_lead`
+- `lofi_keys`
+- `warm_bass`
+- `organ`
+
+Each now has:
+
+- `schemaVersion: 2`
+- a supporting `oscillator2`
+- at least light `unison`
+- explicit `keyTrack`
+- a small nonzero patch `drive`
+- restrained filter envelope and/or vibrato where it fits the patch
+
+This keeps the Chip family punchy and direct while making every Modern preset
+less dry/flat by default. The values are patch data only, so the existing live
+engine and `WavExporter.renderPatchTone()` both pick them up through the
+already-supported oscillator2/unison/filterEnv/vibrato/keyTrack/drive fields.
+
+The smoke test `modern synth presets keep a richer produced-voice floor` guards
+the new Modern-family minimum. If a future Modern preset is deliberately sparse,
+either move it out of the `modern` family or update the test and document the
+exception here. Do not silently add bone-dry single-oscillator patches back into
+Modern.

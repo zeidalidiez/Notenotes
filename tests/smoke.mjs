@@ -21,6 +21,7 @@ import {
 } from '../src/ui/CreateInstrumentPopover.js';
 import { padPerformanceIndex, pianoPerformanceIndex } from '../src/modes/input/PerformanceInputRouter.js';
 import { correctMidiToScale, normalizeMusicalContext } from '../src/engine/MusicTheory.js';
+import { PRESETS } from '../src/instruments/WebAudioSynth.js';
 import {
   DEFAULT_PAD_LAYOUT_TEMPLATE,
   recommendedPadColumns,
@@ -196,6 +197,17 @@ test('note correction quantizes piano and MIDI notes only when enabled', () => {
   assert.equal(correctMidiToScale(61, context, 'up'), 62);
   assert.equal(correctMidiToScale(61, context, 'down'), 60);
   assert.equal(correctMidiToScale(66, { root: 'C', scale: 'chromatic' }, 'down'), 66);
+});
+
+test('modern synth presets keep a richer produced-voice floor', () => {
+  const modern = Object.entries(PRESETS).filter(([, patch]) => patch.family === 'modern');
+  assert.ok(modern.length >= 8);
+  for (const [id, patch] of modern) {
+    assert.ok(patch.oscillator2, `${id} has a supporting oscillator`);
+    assert.ok((patch.unison?.voices || 0) >= 2, `${id} uses at least light unison`);
+    assert.ok(Number.isFinite(patch.keyTrack), `${id} has explicit key tracking`);
+    assert.ok((patch.drive || 0) > 0, `${id} has a touch of patch drive`);
+  }
 });
 
 test('backup validation accepts current workspace backups and rejects newer app versions', () => {

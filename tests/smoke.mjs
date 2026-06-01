@@ -40,6 +40,7 @@ import {
   velocityAdjustedDrive,
   velocityAdjustedFilterFrequency,
 } from '../src/engine/VelocityResponse.js';
+import { normalizeWavChannelMode } from '../src/export/WavChannelMode.js';
 import {
   normalizeTrackPan,
   panForVoice,
@@ -247,6 +248,14 @@ test('stereo width helper keeps center stable and spreads unison voices', () => 
   const right = stereoGainsForPan(1);
   assert.ok(left.left > left.right);
   assert.ok(right.right > right.left);
+});
+
+test('WAV channel mode normalizes export choices without changing defaults', () => {
+  assert.equal(normalizeWavChannelMode('auto'), 'auto');
+  assert.equal(normalizeWavChannelMode('mono'), 'mono');
+  assert.equal(normalizeWavChannelMode('stereo'), 'stereo');
+  assert.equal(normalizeWavChannelMode('weird'), 'auto');
+  assert.equal(normalizeWavChannelMode('weird', 'stereo'), 'stereo');
 });
 
 test('backup validation accepts current workspace backups and rejects newer app versions', () => {

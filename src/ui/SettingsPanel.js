@@ -380,12 +380,27 @@ export class SettingsPanel {
           <p class="settings-desc">Export browser-rendered WAV files for a snippet or the whole Canvas. Tone settings are rendered into WAV. MP3 will need an optional encoder dependency later.</p>
           <div class="settings-row">
             <label class="settings-label">Canvas</label>
+            <select class="settings-select" id="export-canvas-wav-channels" aria-label="Canvas WAV channel mode">
+              <option value="stereo" selected>Stereo (pan)</option>
+              <option value="mono">Mono</option>
+            </select>
+          </div>
+          <div class="settings-row">
+            <label class="settings-label"></label>
             <button class="btn btn--ghost" id="export-canvas-wav" style="font-size:0.75rem;min-height:30px;padding:2px 10px;">Export WAV</button>
           </div>
           <div class="settings-row">
             <label class="settings-label">Snippet</label>
             <select class="settings-select" id="export-snippet-wav-select" aria-label="WAV snippet to export">
               ${wavOptions}
+            </select>
+          </div>
+          <div class="settings-row">
+            <label class="settings-label">Channels</label>
+            <select class="settings-select" id="export-snippet-wav-channels" aria-label="Snippet WAV channel mode">
+              <option value="auto" selected>Auto</option>
+              <option value="mono">Mono</option>
+              <option value="stereo">Stereo</option>
             </select>
           </div>
           <div class="settings-row">
@@ -1216,7 +1231,8 @@ export class SettingsPanel {
       showToast('Rendering Canvas WAV...');
       try {
         const stats = { skippedAudio: 0, skippedMismatchedClips: 0, renderedClips: 0 };
-        const blob = await projectToWavBlob(this.project, { store: this.store, stats });
+        const channelMode = body.querySelector('#export-canvas-wav-channels')?.value || 'stereo';
+        const blob = await projectToWavBlob(this.project, { store: this.store, stats, channelMode });
         if (!stats.renderedClips) {
           showToast('No audible Canvas clips to export');
           return;
@@ -1259,7 +1275,8 @@ export class SettingsPanel {
       showToast('Rendering snippet WAV...');
       try {
         const stats = { skippedAudio: 0 };
-        const blob = await snippetToWavBlob(snippet, this.project, { store: this.store, stats });
+        const channelMode = body.querySelector('#export-snippet-wav-channels')?.value || 'auto';
+        const blob = await snippetToWavBlob(snippet, this.project, { store: this.store, stats, channelMode });
         downloadBlob(blob, safeFilename(snippet.name || 'snippet', 'wav'));
         showToast(stats.skippedAudio ? 'Snippet WAV exported without unavailable audio' : 'Snippet WAV exported');
       } catch (err) {

@@ -1551,3 +1551,47 @@ an additive audio asset shape such as `audioAsset.format` and store WebM/Opus or
 AAC where browsers support recording it, while continuing to import/play legacy
 WAV/data URL assets and keeping WAV as an explicit export format. Do not remove
 legacy WAV support; old projects must always move forward.
+
+## WAV Channel Export Choices 0.1.93
+
+WAV export now separates "what channel count should this exported file have?"
+from internal audio storage. Internal Audio In assets are still stored through
+the existing audio asset path; this slice only changes rendered export output.
+
+Shared export choice normalization lives in `src/export/WavChannelMode.js`:
+
+```js
+normalizeWavChannelMode('auto' | 'mono' | 'stereo')
+```
+
+Keep this helper browser-free so smoke tests can import it without loading
+`WavExporter.js`, which depends on browser-oriented instrument modules.
+
+### Settings UI
+
+The Settings > Export Audio section now exposes:
+
+- Canvas WAV channels: `Stereo (pan)` or `Mono`. Stereo remains the default
+  because Canvas track pan and Modern preset width are user-visible mix choices.
+- Snippet WAV channels: `Auto`, `Mono`, or `Stereo`. Auto remains the default so
+  snippets do not double file size unless the source/render path is actually
+  stereo.
+
+### Export renderer
+
+`WavExporter.withWavChannelMode()` runs immediately before `encodeWav()`:
+
+- `auto` preserves the render buffer chosen by the export path.
+- `mono` folds stereo buffers down by averaging left/right.
+- `stereo` duplicates mono buffers into left/right channels.
+
+Snippet Auto now chooses stereo when a MIDI patch has `stereoWidth`, when the
+decoded Audio In source has more than one channel, or when a caller explicitly
+passes a nonzero pan. Otherwise it stays mono. Stereo Audio In snippets are
+preserved in Auto/Stereo when pan is center; if a track or caller pans a stereo
+source, the exporter folds it before applying equal-power pan so "track pan" is
+a clear position control.
+
+Canvas WAV defaults to stereo and passes the selected `channelMode` through
+`projectToWavBlob()`. Choosing Mono intentionally removes track pan from the
+exported file while keeping all audible clips present.

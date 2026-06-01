@@ -319,13 +319,17 @@ Steps:
 1. Record an Audio In snippet.
 2. Open Settings, then Export.
 3. Select the audio snippet in Audio Export.
-4. Export Snippet WAV.
-5. Play the exported WAV file.
+4. Export Snippet WAV with `Auto`.
+5. Export Snippet WAV again with `Mono`.
+6. Export Snippet WAV again with `Stereo`.
+7. Play the exported WAV files.
 
 Expected:
 
 - WAV export succeeds.
 - The exported WAV contains the recorded sound.
+- Auto keeps the source's natural channel shape where the browser captured one.
+- Mono and Stereo force the expected centered mono or two-channel file.
 - The clip does not become silent after export.
 
 ### 2.4 Audio In Playback Length Matches What You Recorded
@@ -408,15 +412,18 @@ Steps:
 3. Set the MIDI track pan hard left, the drum track pan hard right, and leave the audio track centered.
 4. Press Play and listen on headphones or speakers with stereo separation.
 5. Open Settings, then Export.
-6. Export Canvas WAV.
+6. Export Canvas WAV with `Stereo (pan)`.
 7. Play the exported WAV.
+8. Export Canvas WAV again with `Mono`.
+9. Play the second exported WAV.
 
 Expected:
 
 - WAV export succeeds.
 - MIDI, drum, and audio content are audible.
 - Clips placed after bar 1 are heard at the correct time.
-- Track pan is audible in live Canvas playback and the exported WAV.
+- Track pan is audible in live Canvas playback and the stereo exported WAV.
+- The mono exported WAV is centered and still contains all audible clips.
 - MIDI export is not expected to preserve pan yet; this check is Canvas playback/WAV only.
 
 ## 4. MIDI Export

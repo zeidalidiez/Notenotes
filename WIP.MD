@@ -528,6 +528,10 @@ browser supports it, while legacy WAV/data URL assets keep importing and playing
 forever. WAV should remain an explicit export/interchange format even if the
 internal storage default changes.
 
+Also evaluate recording-side channel choices separately from export choices:
+keep the current simple default, but consider a future Audio In setting for Mono
+vs Stereo capture where the browser exposes that constraint clearly.
+
 ### Plugin Architecture
 
 The README says instruments are pluggable, but today that means "fork the repo and add a class." A real plugin surface should wait until the app shape is more settled.

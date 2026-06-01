@@ -8,6 +8,7 @@ import {
   velocityAdjustedFilterFrequency,
 } from '../engine/VelocityResponse.js';
 import { normalizeStereoWidth, normalizeTrackPan, panForVoice, stereoGainsForPan } from '../engine/StereoWidth.js';
+import { normalizeWavChannelMode } from './WavChannelMode.js';
 
 const TICKS_PER_BEAT = 480;
 const SAMPLE_RATE = 44100;
@@ -146,6 +147,28 @@ function ensureLength(samples, seconds, stereo = false) {
   }
   if (stereo) return { left: new Float32Array(length), right: new Float32Array(length), length };
   return samples?.length >= length ? samples : new Float32Array(length);
+}
+
+function withWavChannelMode(samples, mode = 'auto') {
+  const channelMode = normalizeWavChannelMode(mode);
+  if (channelMode === 'auto') return samples;
+  const length = sampleLength(samples);
+  if (channelMode === 'mono') {
+    if (!isStereoBuffer(samples)) return samples;
+    const mono = new Float32Array(length);
+    for (let i = 0; i < length; i++) {
+      mono[i] = ((samples.left[i] || 0) + (samples.right[i] || 0)) * 0.5;
+    }
+    return mono;
+  }
+  if (isStereoBuffer(samples)) return samples;
+  const stereo = ensureLength(null, length / SAMPLE_RATE, true);
+  for (let i = 0; i < length; i++) {
+    const sample = samples[i] || 0;
+    stereo.left[i] = sample;
+    stereo.right[i] = sample;
+  }
+  return stereo;
 }
 
 function mixSample(buffer, index, value, pan = 0) {
@@ -516,6 +539,23 @@ function mixAudioBuffer(target, decoded, startSec, gain = 1, timeScale = 1, pan 
   const renderGain = clampGain(gain);
   const scale = normalizeClipTimeScale(timeScale);
   const outputLength = Math.max(1, Math.floor(decoded.length * scale * (SAMPLE_RATE / decoded.sampleRate)));
+  const trackPan = normalizeTrackPan(pan);
+  if (isStereoBuffer(target) && channels >= 2 && trackPan === 0) {
+    const left = decoded.getChannelData(0);
+    const right = decoded.getChannelData(1);
+    for (let i = 0; i < outputLength; i++) {
+      const sourceIndex = (i / scale) * (decoded.sampleRate / SAMPLE_RATE);
+      const i0 = Math.floor(sourceIndex);
+      if (i0 >= left.length) break;
+      const i1 = Math.min(left.length - 1, i0 + 1);
+      const frac = sourceIndex - i0;
+      const leftSample = (left[i0] || 0) * (1 - frac) + (left[i1] || 0) * frac;
+      const rightSample = (right[i0] || 0) * (1 - frac) + (right[i1] || 0) * frac;
+      mixSample(target.left, offset + i, leftSample * 0.7 * renderGain);
+      mixSample(target.right, offset + i, rightSample * 0.7 * renderGain);
+    }
+    return;
+  }
   for (let ch = 0; ch < channels; ch++) {
     const data = decoded.getChannelData(ch);
     const channelGain = (0.7 * renderGain) / channels;
@@ -687,6 +727,7 @@ function encodeWav(samples) {
 export async function snippetToWavBlob(snippet, project = {}, options = {}) {
   const bpm = snippet?.bpm || project?.bpm || 120;
   const traits = snippet?.soundTraits || project?.settings?.soundTraits || {};
+  const channelMode = normalizeWavChannelMode(options.channelMode, 'auto');
   const toneTail = (snippet?.type === 'midi' || snippet?.type === 'drum') && hasSnippetTone(snippet, traits) ? 3 : 0.75;
   let durationSec = Math.max(1, (snippet?.durationTicks || ticksPerBar(snippet)) * secondsPerTickFor(snippet, bpm)) + toneTail;
   let decoded = null;
@@ -696,14 +737,17 @@ export async function snippetToWavBlob(snippet, project = {}, options = {}) {
     durationSec = Math.max(durationSec, decoded?.duration || 0);
   }
   const patch = snippet?.type === 'midi' ? patchForSnippetExport(snippet, options) : null;
-  const samples = ensureLength(null, durationSec, normalizeStereoWidth(patch?.stereoWidth || 0) > 0);
-  if (decoded) mixAudioBuffer(samples, decoded, 0);
+  const autoStereo = normalizeStereoWidth(patch?.stereoWidth || 0) > 0
+    || (decoded?.numberOfChannels || 0) > 1
+    || normalizeTrackPan(options.pan) !== 0;
+  const samples = ensureLength(null, durationSec, channelMode === 'stereo' || (channelMode === 'auto' && autoStereo));
+  if (decoded) mixAudioBuffer(samples, decoded, 0, 1, 1, options.pan || 0);
   else if (snippet?.type === 'midi') {
-    renderMidiWithTone(samples, snippet || {}, 0, bpm, traits, 1, { patch });
+    renderMidiWithTone(samples, snippet || {}, 0, bpm, traits, 1, { patch, pan: options.pan || 0 });
   } else {
-    renderSnippetEvents(samples, snippet || {}, 0, bpm, { toneTraits: traits });
+    renderSnippetEvents(samples, snippet || {}, 0, bpm, { toneTraits: traits, pan: options.pan || 0 });
   }
-  return encodeWav(samples);
+  return encodeWav(withWavChannelMode(samples, channelMode));
 }
 
 export function debugRenderBuiltInPatchWav(presetId = 'chip_lead', options = {}) {
@@ -724,6 +768,7 @@ export function debugRenderAllBuiltInPatchWavs(options = {}) {
 
 export async function projectToWavBlob(project, options = {}) {
   const bpm = project?.bpm || 120;
+  const channelMode = normalizeWavChannelMode(options.channelMode, 'stereo');
   const secPerTick = secondsPerTickFor(project, bpm);
   const barTicks = ticksPerBar(project);
   const hasSolo = (project?.tracks || []).some(track => track.solo);
@@ -778,8 +823,7 @@ export async function projectToWavBlob(project, options = {}) {
   }
 
   const hasAnyClipTone = jobs.some(job => hasSnippetTone(job.snippet, job.traits));
-  const wantsStereo = true;
-  const samples = ensureLength(null, maxSec + (hasAnyClipTone ? 3 : 1), wantsStereo);
+  const samples = ensureLength(null, maxSec + (hasAnyClipTone ? 3 : 1), channelMode !== 'mono');
   if (options.stats) options.stats.renderedClips = jobs.length;
 
   for (const job of jobs) {
@@ -803,5 +847,5 @@ export async function projectToWavBlob(project, options = {}) {
     }
   }
 
-  return encodeWav(samples);
+  return encodeWav(withWavChannelMode(samples, channelMode));
 }

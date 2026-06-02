@@ -670,7 +670,29 @@ Expected:
 - The original audio recording remains available in the Load dropdown.
 - The snippet tray updates without needing a reload.
 
-### 6.8 Meter Top-Bar Phase 1
+### 6.8 Inspect Fit Rhythm
+
+Steps:
+
+1. Record or create a MIDI snippet with at least three unevenly timed notes.
+2. Open it in Inspect and click Fit Rhythm.
+3. Set Fit to `1 bar`, Grid to `1/8`, leave Even spacing off, and move the slider near Keep my feel. Click Preview.
+4. Change the slider toward Make it clean and click Preview again.
+5. Click Cancel and confirm the original timing returns.
+6. Open Fit Rhythm again, enable Even spacing, click Preview, then Apply.
+7. Undo the edit.
+8. Repeat the basic Preview/Apply flow with a drum snippet.
+
+Expected:
+
+- Fit Rhythm is available for MIDI and drum snippets, not audio snippets.
+- Preview redraws the piano roll/drum grid without committing an undo entry.
+- Cancel restores the original timing.
+- Apply preserves event count, order, pitch/drum type, velocity, and Tone metadata while changing only timing and optional note lengths.
+- Even spacing distributes events evenly inside the selected target length.
+- Undo restores the pre-fit snippet.
+
+### 6.9 Meter Top-Bar Phase 1
 
 Steps:
 

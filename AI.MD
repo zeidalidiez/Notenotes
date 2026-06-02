@@ -887,6 +887,65 @@ picker and toolbar actions still competing for width and height:
 This is CSS-only responsive hardening. It does not change Pad Mode, Patch,
 Tone, Controller, AI, Stage, BPM, snippet, or audio behavior.
 
+## Rhythm Fit / Always-In-Time 0.1.96
+
+Inspect gained a first "always-in-time" assist for MIDI and drum snippets. The
+goal is the timing twin of always-in-scale: keep the user's notes, drum sounds,
+order, count, velocity, and Tone metadata, but help their timing land inside a
+clean musical length.
+
+Core module:
+
+- `src/engine/RhythmFit.js` exports `fitRhythmEvents()`,
+  `RHYTHM_FIT_MODES`, `RHYTHM_FIT_TARGETS`, and `RHYTHM_FIT_GRIDS`.
+- `fitRhythmEvents(events, options)` is pure and non-mutating. It sorts events
+  by `startTick` while preserving stable order for ties, then returns cloned
+  events plus `durationTicks`.
+- Feel mode maps the first onset to `0` and the last onset to
+  `targetTicks - tailTicks`, where `tailTicks` is the selected grid or a small
+  fallback. This is intentional: fitting to one bar should not place the final
+  onset exactly on the next bar and then silently grow the snippet.
+- The strength slider blends each proportional-fit onset toward its nearest
+  grid position: `lerp(proportional, snapped, strength)`. Strength `0` keeps the
+  user's relative timing after resizing; strength `1` lands fully on the grid.
+- Even mode is separate from the slider. It spaces events by
+  `targetTicks / eventCount`, keeping count and order but ignoring source
+  timing. This is the maximum-assist path for users who can choose notes but
+  cannot reliably tap rhythm.
+- `quantizeDurations` only affects events with `durationTick` (MIDI notes). Drum
+  hits remain instant events. When duration fitting is enabled, note lengths are
+  scaled and capped to the next onset; the final note gets a playable grid-sized
+  tail.
+
+Inspect UI:
+
+- `EditMode` adds a `Fit Rhythm` button for MIDI and drum snippets only. Audio
+  snippets are deliberately excluded; audio onset detection is a separate,
+  harder feature and should not be faked.
+- The modal offers target length (`1 bar`, `2 bars`, `4 bars` using the current
+  transport/meter `ticksPerBar`), grid (`1/4`, `1/8`, `1/16`, `1/8 triplet`), a
+  Keep-my-feel to Make-it-clean slider, `Even spacing`, and `Fit note lengths`.
+- Preview temporarily applies the fitted events to the loaded snippet and
+  re-renders Inspect. Cancel restores the original in-memory state without
+  writing an undo entry. Apply recomputes from the original state, commits the
+  fitted events, pushes one undo entry, schedules autosave, and dispatches the
+  normal `project-snippets-changed` event.
+- Do not route this through `EditMode._onEdit()`. `_onEdit()` auto-expands
+  snippet duration based on the maximum event end plus an extra beat, which is
+  right for free piano-roll edits but wrong for a tool whose point is an exact
+  target length.
+
+Future hooks:
+
+- Step Play can use this as the rhythm-completion half of the accessibility
+  story: Step Play chooses stable pitches, Fit Rhythm places them cleanly in
+  time after recording.
+- Tremor filtering already prevents rapid duplicate triggers at input time.
+  A later Rhythm Fit pass could add an explicit "merge accidental doubles"
+  preprocessing option, but v1 keeps count immutable.
+- Audio support should wait for real onset detection and preview. Do not apply
+  MIDI/drum onset math to waveforms.
+
 ## Step Play Stable Notes 0.1.52
 
 Step Play pattern storage moved from "degree formulas that re-resolve every time

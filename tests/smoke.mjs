@@ -81,6 +81,11 @@ import {
   normalizeClipTimeScale,
   pushClipsRightForTimeScale,
 } from '../src/engine/ClipTimeScale.js';
+import {
+  fitRhythmEvents,
+  RHYTHM_FIT_MODES,
+  RHYTHM_FIT_TARGETS,
+} from '../src/engine/RhythmFit.js';
 import { auditProjectAudioAssets, createProject } from '../src/data/ProjectStore.js';
 
 function test(name, fn) {
@@ -659,6 +664,64 @@ test('clip time scale growth pushes later clips right without changing the edite
     ['b', 2.25, 3.25],
     ['c', 4, 5],
   ]);
+});
+
+test('rhythm fit preserves relative feel when strength is zero', () => {
+  const events = [
+    { pitch: 60, startTick: 100, durationTick: 160, velocity: 0.7 },
+    { pitch: 62, startTick: 340, durationTick: 160, velocity: 0.8 },
+    { pitch: 64, startTick: 820, durationTick: 160, velocity: 0.9 },
+  ];
+
+  const result = fitRhythmEvents(events, {
+    targetTicks: RHYTHM_FIT_TARGETS.ONE_BAR,
+    gridTicks: 240,
+    strength: 0,
+    quantizeDurations: true,
+  });
+
+  assert.deepEqual(result.events.map(event => event.startTick), [0, 560, 1680]);
+  assert.deepEqual(result.events.map(event => event.pitch), [60, 62, 64]);
+  assert.deepEqual(result.events.map(event => event.velocity), [0.7, 0.8, 0.9]);
+  assert.deepEqual(result.events.map(event => event.durationTick), [373, 373, 240]);
+  assert.equal(result.durationTicks, 1920);
+});
+
+test('rhythm fit strength blends proportional timing toward the grid', () => {
+  const events = [
+    { type: 'kick', startTick: 0, velocity: 0.8 },
+    { type: 'snare', startTick: 335, velocity: 0.8 },
+    { type: 'hihat', startTick: 935, velocity: 0.8 },
+  ];
+
+  const result = fitRhythmEvents(events, {
+    targetTicks: RHYTHM_FIT_TARGETS.ONE_BAR,
+    gridTicks: 240,
+    strength: 0.5,
+  });
+
+  assert.deepEqual(result.events.map(event => event.startTick), [0, 661, 1680]);
+  assert.deepEqual(result.events.map(event => event.type), ['kick', 'snare', 'hihat']);
+});
+
+test('rhythm fit even mode spaces events without changing count or order', () => {
+  const events = [
+    { pitch: 72, startTick: 40, durationTick: 120 },
+    { pitch: 76, startTick: 120, durationTick: 120 },
+    { pitch: 79, startTick: 980, durationTick: 120 },
+    { pitch: 83, startTick: 1200, durationTick: 120 },
+  ];
+
+  const result = fitRhythmEvents(events, {
+    targetTicks: RHYTHM_FIT_TARGETS.TWO_BARS,
+    mode: RHYTHM_FIT_MODES.EVEN,
+    quantizeDurations: true,
+  });
+
+  assert.deepEqual(result.events.map(event => event.startTick), [0, 960, 1920, 2880]);
+  assert.deepEqual(result.events.map(event => event.pitch), [72, 76, 79, 83]);
+  assert.deepEqual(result.events.map(event => event.durationTick), [960, 960, 960, 960]);
+  assert.equal(result.durationTicks, 3840);
 });
 
 test('audio audit reports missing, orphaned, and backup readiness without mutating project', () => {

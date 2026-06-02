@@ -541,3 +541,144 @@
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
 }
+
+/* --- Rhythm Fit modal --- */
+.rhythm-fit-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal, 600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.rhythm-fit-modal {
+  width: min(520px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  border: 1px solid var(--surface-4);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  box-shadow: 0 18px 48px rgba(0,0,0,0.62);
+}
+
+.rhythm-fit-modal__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.rhythm-fit-modal__kicker {
+  color: var(--accent-light);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.rhythm-fit-modal__header strong {
+  font-size: 1.35rem;
+}
+
+.rhythm-fit-modal__header p,
+.rhythm-fit-modal__status {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.rhythm-fit-modal__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+}
+
+.rhythm-fit-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.rhythm-fit-modal__field--wide {
+  grid-column: 1 / -1;
+}
+
+.rhythm-fit-modal__field b {
+  color: var(--accent-light);
+  font-weight: var(--font-weight-bold);
+}
+
+.rhythm-fit-modal select,
+.rhythm-fit-modal input[type="range"] {
+  width: 100%;
+}
+
+.rhythm-fit-modal select {
+  min-height: 36px;
+  padding: 0 var(--space-sm);
+  border: var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+}
+
+.rhythm-fit-modal input[type="range"] {
+  accent-color: var(--accent);
+}
+
+.rhythm-fit-modal__check {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 0 var(--space-sm);
+  border: var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.rhythm-fit-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+@media (max-width: 640px) {
+  .rhythm-fit-backdrop {
+    align-items: stretch;
+    padding: calc(env(safe-area-inset-top) + 12px) 12px calc(env(safe-area-inset-bottom) + 12px);
+  }
+
+  .rhythm-fit-modal {
+    width: 100%;
+    max-height: none;
+    padding: var(--space-md);
+  }
+
+  .rhythm-fit-modal__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rhythm-fit-modal__actions {
+    justify-content: stretch;
+  }
+
+  .rhythm-fit-modal__actions .btn {
+    flex: 1;
+  }
+}

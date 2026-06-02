@@ -1,6 +1,7 @@
 import './stage.css';
 
 import { STAGE_CANVAS_TRACK_LIMIT, STAGE_LIVE_LANE_LIMIT } from './StageModel.js';
+import { stageBlur, stageRenderQuality, stageTrailMs } from './StageRenderQuality.js';
 import { resolveStageView, stageViewNeighbor, stageViewOptionsForMode } from './StageViews.js';
 
 function clamp(value, min, max) {
@@ -68,6 +69,9 @@ export class CanvasStageRenderer {
     this._liveEvents = [];
     this._liveLimit = 260;
     this._swipeStart = null;
+    this._gradientCache = new Map();
+    this._gradientSizeKey = '';
+    this._reducedMotionQuery = null;
   }
 
   open() {
@@ -92,6 +96,7 @@ export class CanvasStageRenderer {
     `;
     this.canvas = this.el.querySelector('canvas');
     this.ctx = this.canvas.getContext('2d', { alpha: true });
+    this._reducedMotionQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)') || null;
     this.el.querySelector('.stage-overlay__close')?.addEventListener('click', () => this.close());
     this.el.querySelector('#stage-view-select')?.addEventListener('change', (event) => {
       this._setViewId(event.target.value);
@@ -234,6 +239,9 @@ export class CanvasStageRenderer {
     this.el = null;
     this.canvas = null;
     this.ctx = null;
+    this._gradientCache.clear();
+    this._gradientSizeKey = '';
+    this._reducedMotionQuery = null;
     if (!silent) this.onClose?.();
   }
 
@@ -291,6 +299,8 @@ export class CanvasStageRenderer {
       canvas.height = Math.floor(height * ratio);
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
+      this._gradientCache.clear();
+      this._gradientSizeKey = '';
     }
     this.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     return { width, height, ratio };
@@ -321,19 +331,50 @@ export class CanvasStageRenderer {
   };
 
   _drawBackground(ctx, width, height) {
-    const bg = ctx.createLinearGradient(0, 0, 0, height);
-    bg.addColorStop(0, '#02040a');
-    bg.addColorStop(0.46, '#070a11');
-    bg.addColorStop(1, '#020203');
+    const bg = this._cachedGradient(ctx, 'background', width, height, () => {
+      const gradient = ctx.createLinearGradient(0, 0, 0, height);
+      gradient.addColorStop(0, '#02040a');
+      gradient.addColorStop(0.46, '#070a11');
+      gradient.addColorStop(1, '#020203');
+      return gradient;
+    });
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, width, height);
 
-    const glow = ctx.createRadialGradient(width * 0.5, height * 0.2, 20, width * 0.5, height * 0.18, width * 0.75);
-    glow.addColorStop(0, 'rgba(63, 232, 255, 0.20)');
-    glow.addColorStop(0.44, 'rgba(234, 87, 255, 0.08)');
-    glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    const glow = this._cachedGradient(ctx, 'background-glow', width, height, () => {
+      const gradient = ctx.createRadialGradient(width * 0.5, height * 0.2, 20, width * 0.5, height * 0.18, width * 0.75);
+      gradient.addColorStop(0, 'rgba(63, 232, 255, 0.20)');
+      gradient.addColorStop(0.44, 'rgba(234, 87, 255, 0.08)');
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      return gradient;
+    });
     ctx.fillStyle = glow;
     ctx.fillRect(0, 0, width, height);
+  }
+
+  _cachedGradient(ctx, key, width, height, create) {
+    const sizeKey = `${Math.round(width)}x${Math.round(height)}:${this.mode}:${this.viewId}`;
+    if (this._gradientSizeKey !== sizeKey) {
+      this._gradientSizeKey = sizeKey;
+      this._gradientCache.clear();
+    }
+    const cacheKey = `${key}:${sizeKey}`;
+    if (!this._gradientCache.has(cacheKey)) {
+      this._gradientCache.set(cacheKey, create(ctx));
+    }
+    return this._gradientCache.get(cacheKey);
+  }
+
+  _prefersReducedMotion() {
+    return Boolean(this._reducedMotionQuery?.matches);
+  }
+
+  _qualityForEvents(events = []) {
+    return stageRenderQuality({
+      eventCount: events.length,
+      laneCount: this.getLaneCount?.() || 1,
+      reducedMotion: this._prefersReducedMotion(),
+    });
   }
 
   _laneGeometry(width, height) {
@@ -425,6 +466,7 @@ export class CanvasStageRenderer {
     const pastTicks = unitTicks * 3;
     const futureTicks = unitTicks * 18;
     const events = this._eventsForFrame();
+    const quality = this._qualityForEvents(events);
     const tickToX = (tick) => {
       const delta = tick - nowTick;
       if (delta >= 0) return geom.playheadX + (delta / futureTicks) * geom.timelineWidth;
@@ -492,7 +534,7 @@ export class CanvasStageRenderer {
       const minX = Math.min(startX, endX);
       const maxX = Math.max(startX, endX);
       if (maxX < geom.timelineLeft || minX > geom.timelineRight) continue;
-      this._drawCanvasEvent(ctx, geom, event, minX, maxX);
+      this._drawCanvasEvent(ctx, geom, event, minX, maxX, quality);
     }
 
     ctx.fillStyle = 'rgba(255,255,255,0.88)';
@@ -502,7 +544,7 @@ export class CanvasStageRenderer {
     ctx.restore();
   }
 
-  _drawCanvasEvent(ctx, geom, event, minX, maxX) {
+  _drawCanvasEvent(ctx, geom, event, minX, maxX, quality = this._qualityForEvents()) {
     const rowTop = geom.rowTop(event.lane);
     const subCount = Math.max(1, event.subLaneCount || 1);
     const sub = clamp(event.subLane || 0, 0, subCount - 1);
@@ -519,7 +561,7 @@ export class CanvasStageRenderer {
     const glow = event.intensity?.glow ?? 0.35;
     ctx.save();
     ctx.shadowColor = rgba(event.accentColor, 0.82);
-    ctx.shadowBlur = event.type === 'clip' ? 8 : 10 + glow * 18;
+    ctx.shadowBlur = stageBlur(event.type === 'clip' ? 8 : 10 + glow * 18, quality);
     const grad = ctx.createLinearGradient(x, y, x + w, y);
     grad.addColorStop(0, rgba(event.color, 0.18));
     grad.addColorStop(0.45, rgba(event.color, alpha));
@@ -560,7 +602,13 @@ export class CanvasStageRenderer {
   _eventsForFrame() {
     if (this.mode === 'canvas') return (this.getEvents() || []).map(normalizeEvent);
     const now = performance.now();
-    this._liveEvents = this._liveEvents.filter(event => event._active || now - (event._visualEndMs || event._visualStartMs) < 6800);
+    const quality = stageRenderQuality({
+      eventCount: this._liveEvents.length,
+      laneCount: this.getLaneCount?.() || 1,
+      reducedMotion: this._prefersReducedMotion(),
+    });
+    const retentionMs = stageTrailMs(6800, quality);
+    this._liveEvents = this._liveEvents.filter(event => event._active || now - (event._visualEndMs || event._visualStartMs) < retentionMs);
     return this._liveEvents.map(event => ({ ...normalizeEvent(event), _visualStartMs: event._visualStartMs, _visualEndMs: event._visualEndMs, _active: event._active }));
   }
 
@@ -570,6 +618,7 @@ export class CanvasStageRenderer {
     const unitTicks = Math.max(1, Number(this.getUnitTicks()) || 480);
     const horizonTicks = unitTicks * 16;
     const events = this._eventsForFrame();
+    const quality = this._qualityForEvents(events);
     const nowMs = performance.now();
 
     for (const event of events) {
@@ -589,7 +638,7 @@ export class CanvasStageRenderer {
         zEnd = clamp(tailAge / 2800, 0, 1);
       }
       if (zStart < zEnd) [zStart, zEnd] = [zEnd, zStart];
-      this._drawEventShape(ctx, geom, lane, zStart, zEnd, event);
+      this._drawEventShape(ctx, geom, lane, zStart, zEnd, event, quality);
     }
   }
 
@@ -626,16 +675,20 @@ export class CanvasStageRenderer {
     const geom = this._threadGeometry(width, height);
     const now = performance.now();
     const events = this._eventsForFrame();
-    const sweepMs = 8200;
+    const quality = this._qualityForEvents(events);
+    const sweepMs = stageTrailMs(8200, quality);
 
     ctx.save();
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
-    const field = ctx.createLinearGradient(geom.left, 0, geom.nowX, 0);
-    field.addColorStop(0, 'rgba(255,255,255,0.02)');
-    field.addColorStop(0.72, 'rgba(90, 215, 255, 0.07)');
-    field.addColorStop(1, 'rgba(255,255,255,0.12)');
+    const field = this._cachedGradient(ctx, 'thread-field', width, height, () => {
+      const gradient = ctx.createLinearGradient(geom.left, 0, geom.nowX, 0);
+      gradient.addColorStop(0, 'rgba(255,255,255,0.02)');
+      gradient.addColorStop(0.72, 'rgba(90, 215, 255, 0.07)');
+      gradient.addColorStop(1, 'rgba(255,255,255,0.12)');
+      return gradient;
+    });
     ctx.fillStyle = field;
     this._roundedRect(ctx, geom.left, geom.top - 24, geom.spanX, geom.floorY - geom.top + 48, 18);
     ctx.fill();
@@ -686,7 +739,7 @@ export class CanvasStageRenderer {
 
       ctx.save();
       ctx.shadowColor = rgba(event.accentColor, 0.74);
-      ctx.shadowBlur = 8 + glow * 26;
+      ctx.shadowBlur = stageBlur(8 + glow * 26, quality);
       ctx.strokeStyle = rgba(event.color, alpha);
       ctx.lineWidth = lineWidth;
       ctx.beginPath();
@@ -736,8 +789,9 @@ export class CanvasStageRenderer {
   _drawPulse(ctx, width, height) {
     const geom = this._pulseGeometry(width, height);
     const events = this._eventsForFrame();
+    const quality = this._qualityForEvents(events);
     const now = performance.now();
-    const decayMs = 2200;
+    const decayMs = stageTrailMs(2200, quality);
     const laneEnergy = Array.from({ length: geom.laneCount }, (_, index) => ({
       value: 0,
       color: '#7bd88f',
@@ -765,10 +819,13 @@ export class CanvasStageRenderer {
     ctx.save();
     ctx.translate(geom.cx, geom.cy);
 
-    const halo = ctx.createRadialGradient(0, 0, geom.inner * 0.2, 0, 0, geom.outer * 1.28);
-    halo.addColorStop(0, 'rgba(255,255,255,0.09)');
-    halo.addColorStop(0.34, 'rgba(88, 221, 255, 0.10)');
-    halo.addColorStop(1, 'rgba(0,0,0,0)');
+    const halo = this._cachedGradient(ctx, 'pulse-halo', width, height, () => {
+      const gradient = ctx.createRadialGradient(0, 0, geom.inner * 0.2, 0, 0, geom.outer * 1.28);
+      gradient.addColorStop(0, 'rgba(255,255,255,0.09)');
+      gradient.addColorStop(0.34, 'rgba(88, 221, 255, 0.10)');
+      gradient.addColorStop(1, 'rgba(0,0,0,0)');
+      return gradient;
+    });
     ctx.fillStyle = halo;
     ctx.beginPath();
     ctx.arc(0, 0, geom.outer * 1.28, 0, Math.PI * 2);
@@ -796,7 +853,7 @@ export class CanvasStageRenderer {
 
       ctx.save();
       ctx.shadowColor = rgba(color, 0.58);
-      ctx.shadowBlur = 5 + energy * 24;
+      ctx.shadowBlur = stageBlur(5 + energy * 24, quality);
       ctx.fillStyle = rgba(color, alpha);
       ctx.strokeStyle = rgba(color, 0.58 + energy * 0.34);
       ctx.lineWidth = 1 + energy * 2.2;
@@ -830,7 +887,7 @@ export class CanvasStageRenderer {
 
     ctx.restore();
 
-    if (width > 520) {
+    if (width > 520 && quality.detail !== 'minimal') {
       const hot = laneEnergy
         .map((lane, index) => ({ ...lane, index }))
         .filter(lane => lane.value > 0.08)
@@ -867,8 +924,9 @@ export class CanvasStageRenderer {
   _drawHalo(ctx, width, height) {
     const geom = this._haloGeometry(width, height);
     const events = this._eventsForFrame();
+    const quality = this._qualityForEvents(events);
     const now = performance.now();
-    const decayMs = 4200;
+    const decayMs = stageTrailMs(4200, quality);
     const pitchEnergy = Array.from({ length: 12 }, () => ({
       value: 0,
       color: '#7bd88f',
@@ -902,10 +960,13 @@ export class CanvasStageRenderer {
     };
 
     ctx.save();
-    const field = ctx.createRadialGradient(geom.cx, geom.cy, geom.inner * 0.2, geom.cx, geom.cy, geom.labelRadius * 1.25);
-    field.addColorStop(0, 'rgba(255,255,255,0.08)');
-    field.addColorStop(0.48, 'rgba(108, 226, 255, 0.08)');
-    field.addColorStop(1, 'rgba(0,0,0,0)');
+    const field = this._cachedGradient(ctx, 'halo-field', width, height, () => {
+      const gradient = ctx.createRadialGradient(geom.cx, geom.cy, geom.inner * 0.2, geom.cx, geom.cy, geom.labelRadius * 1.25);
+      gradient.addColorStop(0, 'rgba(255,255,255,0.08)');
+      gradient.addColorStop(0.48, 'rgba(108, 226, 255, 0.08)');
+      gradient.addColorStop(1, 'rgba(0,0,0,0)');
+      return gradient;
+    });
     ctx.fillStyle = field;
     ctx.beginPath();
     ctx.arc(geom.cx, geom.cy, geom.labelRadius * 1.25, 0, Math.PI * 2);
@@ -925,12 +986,12 @@ export class CanvasStageRenderer {
       .filter(pitchClass => pitchEnergy[pitchClass].value > 0.08)
       .map(pitchClass => ({ pitchClass, ...pointForPitchClass(pitchClass, geom.outer * 0.76) }));
 
-    if (activePoints.length > 1) {
+    if (activePoints.length > 1 && quality.detail !== 'minimal') {
       ctx.save();
       ctx.strokeStyle = 'rgba(255,255,255,0.24)';
       ctx.lineWidth = 1.4;
       ctx.shadowColor = 'rgba(125,216,255,0.34)';
-      ctx.shadowBlur = 16;
+      ctx.shadowBlur = stageBlur(16, quality);
       ctx.beginPath();
       activePoints.forEach((point, index) => {
         if (index === 0) ctx.moveTo(point.x, point.y);
@@ -950,7 +1011,7 @@ export class CanvasStageRenderer {
 
       ctx.save();
       ctx.shadowColor = rgba(color, 0.65);
-      ctx.shadowBlur = 8 + energy * 26;
+      ctx.shadowBlur = stageBlur(8 + energy * 26, quality);
       ctx.fillStyle = rgba(color, 0.18 + energy * 0.72);
       ctx.strokeStyle = rgba(color, 0.36 + energy * 0.52);
       ctx.lineWidth = 1 + energy * 2;
@@ -979,7 +1040,7 @@ export class CanvasStageRenderer {
     ctx.restore();
   }
 
-  _drawEventShape(ctx, geom, lane, zStart, zEnd, event) {
+  _drawEventShape(ctx, geom, lane, zStart, zEnd, event, quality = this._qualityForEvents()) {
     const inset = 0.14;
     const leftStart = geom.xAt(lane + inset, zStart);
     const rightStart = geom.xAt(lane + 1 - inset, zStart);
@@ -992,7 +1053,7 @@ export class CanvasStageRenderer {
 
     ctx.save();
     ctx.shadowColor = rgba(event.accentColor, 0.78);
-    ctx.shadowBlur = 8 + glow * 28;
+    ctx.shadowBlur = stageBlur(8 + glow * 28, quality);
     const grad = ctx.createLinearGradient(0, yEnd, 0, yStart);
     grad.addColorStop(0, rgba(event.color, 0.15));
     grad.addColorStop(0.5, rgba(event.color, alpha));

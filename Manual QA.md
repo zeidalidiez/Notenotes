@@ -282,6 +282,8 @@ Steps:
 9. Open Canvas and click Stage.
 10. Press Play and watch the Canvas Stage lanes while clips pass the playhead.
 11. Close Stage and confirm normal app controls are usable again.
+12. With many held notes or a dense Canvas arrangement, confirm Stage remains responsive and glow/detail pull back rather than stuttering badly.
+13. If the browser/OS reduced-motion setting is enabled, reopen Stage and confirm trails/glow are visibly calmer.
 
 Expected:
 
@@ -297,6 +299,8 @@ Expected:
 - Canvas Stage respects muted/soloed tracks, caps to the audible lane set, keeps track colors, and shows audio clips as sustained blocks instead of omitting them.
 - Multiple notes or drum sounds inside the same Canvas track appear on separate internal sublanes. A chord should not collapse into one undifferentiated block.
 - MIDI labels in Canvas Stage show real note names, not `undefined`.
+- Dense Stage scenes reduce expensive glow/trail detail before audio or input behavior is affected.
+- Reduced-motion environments keep Stage readable with shorter trails and less glow.
 - Stage does not start, stop, or alter audio playback. It only mirrors input and transport state.
 
 ### 1.12 Mobile Create Layout

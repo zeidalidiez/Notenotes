@@ -83,6 +83,7 @@ src/main.js
   stage/
     StageEventStream.js     renderer-agnostic live/visual performance events
     StageModel.js           Stage lane limits, intensity tiers, track mapping
+    StageRenderQuality.js   Stage render budget for blur, trails, motion
     StageViews.js           Stage view registry and mode filtering
   data/
     ProjectStore.js         IndexedDB, audio assets, backup, history
@@ -808,6 +809,19 @@ moving musical input or transport logic.
   drum sounds, audio clips render as sustained blocks, and a vertical playhead
   anchors the motion. Keep this split unless a later Three.js renderer can show
   dense Canvas detail without turning into track-level visual noise.
+- `src/stage/StageRenderQuality.js` is the pure render-budget helper for Stage.
+  It never touches audio or transport. `stageRenderQuality()` takes event count,
+  lane count, and `prefers-reduced-motion`, then returns a detail tier plus
+  shadow/trail scales. `CanvasStageRenderer` uses it to reduce expensive
+  `shadowBlur`, shorten live trails under load, and skip nonessential decorative
+  detail in minimal mode. This is the required guardrail before adding more
+  Stage views: dense scenes should degrade glow/detail first, not input/audio.
+  Smoke tests cover this helper because it is pure logic and should stay
+  independent of Canvas DOM APIs.
+- `CanvasStageRenderer` caches stable background/field gradients per
+  canvas-size/mode/view. Do not cache per-event gradients unless the key includes
+  the changing color/position data; note shapes are intentionally still created
+  per draw because their geometry and colors are event-specific.
 - `stageEventsForCanvasTracks()` must support both historical/manual note fields
   (`midi`, `durationTicks`) and the current recording/export schema
   (`pitch`, `durationTick`). If Canvas Stage shows `undefined` labels, this is

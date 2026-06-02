@@ -225,15 +225,17 @@ Shipped first slice:
 - Canvas Stage still uses the horizontal track map only. That view already shows
   internal note/drum/audio sublanes and should not be forced through every live
   view metaphor.
+- Stage now has a render-quality budget before any new views are added:
+  reusable field/background gradients are cached per canvas size/view, hot-path
+  shadow blur scales down in dense scenes, and reduced-motion users get shorter
+  trails plus minimal decorative detail. Stage remains read-only visual output.
 
 Still pending:
 
-- Cache gradients and reduce hot-path shadow blur before adding more Stage
-  views; Stage must stay a read-only mirror of transport/events and never drive
-  audio.
 - Lazy-load any future Three.js/WebGL view. Do not add three.js eagerly to the
   base bundle.
-- Honor reduced motion and keep a cheap Canvas 2D fallback.
+- Keep honoring reduced motion and the cheap Canvas 2D fallback when adding
+  future views.
 
 Viable future views from Opus/Grok review:
 

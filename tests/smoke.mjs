@@ -86,6 +86,11 @@ import {
   stageViewOptionsForMode,
 } from '../src/stage/StageViews.js';
 import {
+  stageBlur,
+  stageRenderQuality,
+  stageTrailMs,
+} from '../src/stage/StageRenderQuality.js';
+import {
   clipTimeScaleBadgeItem,
   clipVisualDurationBars,
   normalizeClipTimeScale,
@@ -156,6 +161,21 @@ test('drum noise shaping reduces raw white noise hash and keeps bounded output',
   assert.notEqual(first, 1);
   assert.ok(drumTransientEnvelope('hihat', 0, 0.06) > drumTransientEnvelope('hihat', 0.05, 0.06));
   assert.ok(drumTransientEnvelope('cymbal', 0.1, 0.4) > drumTransientEnvelope('hihat', 0.1, 0.06));
+});
+
+test('stage render quality reduces glow and trails under load and reduced motion', () => {
+  const calm = stageRenderQuality({ eventCount: 8, laneCount: 8, reducedMotion: false });
+  const dense = stageRenderQuality({ eventCount: 190, laneCount: 20, reducedMotion: false });
+  const reduced = stageRenderQuality({ eventCount: 8, laneCount: 8, reducedMotion: true });
+
+  assert.equal(calm.detail, 'full');
+  assert.equal(dense.detail, 'minimal');
+  assert.equal(reduced.detail, 'minimal');
+  assert.ok(stageBlur(30, dense) < stageBlur(30, calm));
+  assert.ok(stageBlur(30, reduced) < stageBlur(30, calm));
+  assert.ok(stageTrailMs(6800, dense) < stageTrailMs(6800, calm));
+  assert.ok(stageTrailMs(6800, reduced) < stageTrailMs(6800, calm));
+  assert.equal(stageBlur(999, calm), 34);
 });
 
 test('inspect display duration follows snippet length instead of forcing four bars', () => {

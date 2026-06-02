@@ -41,6 +41,11 @@ import {
   velocityAdjustedFilterFrequency,
 } from '../src/engine/VelocityResponse.js';
 import {
+  adsrEnvelopeValueAt,
+  envelopeSegmentProgress,
+  createEnvelopeParamCurve,
+} from '../src/engine/EnvelopeCurves.js';
+import {
   applyMasterGlue,
   masterGlueSample,
   MASTER_GLUE_DEFAULTS,
@@ -272,6 +277,26 @@ test('velocity response changes timbre without changing legacy patches', () => {
   assert.ok(velocityAdjustedFilterFrequency(2000, 0.2, response) < 2000);
   assert.ok(velocityAdjustedDrive(0.1, 1, response) > 0.1);
   assert.equal(velocityAdjustedDrive(0.1, 0.2, response), 0.1);
+});
+
+test('envelope curves make attacks speak sooner and decay more naturally', () => {
+  const env = { attack: 0.2, decay: 0.4, sustain: 0.5, release: 0.3 };
+  assert.ok(envelopeSegmentProgress(0.5, 'attack') > 0.5);
+  assert.ok(envelopeSegmentProgress(0.5, 'decay') > 0.5);
+  assert.ok(adsrEnvelopeValueAt(0.1, 1, env, 1) > 0.5);
+  assert.ok(adsrEnvelopeValueAt(0.4, 1, env, 1) < 0.75);
+  assert.ok(adsrEnvelopeValueAt(1.15, 1, env, 1) < 0.25);
+});
+
+test('envelope param curves include exact endpoints for live scheduling', () => {
+  const attack = createEnvelopeParamCurve(0, 0.8, 'attack', 16);
+  const decay = createEnvelopeParamCurve(0.8, 0.4, 'decay', 16);
+  assert.equal(attack[0], 0);
+  assert.ok(Math.abs(attack[attack.length - 1] - 0.8) < 0.000001);
+  assert.ok(Math.abs(decay[0] - 0.8) < 0.000001);
+  assert.ok(Math.abs(decay[decay.length - 1] - 0.4) < 0.000001);
+  assert.ok(attack[8] > 0.8 * (8 / 15));
+  assert.ok(decay[8] < 0.8 + (0.4 - 0.8) * (8 / 15));
 });
 
 test('master glue gently shapes peaks while preserving silence', () => {

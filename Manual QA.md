@@ -71,6 +71,7 @@ Expected:
 - Live playback and WAV exports have the same gentle output character: peaks feel controlled, not louder or obviously distorted.
 - Stereo Canvas WAV still preserves track pan.
 - Quiet notes and drum tails are still audible; the master stage should not act like a hard gate.
+- Short notes speak promptly, while pad/keys releases feel smoother than an abrupt straight-line fade.
 
 ### 1.4 Pads Degree Labels
 

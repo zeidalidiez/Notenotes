@@ -1768,6 +1768,59 @@ Smoke tests:
 - `master glue gently shapes peaks while preserving silence`
 - `master glue applies equally to mono and stereo buffers`
 
+## Curved Synth Envelopes 0.1.99
+
+Synth amplitude and filter envelopes now use shared curved segments instead of
+straight `linearRampToValueAtTime()` ramps. This is another procedural fullness
+slice: it makes quick notes speak sooner and lets decay/release fall more
+naturally without adding UI, sample assets, or new patch schema.
+
+Shared math lives in `src/engine/EnvelopeCurves.js`:
+
+```js
+ENVELOPE_CURVE_DEFAULTS = {
+  attackShape: 0.62,
+  decayShape: 1.9,
+  releaseShape: 2.2,
+  curvePoints: 48,
+}
+
+envelopeSegmentProgress(progress, 'attack' | 'decay' | 'release')
+createEnvelopeParamCurve(from, to, segment, points)
+adsrEnvelopeValueAt(t, durationSec, env, velocity)
+```
+
+Design intent:
+
+- Attack uses an ease-out curve, so the sound reaches useful level earlier than
+  a straight line while preserving each patch's saved attack time.
+- Decay and release move quickly at first and settle more gently, closer to how
+  users expect synth envelopes to feel.
+- Existing `envelope.attack/decay/sustain/release` fields are unchanged. Old and
+  custom patches load normally; only the interpolation shape changes.
+
+Live path:
+
+- `WebAudioSynth._scheduleAmpEnvelope()` schedules attack and decay with
+  `AudioParam.setValueCurveAtTime()` using `createEnvelopeParamCurve()`.
+- `_scheduleFilterEnvelope()` uses the same helper for filter attack/decay
+  movement, so filter-envelope patches avoid the old stiff straight-line sweep.
+- `_envelopeLevelAt()` uses `adsrEnvelopeValueAt()` so note-off release begins
+  from the same curved level the live attack/decay scheduling intended.
+- Release still uses `setTargetAtTime(0, release / 3)` to avoid clicks when
+  users release a note mid-curve.
+
+Export path:
+
+- `WavExporter.envelopeValue()` delegates to `adsrEnvelopeValueAt()`.
+- `WavExporter.filterFrequencyForPatch()` uses `envelopeSegmentProgress()` for
+  filter attack and decay, mirroring the live filter movement.
+
+Smoke tests:
+
+- `envelope curves make attacks speak sooner and decay more naturally`
+- `envelope param curves include exact endpoints for live scheduling`
+
 `MicRecorder` owns the UI and stream reopening:
 
 - Changing Input or Channels reopens the stream when permission is already

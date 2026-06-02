@@ -540,10 +540,11 @@ Shipped procedural fullness slices so far:
 - Velocity response for filter brightness and a touch of drive on harder notes.
 - Modern stereo width plus Canvas track pan and stereo WAV export choices.
 - Fixed master glue output stage mirrored in live playback and WAV export.
+- Shared curved synth amplitude/filter envelopes mirrored in live playback and
+  WAV export.
 
 Next likely sound slices:
 
-- Exponential envelope curves for synth amplitude/filter movement.
 - Better procedural drum noise shaping/transients.
 - A serious design pass for renderer unification before adding heavier DSP.
 

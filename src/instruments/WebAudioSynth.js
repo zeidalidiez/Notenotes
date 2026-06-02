@@ -15,6 +15,7 @@ import {
   velocityAdjustedFilterFrequency,
 } from '../engine/VelocityResponse.js';
 import { normalizeStereoWidth, panForVoice } from '../engine/StereoWidth.js';
+import { adsrEnvelopeValueAt, createEnvelopeParamCurve } from '../engine/EnvelopeCurves.js';
 
 /** Maximum simultaneous voices */
 const MAX_VOICES = 8;
@@ -419,21 +420,22 @@ export class WebAudioSynth {
     const sustainFrequency = baseFrequency + (openFrequency - baseFrequency) * sustain;
     filter.frequency.cancelScheduledValues(now);
     filter.frequency.setValueAtTime(baseFrequency, now);
-    filter.frequency.linearRampToValueAtTime(openFrequency, now + attack);
-    filter.frequency.linearRampToValueAtTime(sustainFrequency, now + attack + decay);
+    filter.frequency.setValueCurveAtTime(createEnvelopeParamCurve(baseFrequency, openFrequency, 'attack'), now, attack);
+    filter.frequency.setValueCurveAtTime(createEnvelopeParamCurve(openFrequency, sustainFrequency, 'decay'), now + attack, decay);
   }
 
   _envelopeLevelAt(envelope, elapsed, velocity = 1) {
-    const attack = Math.max(0.001, envelope?.attack ?? DEFAULT_PATCH.envelope.attack);
-    const decay = Math.max(0.001, envelope?.decay ?? DEFAULT_PATCH.envelope.decay);
-    const sustain = Math.max(0, Math.min(1, envelope?.sustain ?? DEFAULT_PATCH.envelope.sustain));
-    const t = Math.max(0, elapsed);
-    if (t < attack) return velocity * (t / attack);
-    if (t < attack + decay) {
-      const d = (t - attack) / decay;
-      return velocity * (1 - d * (1 - sustain));
-    }
-    return velocity * sustain;
+    return adsrEnvelopeValueAt(elapsed, Number.POSITIVE_INFINITY, envelope || DEFAULT_PATCH.envelope, velocity);
+  }
+
+  _scheduleAmpEnvelope(gainParam, envelope, velocity, now) {
+    const attack = Math.max(0.001, envelope.attack || 0.001);
+    const decay = Math.max(0.001, envelope.decay || 0.001);
+    const sustain = Math.max(0, Math.min(1, envelope.sustain ?? DEFAULT_PATCH.envelope.sustain));
+    gainParam.cancelScheduledValues(now);
+    gainParam.setValueAtTime(0, now);
+    gainParam.setValueCurveAtTime(createEnvelopeParamCurve(0, velocity, 'attack'), now, attack);
+    gainParam.setValueCurveAtTime(createEnvelopeParamCurve(velocity, velocity * sustain, 'decay'), now + attack, decay);
   }
 
   _createOscillatorStack(midi, oscPatch, gainAmount, now, layerOffset = 0) {
@@ -520,12 +522,7 @@ export class WebAudioSynth {
       filter.Q.setValueAtTime(p.filter.Q, now);
 
       const env = ctx.createGain();
-      env.gain.setValueAtTime(0, now);
-      env.gain.linearRampToValueAtTime(velocity, now + p.envelope.attack);
-      env.gain.linearRampToValueAtTime(
-        velocity * p.envelope.sustain,
-        now + p.envelope.attack + p.envelope.decay
-      );
+      this._scheduleAmpEnvelope(env.gain, p.envelope, velocity, now);
 
       source.connect(filter);
       filter.connect(env);
@@ -565,14 +562,7 @@ export class WebAudioSynth {
 
     // Envelope (gain)
     const env = ctx.createGain();
-    env.gain.setValueAtTime(0, now);
-    // Attack
-    env.gain.linearRampToValueAtTime(velocity, now + p.envelope.attack);
-    // Decay → Sustain
-    env.gain.linearRampToValueAtTime(
-      velocity * p.envelope.sustain,
-      now + p.envelope.attack + p.envelope.decay
-    );
+    this._scheduleAmpEnvelope(env.gain, p.envelope, velocity, now);
 
     // Connect: osc → filter → env → output
     const { oscillators, oscillatorGains } = this._createOscillatorStack(midi, p.oscillator, 1, now);

@@ -1,5 +1,6 @@
 import { DRUM_KITS } from '../instruments/SketchKit.js';
 import { PRESETS } from '../instruments/WebAudioSynth.js';
+import { adsrEnvelopeValueAt, envelopeSegmentProgress } from '../engine/EnvelopeCurves.js';
 import { applyMasterGlue } from '../engine/MasterGlue.js';
 import { secondsPerTickForMeter, ticksPerBarForMeter } from '../engine/Meter.js';
 import { normalizeClipTimeScale } from '../engine/ClipTimeScale.js';
@@ -75,17 +76,7 @@ function oscillatorValue(type = 'sine', phaseCycles = 0) {
 }
 
 function envelopeValue(t, durationSec, env) {
-  const attack = Math.max(0.001, env.attack || 0.001);
-  const decay = Math.max(0.001, env.decay || 0.001);
-  const sustain = clamp(env.sustain ?? 0.6, 0, 1);
-  const release = Math.max(0.001, env.release || 0.001);
-  if (t < attack) return t / attack;
-  if (t < attack + decay) {
-    const d = (t - attack) / decay;
-    return 1 + (sustain - 1) * d;
-  }
-  if (t <= durationSec) return sustain;
-  return Math.max(0, sustain * (1 - ((t - durationSec) / release)));
+  return adsrEnvelopeValueAt(t, durationSec, env, 1);
 }
 
 function filterFrequencyForPatch(patch, midi, t, velocity = 0.8) {
@@ -103,9 +94,9 @@ function filterFrequencyForPatch(patch, midi, t, velocity = 0.8) {
   const sustain = clamp(env.sustain ?? 0.5, 0, 1);
   const depth = clamp(env.depth ?? 0, 0, 1.5);
   const opened = clamp(base * (1 + depth * 4), 40, 19000);
-  if (t < attack) return base + (opened - base) * (t / attack);
+  if (t < attack) return base + (opened - base) * envelopeSegmentProgress(t / attack, 'attack');
   if (t < attack + decay) {
-    const d = (t - attack) / decay;
+    const d = envelopeSegmentProgress((t - attack) / decay, 'decay');
     return opened + ((base + (opened - base) * sustain) - opened) * d;
   }
   return base + (opened - base) * sustain;

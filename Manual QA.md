@@ -690,6 +690,7 @@ Expected:
 - Cancel restores the original timing.
 - Apply preserves event count, order, pitch/drum type, velocity, and Tone metadata while changing only timing and optional note lengths.
 - Even spacing distributes events evenly inside the selected target length.
+- After applying to `1 bar`, the Inspect ruler/grid shows the fitted snippet length instead of several empty bars.
 - Undo restores the pre-fit snippet.
 
 ### 6.9 Meter Top-Bar Phase 1

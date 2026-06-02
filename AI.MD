@@ -1025,6 +1025,21 @@ disabled or explain themselves with a toast; do not make controls silently fail.
 Drum hits draw as blocks in the grid. Split view is for MIDI and should be
 disabled clearly for drums.
 
+Inspect timeline display is intentionally separate from persisted snippet
+duration. `src/engine/SnippetTiming.js` owns this display-only math:
+
+- `snippetContentEndTick(snippet, fallbackEventTicks)` finds the last visible
+  note/hit end. Drum hits do not store duration, so the current edit grid size
+  is used as their visual width.
+- `inspectDisplayDurationTicks(snippet, { ticksPerBar, gridTicks })` returns the
+  ruler/grid span. It floors at one current-meter bar, then grows to the larger
+  of stored `durationTicks` or actual content end, snapping up to the edit grid.
+
+Do not reintroduce the old four-bar Inspect floor. It made short snippets and
+Rhythm Fit results look like they contained late empty notes, especially in
+non-4/4 meters. This helper only controls how much grid Inspect draws; it must
+not mutate snippet timing.
+
 ## Exports
 
 - WAV export should render Notenotes-specific sound and Tone where supported.

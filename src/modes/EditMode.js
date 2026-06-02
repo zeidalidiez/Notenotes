@@ -9,6 +9,7 @@ import './edit.css';
 import { NOTE_NAMES, midiToNoteName } from '../engine/MusicTheory.js';
 import { pulseCountForMeter, pulseTicksForMeter, ticksPerBarForMeter } from '../engine/Meter.js';
 import { fitRhythmEvents, RHYTHM_FIT_MODES } from '../engine/RhythmFit.js';
+import { inspectDisplayDurationTicks } from '../engine/SnippetTiming.js';
 import { showToast } from '../ui/Toast.js';
 import { renderToneBadges, toneBadgeItemsFromSources } from '../ui/ToneBadges.js';
 
@@ -604,10 +605,10 @@ export class EditMode {
   }
 
   _displayDurationTicks() {
-    const ticksPerBeat = this.transport?.ticksPerBeat || 480;
-    const ticksPerBar = this._ticksPerBar();
-    const minimumTicks = ticksPerBar * 4;
-    return Math.max(this._snippet?.durationTicks || ticksPerBar, minimumTicks);
+    return inspectDisplayDurationTicks(this._snippet, {
+      ticksPerBar: this._ticksPerBar(),
+      gridTicks: this._gridSize || this.transport?.ticksPerBeat || 480,
+    });
   }
 
   _beatsPerBar() {

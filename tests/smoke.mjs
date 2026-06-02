@@ -86,6 +86,7 @@ import {
   RHYTHM_FIT_MODES,
   RHYTHM_FIT_TARGETS,
 } from '../src/engine/RhythmFit.js';
+import { inspectDisplayDurationTicks } from '../src/engine/SnippetTiming.js';
 import { auditProjectAudioAssets, createProject } from '../src/data/ProjectStore.js';
 
 function test(name, fn) {
@@ -114,6 +115,32 @@ test('compound and asymmetric meter math keeps bar durations pulse-based', () =>
 
   assert.equal(pulseCountForMeter('7/8'), 3);
   assert.equal(Math.round(quarterBpmForMeter('7/8', 120)), 140);
+});
+
+test('inspect display duration follows snippet length instead of forcing four bars', () => {
+  const snippet = {
+    durationTicks: 1920,
+    notes: [
+      { startTick: 0, durationTick: 120 },
+      { startTick: 480, durationTick: 120 },
+    ],
+  };
+  assert.equal(inspectDisplayDurationTicks(snippet, { ticksPerBar: 1920, gridTicks: 120 }), 1920);
+});
+
+test('inspect display duration grows only when content exceeds the stored length', () => {
+  const snippet = {
+    durationTicks: 960,
+    hits: [
+      { startTick: 0 },
+      { startTick: 2340 },
+    ],
+  };
+  assert.equal(inspectDisplayDurationTicks(snippet, { ticksPerBar: 1920, gridTicks: 120 }), 2520);
+});
+
+test('inspect display duration uses one current-meter bar as the empty floor', () => {
+  assert.equal(inspectDisplayDurationTicks({ durationTicks: 0, notes: [] }, { ticksPerBar: 2400, gridTicks: 120 }), 2400);
 });
 
 test('progression context normalizes to an inactive, backward-compatible default', () => {

@@ -176,7 +176,7 @@ These are the ideas that drive the project. Some are coded, some are sketches, s
 
 ### Safety nets for those who need them
 - [x] **Scale lock** on the pads.
-- [ ] **Progression / chord context** - the project now has a quiet, backward-compatible degree-based progression model, a compact Changes picker in the top bar, compatible-scale filtering, and adjustable chord-tone glow on Pads and Piano. The next step is making that context advance through the progression instead of staying on the selected active step.
+- [x] **Progression / chord context** - the project has a quiet, backward-compatible degree-based progression model, a compact Changes picker in the top bar, compatible-scale filtering, and adjustable chord-tone glow on Pads and Piano. The glow now advances through the progression as playback crosses bars, honoring each step's bar length and looping, while old saved projects keep their frozen step. Next: a manual step-control surface for stepping changes by hand.
 - [ ] **Microtonal Pads mode** - true quarter-tone maqam/raga support needs a deliberate pitch-label, MIDI-export, ABC-export, AI-schema, and controller-binding design instead of being slipped in as float scale intervals.
 - [ ] **Drone mode** - sustain the root of your key in the background as a tonal anchor.
 - [ ] **Suggest-next-chord** - gentle prompts when you want them, invisible when you don't.

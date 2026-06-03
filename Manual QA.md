@@ -323,6 +323,25 @@ Expected:
 - Mobile toolbar panels open as modal-style overlays instead of pushing the page down.
 - Dragging inside scrollable mobile areas scrolls the intended area instead of immediately activating unrelated controls.
 
+### 1.13 Changes Glow Follows Playback
+
+Steps:
+
+1. Go to Create, set the project key to C and scale to Major.
+2. Open Layout and enable Chord tone glow for both Pads and Keys.
+3. In the top bar, set Changes to The Axis (I-V-vi-IV).
+4. With the transport stopped, note which pads/keys are hot.
+5. Press Play and let the loop run across several bars; watch Pads (and switch to Piano mid-playback).
+6. Press Stop.
+
+Expected:
+
+- Stopped at bar 0, the hot chord tones match I (C-E-G in C Major).
+- As playback crosses each bar, the glow advances to the next chord (V, then vi, then IV) and loops back to I.
+- The hot tones never change which notes actually play, what records, or what exports — only which tones glow.
+- On Stop, the glow returns to the chord for the bar the playhead resets to (bar 0 → I).
+- Opening an older saved project whose Changes were set before this build keeps the glow frozen on its saved step (it does not start following playback).
+
 ## 2. Audio In Recording
 
 ### 2.1 Audio In Creates A Snippet

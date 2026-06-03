@@ -62,13 +62,17 @@ import {
 } from '../src/engine/StereoWidth.js';
 import {
   activeProgressionResolution,
+  advanceProgressionContext,
   normalizeProgressionContext,
   normalizeProgressionGlow,
   progressionChoiceGroups,
   progressionFitsContext,
   progressionLabel,
   progressionPreset,
+  progressionStepIndexForBar,
+  progressionTotalBars,
   resolveProgressionStep,
+  PROGRESSION_ADVANCE_MODES,
 } from '../src/engine/Progressions.js';
 import { StageEventStream } from '../src/stage/StageEventStream.js';
 import {
@@ -311,6 +315,69 @@ test('progression glow settings normalize as an additive visual preference', () 
   assert.deepEqual(normalizeProgressionGlow(), { enabled: true, intensity: 0.28 });
   assert.deepEqual(normalizeProgressionGlow({ enabled: false, intensity: 2 }), { enabled: false, intensity: 0.85 });
   assert.deepEqual(normalizeProgressionGlow({ intensity: 0.01 }), { enabled: true, intensity: 0.08 });
+});
+
+test('progression presets follow playback while a stored manual mode stays frozen', () => {
+  // Selecting a Changes preset opts into bar-following advancement.
+  assert.equal(progressionPreset('axis').advance, PROGRESSION_ADVANCE_MODES.strict);
+  // Old saved projects stored advance explicitly as manual; that choice is
+  // preserved on load, so their active step never moves on its own.
+  const stored = normalizeProgressionContext({
+    id: 'axis',
+    enabled: true,
+    advance: 'manual',
+    steps: progressionPreset('axis').steps,
+  });
+  assert.equal(stored.advance, PROGRESSION_ADVANCE_MODES.manual);
+  // A custom progression with no advance field defaults to manual, not strict.
+  const custom = normalizeProgressionContext({
+    id: 'custom',
+    enabled: true,
+    steps: [{ degree: 'I' }, { degree: 'V' }],
+  });
+  assert.equal(custom.advance, PROGRESSION_ADVANCE_MODES.manual);
+});
+
+test('progression step index follows bars, honoring durations and looping', () => {
+  const axis = progressionPreset('axis'); // I-V-vi-IV, one bar each, 4 bars total
+  assert.equal(progressionTotalBars(axis), 4);
+  assert.equal(progressionStepIndexForBar(axis, 0), 0);
+  assert.equal(progressionStepIndexForBar(axis, 1), 1);
+  assert.equal(progressionStepIndexForBar(axis, 3), 3);
+  // Loops back to the first step after a full pass.
+  assert.equal(progressionStepIndexForBar(axis, 4), 0);
+  assert.equal(progressionStepIndexForBar(axis, 6), 2);
+
+  // Multi-bar steps: I for 2 bars, IV for 1, V for 1 (total 4 bars).
+  const weighted = normalizeProgressionContext({
+    id: 'custom',
+    enabled: true,
+    steps: [
+      { degree: 'I', durationBars: 2 },
+      { degree: 'IV', durationBars: 1 },
+      { degree: 'V', durationBars: 1 },
+    ],
+  });
+  assert.equal(progressionTotalBars(weighted), 4);
+  assert.equal(progressionStepIndexForBar(weighted, 0), 0);
+  assert.equal(progressionStepIndexForBar(weighted, 1), 0); // still in the 2-bar I
+  assert.equal(progressionStepIndexForBar(weighted, 2), 1); // IV
+  assert.equal(progressionStepIndexForBar(weighted, 3), 2); // V
+  assert.equal(progressionStepIndexForBar(weighted, 4), 0); // wrap
+
+  // Empty/off progressions glow the tonic (index 0) and never throw.
+  assert.equal(progressionStepIndexForBar(null, 5), 0);
+  assert.equal(progressionStepIndexForBar({ enabled: false }, 5), 0);
+});
+
+test('manual progression advance nudges and wraps the active step', () => {
+  const axis = progressionPreset('axis'); // 4 steps
+  assert.equal(advanceProgressionContext(axis, 1).activeStepIndex, 1);
+  assert.equal(advanceProgressionContext(axis, 4).activeStepIndex, 0); // full loop
+  assert.equal(advanceProgressionContext(axis, -1).activeStepIndex, 3); // wrap backward
+  // Default delta is one step forward; empty progressions are a safe no-op.
+  assert.equal(advanceProgressionContext(axis).activeStepIndex, 1);
+  assert.equal(advanceProgressionContext({ enabled: false }).activeStepIndex, 0);
 });
 
 test('note correction quantizes piano and MIDI notes only when enabled', () => {

@@ -403,8 +403,21 @@ Rules:
   and Pads agree about which pitch classes belong to the active Changes chord.
 - Progression glow means "current chord tones are hot", not "notes are in
   scale." In-scale identity already belongs to degree colors.
-- The active step currently stays whatever `project.progression.activeStepIndex`
-  says. There is no automatic bar-following or manual next-step UI yet.
+- The active step advances with playback when `progression.advance === 'strict'`,
+  which is the default for any preset selected from the Changes picker.
+  `progressionStepIndexForBar(progression, bar)` is the pure bar-following core:
+  it loops the progression over its total length and honors each step's
+  `durationBars`. `progressionTotalBars()` reports that loop length, and
+  `advanceProgressionContext(progression, delta)` is the pure manual next/prev
+  nudge (wraps within the step list) for a future explicit step-control UI.
+  `manual` stays a valid stored mode; old saved projects stored `advance:
+  'manual'` explicitly, so their active step stays frozen exactly as before.
+- `main.js` subscribes to `transport.onBar` and calls `_followProgressionToBar()`,
+  which updates `activeStepIndex` in place and dispatches
+  `project-progression-changed` so ScaleBoard/MicroPiano glow follows. It also
+  re-syncs on the transport `stopped` state so the glow returns with the
+  playhead. This is glow-only: it never autosaves per bar and never touches
+  playback, recording, export, or snippets.
 - Do not mutate snippets to add progression data. Snippets remain portable
   note/hit/audio objects; if a progression is unavailable in an old project,
   only the future glow/context layer should be absent.

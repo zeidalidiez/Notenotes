@@ -12,7 +12,7 @@
 import { AudioEngine } from '../engine/AudioEngine.js';
 
 const PACKS_BASE = `${(import.meta.env && import.meta.env.BASE_URL) || '/'}packs`;
-const CACHE_NAME = 'nn-sample-packs-v1';
+const CACHE_NAME = 'nn-sample-packs-v2';
 
 let _indexPromise = null;
 const _instrumentCache = new Map(); // id -> Promise<patch>
@@ -24,7 +24,10 @@ async function cachedFetch(url) {
     const hit = await cache.match(url);
     if (hit) return hit;
     const res = await fetch(url);
-    if (res && res.ok) cache.put(url, res.clone());
+    // Never cache an SPA-fallback HTML page (happens when a file is missing) —
+    // otherwise a stale 200 page would masquerade as audio on later loads.
+    const type = res.headers.get('content-type') || '';
+    if (res && res.ok && !type.includes('text/html')) cache.put(url, res.clone());
     return res;
   } catch (_) {
     return fetch(url); // private mode / CacheStorage unavailable
@@ -55,6 +58,10 @@ export async function loadSampleInstrument(id) {
     const manifest = await (await cachedFetch(`${base}/manifest.json`)).json();
     const zones = await Promise.all((manifest.zones || []).map(async (z) => {
       const res = await cachedFetch(`${base}/${z.file}`);
+      const type = res.headers.get('content-type') || '';
+      if (!res.ok || type.includes('text/html')) {
+        throw new Error(`Missing sample audio ${id}/${z.file} — run "node scripts/build-sample-packs.mjs" or drop the public/packs/ folder in.`);
+      }
       const buffer = await ctx.decodeAudioData(await res.arrayBuffer());
       return { rootMidi: z.midi, buffer };
     }));

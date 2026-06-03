@@ -8,17 +8,18 @@
  * What it does:
  *   1. Pulls the VCSL file tree (GitHub API), picks a small set of notes per
  *      instrument (one dynamic layer, ~every few semitones), so packs stay tiny.
- *   2. Downloads those WAVs and transcodes them to small MONO AAC (.m4a) with
+ *   2. Downloads those WAVs and transcodes them to small MONO MP3 (.mp3) with
  *      leading/trailing silence trimmed, a length cap, and a gentle fade-out.
- *   3. Writes public/packs/<id>/<midi>.m4a plus a manifest.json per instrument
+ *   3. Writes public/packs/<id>/<midi>.mp3 plus a manifest.json per instrument
  *      and a public/packs/index.json the app reads.
  *
  * Requirements: node >= 18, curl, ffmpeg (with the built-in `aac` encoder).
  * Usage:  node scripts/build-sample-packs.mjs            # all instruments
  *         node scripts/build-sample-packs.mjs glockenspiel marimba   # subset
  *
- * AAC is used because it is small AND decodes on every browser incl. iOS Safari
- * (Ogg/Opus do not). All output is CC0; safe to ship under any licence.
+ * MP3 is used because decodeAudioData supports it on EVERY browser — including
+ * open-source Chromium (Linux), which omits the AAC codec, and iOS Safari.
+ * (Ogg/Opus fail in Safari; AAC fails in codec-free Chromium.) Output is CC0.
  */
 
 import { execSync } from 'node:child_process';
@@ -200,7 +201,7 @@ function buildInstrument(inst, allFiles) {
     const midi = z.midi + shift;
     const wav = resolve(TMP, `${inst.id}_${z.midi}.wav`);
     sh(`curl -sL "${RAW_BASE}/${encodePath(z.path)}" -o "${wav}"`);
-    const out = resolve(outDir, `${midi}.m4a`);
+    const out = resolve(outDir, `${midi}.mp3`);
     const fadeStart = Math.max(0.1, inst.cap - 0.25);
     const af = [
       'silenceremove=start_periods=1:start_threshold=-55dB:start_silence=0.01',
@@ -209,10 +210,10 @@ function buildInstrument(inst, allFiles) {
       'areverse',
       `afade=t=out:st=${fadeStart}:d=0.25`,
     ].join(',');
-    sh(`ffmpeg -y -loglevel error -i "${wav}" -ac 1 -af "${af}" -t ${inst.cap} -c:a aac -b:a ${inst.bitrate} "${out}"`);
+    sh(`ffmpeg -y -loglevel error -i "${wav}" -ac 1 -af "${af}" -t ${inst.cap} -c:a libmp3lame -b:a ${inst.bitrate} "${out}"`);
     const bytes = statSync(out).size;
     total += bytes;
-    manifestZones.push({ midi, file: `${midi}.m4a`, bytes });
+    manifestZones.push({ midi, file: `${midi}.mp3`, bytes });
   }
 
   const manifest = {

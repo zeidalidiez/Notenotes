@@ -30,6 +30,7 @@ export class TransportBar {
     this.onProjectKeyChange = null;
     this.onProjectMeterChange = null;
     this.onProjectProgressionChange = null;
+    this.onDroneToggle = null;
     this.onBpmChange = null;
     this.onMoreOpen = null;
     this._lastMoreToggle = 0;
@@ -40,6 +41,16 @@ export class TransportBar {
     this._projectProgression = normalizeProgressionContext();
     this._scalePicker = null;
     this._progressionPicker = null;
+    this._droneActive = false;
+  }
+
+  setDroneActive(active) {
+    this._droneActive = !!active;
+    const button = this.el?.querySelector('#project-drone-toggle');
+    if (button) {
+      button.classList.toggle('is-active', this._droneActive);
+      button.setAttribute('aria-pressed', this._droneActive ? 'true' : 'false');
+    }
   }
 
   /**
@@ -90,6 +101,7 @@ export class TransportBar {
           <span class="choice-picker-button__label" id="project-progression-label">${this._progressionButtonLabel(this._projectProgression)}</span>
           <span class="choice-picker-button__chevron" aria-hidden="true">▼</span>
         </button>
+        <button class="transport-bar__drone" id="project-drone-toggle" type="button" aria-pressed="false" aria-label="Drone — sustain the root of the key" title="Sustain the root of the key as a tonal anchor">Drone</button>
         <span class="transport-bar__project-key-label">Correction</span>
         <select id="project-correction-select" aria-label="Piano and MIDI scale correction">
           ${Object.values(NOTE_CORRECTION_MODES).map(mode => `<option value="${mode.id}" ${mode.id === this._projectKey.correction ? 'selected' : ''}>${mode.label}</option>`).join('')}
@@ -210,6 +222,12 @@ export class TransportBar {
     this.el.querySelector('#project-progression-picker')?.addEventListener('pointerdown', (event) => {
       event.preventDefault();
       this._openProgressionPicker(event.currentTarget);
+    });
+    this.el.querySelector('#project-drone-toggle')?.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      const next = !this._droneActive;
+      const active = this.onDroneToggle ? this.onDroneToggle(next) : next;
+      this.setDroneActive(active);
     });
     this.el.querySelector('#project-correction-select')?.addEventListener('change', () => this._emitProjectKeyChange());
     this.el.querySelector('#project-meter-select')?.addEventListener('change', () => this._emitProjectMeterChange());

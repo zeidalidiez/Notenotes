@@ -525,6 +525,22 @@ pitch still spread by lane across the full field.
 
 ## Instruments
 
+### Drone
+
+`src/engine/Drone.js` is the pure note layer for the sustained tonal anchor.
+`droneNotesForContext(context, settings)` returns the root MIDI note at the
+chosen octave (default 3, so it anchors below the pads), plus the perfect fifth
+when `addFifth` is set; it returns `[]` when disabled.
+`normalizeDroneSettings()` clamps the octave to 1–6.
+
+`CreativeMode` owns the live drone: `setDrone(enabled)` holds/releases the notes
+through the shared synth, `_applyDrone()` diffs the wanted notes against the
+held ones (so a key change re-pitches without clicking), and
+`applyProjectMusicalContext()` re-applies it on key changes. Drone state is
+runtime-only — it is never recorded, exported, or auto-started on load (audio
+needs a user gesture). `TransportBar` owns the `Drone` toggle and reflects state
+with `setDroneActive()`; `main.js` routes `onDroneToggle` to `setDrone()`.
+
 ### Pads / ScaleBoard
 
 ScaleBoard reads `project.musicalContext` for root and scale. It supports:

@@ -14,6 +14,7 @@ import {
   normalizeMusicalContext,
   SCALES
 } from '../engine/MusicTheory.js';
+import { droneNotesForContext, normalizeDroneSettings } from '../engine/Drone.js';
 import { ScaleBoard } from '../instruments/ScaleBoard.js';
 import { MicroPiano } from '../instruments/MicroPiano.js';
 import { SketchKit } from '../instruments/SketchKit.js';
@@ -79,6 +80,12 @@ export class CreativeMode {
 
     // Synth (shared between Scale Board and Micro Piano)
     this.synth = new WebAudioSynth();
+
+    // Drone: a sustained tonal anchor on the project root. Runtime-only live
+    // state (not recorded/exported); the held MIDI notes are tracked so a key
+    // change can re-pitch them.
+    this._droneSettings = normalizeDroneSettings({ enabled: false });
+    this._droneNotes = [];
 
     // Voice engine — formant-synthesized vocal instrument used by Scale
     // Board's "Voice Sketch" pad mode. Routes through the synth's tone
@@ -732,6 +739,51 @@ export class CreativeMode {
     this.controllerMode?.setProjectKey?.(next);
     this.microPiano?.refreshDegreeHighlights?.();
     this.aiSeedPopover?.refresh?.();
+    // Re-pitch a running drone so the anchor follows the new key.
+    if (this._droneSettings.enabled) this._applyDrone();
+  }
+
+  /** Whether the drone anchor is currently sounding. */
+  get droneEnabled() {
+    return !!this._droneSettings.enabled;
+  }
+
+  /**
+   * Toggle (or set) the sustained root drone. Enabling it holds the root of the
+   * project key until it is turned off; it follows key changes and is never
+   * recorded.
+   */
+  setDrone(enabled) {
+    const next = enabled === undefined ? !this._droneSettings.enabled : !!enabled;
+    this._droneSettings = normalizeDroneSettings({ ...this._droneSettings, enabled: next });
+    if (next) {
+      this.ensureAudioReady();
+      this._applyDrone();
+    } else {
+      this._stopDrone();
+    }
+    return next;
+  }
+
+  _applyDrone() {
+    if (!this.synth) return;
+    const wanted = droneNotesForContext(this.project?.musicalContext, this._droneSettings);
+    // Release notes no longer wanted, then hold any new ones. Diffing avoids a
+    // click from stopping and restarting an unchanged note.
+    for (const midi of this._droneNotes) {
+      if (!wanted.includes(midi)) this.synth.noteOff(midi);
+    }
+    for (const midi of wanted) {
+      if (!this._droneNotes.includes(midi)) this.synth.noteOn(midi, 0.5);
+    }
+    this._droneNotes = wanted;
+  }
+
+  _stopDrone() {
+    if (this.synth) {
+      for (const midi of this._droneNotes) this.synth.noteOff(midi);
+    }
+    this._droneNotes = [];
   }
 
   _emitProjectKeyChange(context) {

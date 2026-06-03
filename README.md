@@ -178,7 +178,7 @@ These are the ideas that drive the project. Some are coded, some are sketches, s
 - [x] **Scale lock** on the pads.
 - [ ] **Progression / chord context** - the project now has a quiet, backward-compatible degree-based progression model, a compact Changes picker in the top bar, compatible-scale filtering, and adjustable chord-tone glow on Pads and Piano. The next step is making that context advance through the progression instead of staying on the selected active step.
 - [ ] **Microtonal Pads mode** - true quarter-tone maqam/raga support needs a deliberate pitch-label, MIDI-export, ABC-export, AI-schema, and controller-binding design instead of being slipped in as float scale intervals.
-- [ ] **Drone mode** - sustain the root of your key in the background as a tonal anchor.
+- [x] **Drone mode** - a **Drone** toggle in the top bar sustains the root of your key in the background as a tonal anchor. It follows key changes and sits low under the pads; it is a live anchor, never recorded or exported.
 - [ ] **Suggest-next-chord** - gentle prompts when you want them, invisible when you don't.
 
 ### Rhythm and meter

@@ -566,6 +566,25 @@ Expected:
 - WAV export succeeds in all supported time signatures.
 - Clip timing is sensible in each meter.
 
+### 5.3 Drone Mode
+
+Steps:
+
+1. In Create, set the project key to C Major.
+2. Click the **Drone** toggle in the top bar.
+3. Listen, then play some pads over the held drone.
+4. Change the project key (e.g. to G), then to a different scale.
+5. Click **Drone** again to turn it off.
+6. Arm recording, play a short phrase with the drone on, stop, and inspect the snippet.
+
+Expected:
+
+- Turning Drone on sustains a low root note (C in C Major) and the button shows an active state.
+- Pads/keys still play normally on top of the held drone.
+- Changing the key re-pitches the drone to the new root without an audible click or gap; changing scale keeps the root anchor.
+- Turning Drone off stops the held note immediately.
+- The recorded snippet contains only the notes you played — the drone is a live anchor and is not recorded or exported.
+
 ## 6. Backups And Restore
 
 ### 6.0 Storage Status

@@ -70,6 +70,11 @@ import {
   progressionPreset,
   resolveProgressionStep,
 } from '../src/engine/Progressions.js';
+import {
+  droneNotesForContext,
+  normalizeDroneSettings,
+  DEFAULT_DRONE_OCTAVE,
+} from '../src/engine/Drone.js';
 import { StageEventStream } from '../src/stage/StageEventStream.js';
 import {
   STAGE_CANVAS_TRACK_LIMIT,
@@ -311,6 +316,32 @@ test('progression glow settings normalize as an additive visual preference', () 
   assert.deepEqual(normalizeProgressionGlow(), { enabled: true, intensity: 0.28 });
   assert.deepEqual(normalizeProgressionGlow({ enabled: false, intensity: 2 }), { enabled: false, intensity: 0.85 });
   assert.deepEqual(normalizeProgressionGlow({ intensity: 0.01 }), { enabled: true, intensity: 0.08 });
+});
+
+test('drone holds the root of the key and follows key changes', () => {
+  // Disabled -> no notes.
+  assert.deepEqual(droneNotesForContext({ root: 'C', scale: 'major' }, { enabled: false }), []);
+
+  // Enabled -> the root at the default octave (C3 = 48), low enough to anchor.
+  assert.deepEqual(droneNotesForContext({ root: 'C', scale: 'major' }, { enabled: true }), [48]);
+
+  // Follows the project key: G major root drone is G3 = 55.
+  assert.deepEqual(droneNotesForContext({ root: 'G', scale: 'major' }, { enabled: true }), [55]);
+
+  // Optional open fifth adds the perfect fifth above.
+  assert.deepEqual(droneNotesForContext({ root: 'C', scale: 'minor' }, { enabled: true, addFifth: true }), [48, 55]);
+
+  // Octave choice transposes the anchor (C2 = 36).
+  assert.deepEqual(droneNotesForContext({ root: 'C', scale: 'major' }, { enabled: true, octave: 2 }), [36]);
+});
+
+test('drone settings normalize octave and flags safely', () => {
+  assert.deepEqual(normalizeDroneSettings(), { enabled: false, octave: DEFAULT_DRONE_OCTAVE, addFifth: false });
+  assert.equal(normalizeDroneSettings({ octave: 99 }).octave, 6);   // clamp high
+  assert.equal(normalizeDroneSettings({ octave: 0 }).octave, 1);    // clamp low
+  assert.equal(normalizeDroneSettings({ octave: 'x' }).octave, DEFAULT_DRONE_OCTAVE); // invalid -> default
+  assert.equal(normalizeDroneSettings({ enabled: 1, addFifth: 'yes' }).enabled, true);
+  assert.equal(normalizeDroneSettings({ addFifth: 'yes' }).addFifth, true);
 });
 
 test('note correction quantizes piano and MIDI notes only when enabled', () => {

@@ -70,6 +70,12 @@ import {
   progressionPreset,
   resolveProgressionStep,
 } from '../src/engine/Progressions.js';
+import {
+  suggestNextChords,
+  progressionNextSuggestion,
+  romanForQuality,
+  MAX_CHORD_SUGGESTIONS,
+} from '../src/engine/ChordSuggestions.js';
 import { StageEventStream } from '../src/stage/StageEventStream.js';
 import {
   STAGE_CANVAS_TRACK_LIMIT,
@@ -311,6 +317,48 @@ test('progression glow settings normalize as an additive visual preference', () 
   assert.deepEqual(normalizeProgressionGlow(), { enabled: true, intensity: 0.28 });
   assert.deepEqual(normalizeProgressionGlow({ enabled: false, intensity: 2 }), { enabled: false, intensity: 0.85 });
   assert.deepEqual(normalizeProgressionGlow({ intensity: 0.01 }), { enabled: true, intensity: 0.08 });
+});
+
+test('chord suggestions resolve functional next chords in the current key', () => {
+  const C = { root: 'C', scale: 'major' };
+
+  // From the tonic in C major, the strong moves are IV, V, vi, ii.
+  const fromI = suggestNextChords(C, { currentDegreeIndex: 0 });
+  assert.deepEqual(fromI.map(s => s.roman), ['IV', 'V', 'vi', 'ii']);
+  assert.deepEqual(fromI[0].noteNames, ['F', 'A', 'C']);
+  assert.deepEqual(fromI[1].noteNames, ['G', 'B', 'D']);
+  assert.ok(fromI.length <= MAX_CHORD_SUGGESTIONS);
+  // Never suggests staying on the same chord.
+  assert.ok(!fromI.some(s => s.degreeIndex === 0));
+
+  // Quality is read from the scale: ii in major is minor (lowercase roman).
+  assert.equal(romanForQuality(1, 'minor'), 'ii');
+  assert.equal(romanForQuality(4, 'major'), 'V');
+
+  // With no chord played yet, suggest strong openers led by the tonic.
+  const openers = suggestNextChords({ root: 'A', scale: 'minor' }, {});
+  assert.equal(openers[0].roman, 'i');
+  assert.deepEqual(openers[0].noteNames, ['A', 'C', 'E']);
+});
+
+test('chord suggestions lead with the next step of an active progression', () => {
+  const C = { root: 'C', scale: 'major' };
+  const axis = { ...progressionPreset('axis'), activeStepIndex: 0 }; // I-V-vi-IV, on I
+
+  const next = progressionNextSuggestion(axis, C);
+  assert.equal(next.roman, 'V');
+  assert.equal(next.reason, 'next in your changes');
+  assert.deepEqual(next.noteNames, ['G', 'B', 'D']);
+
+  // The progression's upcoming chord leads, and isn't duplicated by a functional
+  // suggestion for the same degree.
+  const list = suggestNextChords(C, { progression: axis, currentDegreeIndex: 0 });
+  assert.equal(list[0].roman, 'V');
+  assert.equal(list[0].reason, 'next in your changes');
+  assert.equal(list.filter(s => s.roman === 'V').length, 1);
+
+  // No progression -> no progression-led suggestion.
+  assert.equal(progressionNextSuggestion(null, C), null);
 });
 
 test('note correction quantizes piano and MIDI notes only when enabled', () => {

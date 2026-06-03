@@ -1,7 +1,7 @@
 # Built-in sample instruments (CC0)
 
 These packs power the **Sample instruments** group in the instrument picker. Each
-instrument is a small set of AAC (`.m4a`) zones plus a `manifest.json`. The app
+instrument is a small set of MP3 (`.mp3`) zones plus a `manifest.json`. The app
 lazy-loads a pack only when a user first selects that instrument, then caches it in
 Cache Storage so it works offline afterward. The core app bundles **no** audio, so
 download size and offline behaviour are unaffected until a sample instrument is used.
@@ -29,6 +29,7 @@ it is fully compatible with this project's MIT licence.
 
 ## Format
 
-Mono **AAC** (`.m4a`), ~88–96 kbps, silence-trimmed and length-capped. AAC is used
-because it is both small and decodable on every target browser **including iOS
-Safari** — Ogg/Opus are not reliably decodable via `decodeAudioData` in Safari.
+Mono **MP3** (`.mp3`), ~88–96 kbps, silence-trimmed and length-capped. MP3 is used
+because `decodeAudioData` supports it on **every** target browser — including
+open-source **Chromium on Linux** (which omits the AAC codec) and **iOS Safari**.
+(Ogg/Opus fail to decode in Safari; AAC fails in codec-free Chromium.)

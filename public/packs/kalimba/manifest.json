@@ -17,47 +17,47 @@
   "zones": [
     {
       "midi": 59,
-      "file": "59.m4a"
+      "file": "59.mp3"
     },
     {
       "midi": 61,
-      "file": "61.m4a"
+      "file": "61.mp3"
     },
     {
       "midi": 63,
-      "file": "63.m4a"
+      "file": "63.mp3"
     },
     {
       "midi": 66,
-      "file": "66.m4a"
+      "file": "66.mp3"
     },
     {
       "midi": 68,
-      "file": "68.m4a"
+      "file": "68.mp3"
     },
     {
       "midi": 71,
-      "file": "71.m4a"
+      "file": "71.mp3"
     },
     {
       "midi": 73,
-      "file": "73.m4a"
+      "file": "73.mp3"
     },
     {
       "midi": 75,
-      "file": "75.m4a"
+      "file": "75.mp3"
     },
     {
       "midi": 78,
-      "file": "78.m4a"
+      "file": "78.mp3"
     },
     {
       "midi": 81,
-      "file": "81.m4a"
+      "file": "81.mp3"
     },
     {
       "midi": 83,
-      "file": "83.m4a"
+      "file": "83.mp3"
     }
   ]
 }

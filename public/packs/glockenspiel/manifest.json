@@ -17,27 +17,27 @@
   "zones": [
     {
       "midi": 79,
-      "file": "79.m4a"
+      "file": "79.mp3"
     },
     {
       "midi": 84,
-      "file": "84.m4a"
+      "file": "84.mp3"
     },
     {
       "midi": 91,
-      "file": "91.m4a"
+      "file": "91.mp3"
     },
     {
       "midi": 96,
-      "file": "96.m4a"
+      "file": "96.mp3"
     },
     {
       "midi": 103,
-      "file": "103.m4a"
+      "file": "103.mp3"
     },
     {
       "midi": 108,
-      "file": "108.m4a"
+      "file": "108.mp3"
     }
   ]
 }

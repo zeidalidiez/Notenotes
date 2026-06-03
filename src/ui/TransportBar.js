@@ -8,6 +8,7 @@ import { ARP_MODES } from '../engine/ArpeggioManager.js';
 import { NOTE_CORRECTION_MODES, NOTE_NAMES, SCALES, normalizeMusicalContext, normalizeNoteCorrectionMode, scaleDescription, scaleFamilyLabel } from '../engine/MusicTheory.js';
 import { ALLOWED_GROUPINGS, METER_PICKER_IDS, METER_PRESETS, meterLabel, normalizeMeter, pulseCountForMeter } from '../engine/Meter.js';
 import { normalizeProgressionContext, progressionChoiceGroups, progressionLabel, progressionPreset } from '../engine/Progressions.js';
+import { TapTempo } from '../engine/TapTempo.js';
 import { ChoicePicker } from './ChoicePicker.js';
 
 export class TransportBar {
@@ -40,6 +41,7 @@ export class TransportBar {
     this._projectProgression = normalizeProgressionContext();
     this._scalePicker = null;
     this._progressionPicker = null;
+    this._tapTempo = new TapTempo();
   }
 
   /**
@@ -75,6 +77,7 @@ export class TransportBar {
         <input type="number" id="bpm-input" value="${this.transport.bpm}" min="40" max="240" aria-label="BPM" style="width:56px;" />
         <button class="transport-bar__bpm-button" id="bpm-button" type="button" aria-label="Change BPM">${this.transport.bpm}</button>
         <span>BPM</span>
+        <button class="transport-bar__tap" id="bpm-tap-button" type="button" aria-label="Tap tempo" title="Tap a steady beat to set the tempo">Tap</button>
       </div>
 
       <div class="transport-bar__project-key" aria-label="Project key and scale">
@@ -200,6 +203,10 @@ export class TransportBar {
       if (e.key !== 'Enter' && e.key !== ' ') return;
       e.preventDefault();
       this._openBpmModal();
+    });
+    this.el.querySelector('#bpm-tap-button')?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this._registerTap();
     });
 
     this.el.querySelector('#project-root-select')?.addEventListener('change', () => this._emitProjectKeyChange());
@@ -499,6 +506,20 @@ export class TransportBar {
     this.transport.bpm = value;
     this._syncBpmUi();
     if (this.onBpmChange) this.onBpmChange(this.transport.bpm);
+  }
+
+  _registerTap() {
+    const tapButton = this.el?.querySelector('#bpm-tap-button');
+    // Brief visual pulse so each tap feels registered.
+    if (tapButton) {
+      tapButton.classList.remove('is-tapping');
+      // Force reflow so the class re-add restarts the animation on rapid taps.
+      void tapButton.offsetWidth;
+      tapButton.classList.add('is-tapping');
+    }
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    const bpm = this._tapTempo.tap(now);
+    if (bpm != null) this._setBpm(bpm);
   }
 
   _syncBpmUi() {

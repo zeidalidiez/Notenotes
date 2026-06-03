@@ -566,6 +566,24 @@ Expected:
 - WAV export succeeds in all supported time signatures.
 - Clip timing is sensible in each meter.
 
+### 5.3 Tap Tempo
+
+Steps:
+
+1. In the top transport bar, note the BPM value.
+2. Tap the **Tap** button roughly four times at a steady, moderate beat.
+3. Watch the BPM field while tapping.
+4. Stop, wait a few seconds, then tap a clearly slower beat several times.
+5. On a phone-width viewport, confirm the Tap button is still reachable next to the BPM button.
+
+Expected:
+
+- After the second tap, the BPM updates to match your tapping speed and keeps tracking as you continue.
+- The Tap button gives a brief visual pulse on each tap.
+- Faster tapping raises the BPM and slower tapping lowers it, clamped to the 40–240 range.
+- After a long pause, the next taps start a fresh tempo instead of blending with the old one.
+- The chosen BPM persists after reload (it is saved with the project, like the number input).
+
 ## 6. Backups And Restore
 
 ### 6.0 Storage Status

@@ -159,7 +159,7 @@ These are the ideas that drive the project. Some are coded, some are sketches, s
 
 ### More ways to create
 - [ ] **Mic-to-midi** - Sound into the mic, the app transcribes it as MIDI you can edit.
-- [ ] **Tap-to-rhythm** - clap or tap to set tempo and seed a beat.
+- [ ] **Tap-to-rhythm** - the transport now has a **Tap** button: tap a steady beat and the BPM is set from your timing (a long pause starts a fresh count). Seeding a beat from taps is the next step.
 - [ ] **MIDI device support** - bring your own keyboard, pad controller, or wind instrument.
 - [ ] **Webcam/Wiimote motion controls** - Movement to modulate, other potential uses.
 - [ ] **Touch + accelerometer** - on mobile, tilt for modulation, tap velocity for dynamics.

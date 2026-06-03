@@ -252,6 +252,23 @@ meter: normalizeMeter(...),
 timeSignature: meterToTimeSignature(...)
 ```
 
+### Tap Tempo
+
+`src/engine/TapTempo.js` derives a BPM from the timing of repeated taps. The
+math is pure and clock-free: the caller passes each tap's timestamp in
+milliseconds (the UI uses `performance.now()`), so it is deterministic to test.
+
+- `TapTempo.tap(now)` records a tap and returns the current BPM, or `null` until
+  there are at least two taps. A gap longer than `resetMs` (2000ms) restarts the
+  count so an abandoned tap never blends into a new tempo; non-monotonic
+  timestamps are ignored. Intervals are kept in a rolling window and averaged.
+- `bpmFromIntervals()` and `clampBpm()` are the pure helpers; BPM is clamped to
+  the same `40–240` range Transport accepts.
+- `TransportBar` owns one `TapTempo` instance and a `#bpm-tap-button`. Each tap
+  routes through `_setBpm()`, so it persists via `onBpmChange` exactly like the
+  number input and the mobile BPM modal. Do not write `transport.bpm` directly
+  from the tap path; keep it going through `_setBpm()`.
+
 ## Data Model
 
 Project sketch:

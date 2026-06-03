@@ -70,6 +70,13 @@ import {
   progressionPreset,
   resolveProgressionStep,
 } from '../src/engine/Progressions.js';
+import {
+  TapTempo,
+  bpmFromIntervals,
+  clampBpm,
+  TAP_MIN_BPM,
+  TAP_MAX_BPM,
+} from '../src/engine/TapTempo.js';
 import { StageEventStream } from '../src/stage/StageEventStream.js';
 import {
   STAGE_CANVAS_TRACK_LIMIT,
@@ -311,6 +318,48 @@ test('progression glow settings normalize as an additive visual preference', () 
   assert.deepEqual(normalizeProgressionGlow(), { enabled: true, intensity: 0.28 });
   assert.deepEqual(normalizeProgressionGlow({ enabled: false, intensity: 2 }), { enabled: false, intensity: 0.85 });
   assert.deepEqual(normalizeProgressionGlow({ intensity: 0.01 }), { enabled: true, intensity: 0.08 });
+});
+
+test('tap tempo derives BPM from inter-tap timing and clamps to range', () => {
+  assert.equal(clampBpm(120), 120);
+  assert.equal(clampBpm(10), TAP_MIN_BPM);   // too slow -> floor
+  assert.equal(clampBpm(999), TAP_MAX_BPM);  // too fast -> ceiling
+  assert.equal(clampBpm('nope'), null);
+
+  // 500ms between taps is two per second -> 120 BPM.
+  assert.equal(bpmFromIntervals([500, 500, 500]), 120);
+  // 1000ms intervals -> 60 BPM; averaging smooths jitter to ~120.
+  assert.equal(bpmFromIntervals([1000]), 60);
+  assert.equal(bpmFromIntervals([480, 520, 500]), 120);
+  // Nothing usable yet.
+  assert.equal(bpmFromIntervals([]), null);
+  assert.equal(bpmFromIntervals([-10, 0]), null);
+});
+
+test('TapTempo accumulates taps, ignores stale gaps, and resets cleanly', () => {
+  const tap = new TapTempo();
+  // First tap can't define a tempo on its own.
+  assert.equal(tap.tap(0), null);
+  assert.equal(tap.tap(500), 120);   // one 500ms interval -> 120
+  assert.equal(tap.tap(1000), 120);  // steady -> still 120
+  assert.equal(tap.tapCount, 3);
+
+  // A gap longer than the reset window starts a fresh count instead of
+  // blending an abandoned tap into the new tempo.
+  assert.equal(tap.tap(1000 + 5000), null);
+  assert.equal(tap.tap(1000 + 5000 + 750), 80); // 750ms -> 80 BPM
+
+  // Out-of-order timestamps are ignored without throwing.
+  assert.equal(tap.tap(1000 + 5000 + 750 - 100), 80);
+
+  // A very fast tap run clamps at the max BPM rather than overshooting.
+  const fast = new TapTempo();
+  fast.tap(0); fast.tap(100); fast.tap(200); // 100ms -> 600 BPM, clamps
+  assert.equal(fast.bpm, TAP_MAX_BPM);
+
+  fast.reset();
+  assert.equal(fast.tapCount, 0);
+  assert.equal(fast.bpm, null);
 });
 
 test('note correction quantizes piano and MIDI notes only when enabled', () => {

@@ -2,6 +2,8 @@
  * MusicTheory — Scale definitions, note names, and MIDI utilities.
  */
 
+import { degreeColorsForPalette, normalizeDegreePaletteId } from './DegreePalettes.js';
+
 /** MIDI note number for C4 (middle C) */
 export const MIDDLE_C = 60;
 
@@ -63,25 +65,14 @@ export const NOTE_CORRECTION_MODES = {
   down: { id: 'down', label: 'Down' }
 };
 
-export const DEFAULT_DEGREE_COLORS = {
-  0: '#ff6b6b',
-  1: '#ff8a5c',
-  2: '#f7b267',
-  3: '#d16fcb',
-  4: '#7bd88f',
-  5: '#5bd6d6',
-  6: '#6fb4ff',
-  7: '#7d8cff',
-  8: '#a884ff',
-  9: '#d783ff',
-  10: '#ff77c8',
-  11: '#f05d8e'
-};
+/** Canonical degree colors — the 'default' palette (see DegreePalettes.js). */
+export const DEFAULT_DEGREE_COLORS = degreeColorsForPalette('default');
 
 export const DEFAULT_DEGREE_HIGHLIGHTING = {
   enabled: false,
   showLabels: false,
   intensity: 0.22,
+  palette: 'default',
   colors: DEFAULT_DEGREE_COLORS
 };
 
@@ -149,12 +140,15 @@ export function normalizeNoteCorrectionMode(mode = DEFAULT_MUSICAL_CONTEXT.corre
 }
 
 export function normalizeDegreeHighlighting(value = {}) {
-  const colors = { ...DEFAULT_DEGREE_COLORS, ...(value?.colors || {}) };
+  const palette = normalizeDegreePaletteId(value?.palette);
+  // The selected palette is the base; any explicit per-degree overrides win.
+  const colors = { ...degreeColorsForPalette(palette), ...(value?.colors || {}) };
   const intensity = Number(value?.intensity);
   return {
     enabled: !!value?.enabled,
     showLabels: !!value?.showLabels,
     intensity: Number.isFinite(intensity) ? Math.max(0.05, Math.min(0.75, intensity)) : DEFAULT_DEGREE_HIGHLIGHTING.intensity,
+    palette,
     colors
   };
 }

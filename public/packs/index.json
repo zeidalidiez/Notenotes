@@ -1,65 +1,50 @@
 [
   {
-    "id": "grand-piano",
-    "name": "Grand Piano",
-    "icon": "🎹",
-    "category": "Keys",
-    "path": "grand-piano/manifest.json"
-  },
-  {
-    "id": "upright-piano",
-    "name": "Upright Piano",
-    "icon": "🎹",
-    "category": "Keys",
-    "path": "upright-piano/manifest.json"
-  },
-  {
-    "id": "marimba",
-    "name": "Marimba",
-    "icon": "🎶",
-    "category": "Mallets",
-    "path": "marimba/manifest.json"
-  },
-  {
-    "id": "vibraphone",
-    "name": "Vibraphone",
-    "icon": "🎶",
-    "category": "Mallets",
-    "path": "vibraphone/manifest.json"
+    "id": "concert-harp",
+    "name": "Concert Harp",
+    "icon": "🎵",
+    "category": "Plucked",
+    "range": "E1–F7",
+    "path": "concert-harp/manifest.json"
   },
   {
     "id": "glockenspiel",
     "name": "Glockenspiel",
     "icon": "✨",
     "category": "Mallets",
+    "range": "G5–C8",
     "path": "glockenspiel/manifest.json"
   },
   {
-    "id": "xylophone",
-    "name": "Xylophone",
-    "icon": "🎵",
-    "category": "Mallets",
-    "path": "xylophone/manifest.json"
+    "id": "grand-piano",
+    "name": "Grand Piano",
+    "icon": "🎹",
+    "category": "Keys",
+    "range": "A#0–C8",
+    "path": "grand-piano/manifest.json"
   },
   {
     "id": "kalimba",
     "name": "Kalimba",
     "icon": "🎼",
     "category": "Plucked",
+    "range": "B3–B5",
     "path": "kalimba/manifest.json"
   },
   {
-    "id": "concert-harp",
-    "name": "Concert Harp",
-    "icon": "🎵",
-    "category": "Plucked",
-    "path": "concert-harp/manifest.json"
+    "id": "marimba",
+    "name": "Marimba",
+    "icon": "🎶",
+    "category": "Mallets",
+    "range": "F2–C7",
+    "path": "marimba/manifest.json"
   },
   {
     "id": "strumstick",
     "name": "Strumstick",
     "icon": "🪕",
     "category": "Plucked",
+    "range": "D3–A5",
     "path": "strumstick/manifest.json"
   },
   {
@@ -67,6 +52,31 @@
     "name": "Tubular Bells",
     "icon": "🔔",
     "category": "Bells",
+    "range": "C4–E5",
     "path": "tubular-bells/manifest.json"
+  },
+  {
+    "id": "upright-piano",
+    "name": "Upright Piano",
+    "icon": "🎹",
+    "category": "Keys",
+    "range": "C1–C7",
+    "path": "upright-piano/manifest.json"
+  },
+  {
+    "id": "vibraphone",
+    "name": "Vibraphone",
+    "icon": "🎶",
+    "category": "Mallets",
+    "range": "F3–E6",
+    "path": "vibraphone/manifest.json"
+  },
+  {
+    "id": "xylophone",
+    "name": "Xylophone",
+    "icon": "🎵",
+    "category": "Mallets",
+    "range": "G4–C8",
+    "path": "xylophone/manifest.json"
   }
 ]

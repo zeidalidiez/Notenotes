@@ -20,7 +20,15 @@ import {
   rootNoteOptions,
 } from '../src/ui/CreateInstrumentPopover.js';
 import { padPerformanceIndex, pianoPerformanceIndex } from '../src/modes/input/PerformanceInputRouter.js';
-import { correctMidiToScale, normalizeMusicalContext } from '../src/engine/MusicTheory.js';
+import { correctMidiToScale, normalizeDegreeHighlighting, normalizeMusicalContext } from '../src/engine/MusicTheory.js';
+import {
+  DEGREE_PALETTES,
+  degreeColorsForPalette,
+  degreePaletteOptions,
+  normalizeDegreePaletteId,
+  relativeLuminance,
+  contrastRatio,
+} from '../src/engine/DegreePalettes.js';
 import { PRESETS } from '../src/instruments/WebAudioSynth.js';
 import {
   DEFAULT_PAD_LAYOUT_TEMPLATE,
@@ -342,6 +350,51 @@ test('drone settings normalize octave and flags safely', () => {
   assert.equal(normalizeDroneSettings({ octave: 'x' }).octave, DEFAULT_DRONE_OCTAVE); // invalid -> default
   assert.equal(normalizeDroneSettings({ enabled: 1, addFifth: 'yes' }).enabled, true);
   assert.equal(normalizeDroneSettings({ addFifth: 'yes' }).addFifth, true);
+test('degree palettes expose 12 colors, normalize ids, and hand back copies', () => {
+  // Every palette covers all 12 chromatic intervals.
+  for (const palette of Object.values(DEGREE_PALETTES)) {
+    for (let i = 0; i < 12; i++) {
+      assert.match(palette.colors[i], /^#[0-9a-f]{6}$/i, `${palette.id} interval ${i}`);
+    }
+  }
+  // Unknown / bad ids fall back to default.
+  assert.equal(normalizeDegreePaletteId('cbSafe'), 'cbSafe');
+  assert.equal(normalizeDegreePaletteId('nope'), 'default');
+  assert.equal(normalizeDegreePaletteId(null), 'default');
+
+  // degreeColorsForPalette returns a fresh, mutation-safe copy.
+  const a = degreeColorsForPalette('cbSafe');
+  a[0] = '#000000';
+  assert.notEqual(degreeColorsForPalette('cbSafe')[0], '#000000');
+
+  // Picker options cover every palette.
+  assert.equal(degreePaletteOptions().length, Object.keys(DEGREE_PALETTES).length);
+});
+
+test('viridis palette ramps lightness so degrees stay orderable for any vision', () => {
+  const colors = DEGREE_PALETTES.viridis.colors;
+  let prev = -1;
+  for (let i = 0; i < 12; i++) {
+    const lum = relativeLuminance(colors[i]);
+    assert.ok(lum > prev, `viridis luminance should increase at interval ${i}`);
+    prev = lum;
+  }
+  // Contrast helper sanity: black vs white is the WCAG max (21:1).
+  assert.ok(Math.abs(contrastRatio('#000000', '#ffffff') - 21) < 0.1);
+});
+
+test('degree highlighting applies the selected palette as its base colors', () => {
+  const cb = normalizeDegreeHighlighting({ enabled: true, palette: 'cbSafe' });
+  assert.equal(cb.palette, 'cbSafe');
+  assert.deepEqual(cb.colors, degreeColorsForPalette('cbSafe'));
+
+  // Explicit per-degree overrides still win over the palette base.
+  const tweaked = normalizeDegreeHighlighting({ palette: 'viridis', colors: { 0: '#abcdef' } });
+  assert.equal(tweaked.colors[0], '#abcdef');
+  assert.equal(tweaked.colors[1], degreeColorsForPalette('viridis')[1]);
+
+  // Missing palette stays backward-compatible with the vivid default.
+  assert.equal(normalizeDegreeHighlighting({}).palette, 'default');
 });
 
 test('note correction quantizes piano and MIDI notes only when enabled', () => {

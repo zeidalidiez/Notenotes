@@ -635,10 +635,18 @@ export class CreativeMode {
     const custom = this._customInstruments().filter(instrument => instrument.type === 'patch');
     const chipPresets = Object.entries(PRESETS).filter(([, p]) => (p.family || 'chip') === 'chip');
     const modernPresets = Object.entries(PRESETS).filter(([, p]) => p.family === 'modern');
+    const fmPresets = Object.entries(PRESETS).filter(([, p]) => p.family === 'fm');
+    const familyKicker = (p) => {
+      switch (p.family) {
+        case 'fm': return 'FM synth';
+        case 'modern': return 'Modern synth';
+        default: return 'Chip synth';
+      }
+    };
     const presetItem = ([key, patch]) => ({
       value: key,
       label: patch.name,
-      kicker: (patch.family || 'chip') === 'modern' ? 'Modern synth' : 'Chip synth',
+      kicker: familyKicker(patch),
       description: this._patchDescription(patch),
       tags: [patch.oscillator?.type, patch.filter?.type, patch.family].filter(Boolean),
     });
@@ -646,6 +654,9 @@ export class CreativeMode {
       { id: 'chip', label: 'Chip presets', items: chipPresets.map(presetItem) },
       { id: 'modern', label: 'Modern presets', items: modernPresets.map(presetItem) },
     ];
+    if (fmPresets.length) {
+      groups.push({ id: 'fm', label: 'FM synths (2-operator)', items: fmPresets.map(presetItem) });
+    }
     const builtinSamples = this._sampleIndex || [];
     if (builtinSamples.length) {
       groups.push({
@@ -655,8 +666,10 @@ export class CreativeMode {
           value: `builtin:${inst.id}`,
           label: inst.name,
           kicker: inst.category ? `${inst.category} - CC0 sample` : 'CC0 sample',
-          description: 'Multi-sampled real instrument (loads on first use)',
-          tags: ['sample', inst.category, inst.name].filter(Boolean),
+          description: inst.range
+            ? `Sampled ${inst.range} - notes outside this range fold in by octave`
+            : 'Multi-sampled real instrument (loads on first use)',
+          tags: ['sample', inst.category, inst.range, inst.name].filter(Boolean),
         })),
       });
     }
@@ -678,7 +691,13 @@ export class CreativeMode {
 
   _patchDescription(patch = {}) {
     const bits = [];
-    if (patch.oscillator?.type) bits.push(patch.oscillator.type);
+    if (patch.type === 'fm') {
+      bits.push('2-op FM');
+      const fm = patch.fm || {};
+      if (Number.isFinite(fm.ratio) && fm.ratio !== 1) bits.push(`ratio ${fm.ratio}`);
+    } else if (patch.oscillator?.type) {
+      bits.push(patch.oscillator.type);
+    }
     if (patch.unison?.voices) bits.push(`${patch.unison.voices}-voice unison`);
     if (patch.filterEnv) bits.push('filter motion');
     if (patch.vibrato) bits.push('vibrato');

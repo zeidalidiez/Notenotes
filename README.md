@@ -170,7 +170,7 @@ These are the ideas that drive the project. Some are coded, some are sketches, s
 ###  Sound and color
 - [x] **Per-beat colors** in the background visualizer.
 - [ ] **Per-pad colors** - paint Pads however helps you remember.
-- [ ] **Color-blind safe palettes** as a first-class option.
+- [x] **Color-blind safe palettes** as a first-class option. The Layout degree-color panel has a **Palette** picker: Vivid (the original), Color-blind safe (distinct for red-green and blue-yellow vision), and a Brightness ramp whose lightness increases by degree so the colors stay orderable for any vision. You can still hand-tweak individual degree colors after picking a palette.
 - [ ] **Synesthesia mode** - clips on the Canvas glow their note color as they play.
 - [ ] **Color-strip notation** as an alternative to the piano roll.
 

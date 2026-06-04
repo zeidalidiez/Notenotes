@@ -34,6 +34,41 @@ export function createEnvelopeParamCurve(from, to, segment = 'attack', points = 
   return curve;
 }
 
+/**
+ * Build a single curve spanning attack then decay over one continuous timeline,
+ * sampled so the attack/decay shapes are identical to issuing two separate
+ * `createEnvelopeParamCurve` calls — but as ONE `setValueCurveAtTime`, which
+ * avoids the adjacent-curve overlap Chrome rejects when the decay's quantized
+ * start frame lands at-or-before the attack's quantized end frame.
+ *
+ * Points are split proportional to each segment's duration so a short attack
+ * is not stretched across half the array. The join sample is the shared
+ * mid value (attack end === decay start).
+ *
+ * @param {number} from - Start value at t=0.
+ * @param {number} mid - Value at the attack→decay join (attack peak).
+ * @param {number} to - Final value at the end of decay.
+ * @param {number} attackSec - Attack duration in seconds.
+ * @param {number} decaySec - Decay duration in seconds.
+ * @param {number} [points=ENVELOPE_CURVE_DEFAULTS.curvePoints] - Total sample budget.
+ * @returns {Float32Array}
+ */
+export function createAttackDecayCurve(from, mid, to, attackSec, decaySec, points = ENVELOPE_CURVE_DEFAULTS.curvePoints) {
+  const total = Math.max(2, Math.round(points));
+  const attack = Math.max(0, Number(attackSec) || 0);
+  const decay = Math.max(0, Number(decaySec) || 0);
+  const span = attack + decay;
+  let attackPoints = span > 0 ? Math.round((total - 1) * (attack / span)) : Math.floor((total - 1) / 2);
+  attackPoints = Math.max(1, Math.min(total - 1, attackPoints));
+  const decayPoints = total - attackPoints;
+  const attackCurve = createEnvelopeParamCurve(from, mid, 'attack', attackPoints + 1);
+  const decayCurve = createEnvelopeParamCurve(mid, to, 'decay', decayPoints);
+  const combined = new Float32Array(total);
+  combined.set(attackCurve.subarray(0, attackPoints), 0);
+  combined.set(decayCurve, attackPoints);
+  return combined;
+}
+
 export function adsrEnvelopeValueAt(t, durationSec, env = {}, velocity = 1) {
   const attack = Math.max(0.001, env.attack || 0.001);
   const decay = Math.max(0.001, env.decay || 0.001);

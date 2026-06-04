@@ -111,6 +111,24 @@ Expected:
 - Chromatic shows function labels for all 12 pads. Lowered Supertonic may truncate visually, but the tooltip or accessibility label still has the full text.
 - Piano keeps compact shorthand labels such as Root, b3, 5, and b7.
 
+### 1.5b Degree Color Palettes
+
+Steps:
+
+1. Go to Pads in C Major, open Layout, and turn on Highlight scale degrees.
+2. In the Palette picker, switch between Vivid, Color-blind safe, and Brightness ramp.
+3. After each, look at the pads and the degree swatches.
+4. Hand-edit one swatch with the color picker, then reload the project.
+5. Open Piano and confirm degree colors match the chosen palette there too.
+
+Expected:
+
+- Each palette immediately recolors both the pads and the swatch row.
+- Color-blind safe avoids hard red/green pairings; Brightness ramp gets steadily lighter from the root upward.
+- A hand-edited swatch overrides just that degree and survives reload; the chosen palette is also remembered across reload.
+- Pads and Piano agree on the degree colors.
+- Existing projects with no palette set still show the original Vivid colors.
+
 ### 1.5 Scale Picker Families
 
 Steps:
@@ -583,6 +601,25 @@ Expected:
 - Faster tapping raises the BPM and slower tapping lowers it, clamped to the 40–240 range.
 - After a long pause, the next taps start a fresh tempo instead of blending with the old one.
 - The chosen BPM persists after reload (it is saved with the project, like the number input).
+
+### 5.4 Drone Mode
+
+Steps:
+
+1. In Create, set the project key to C Major.
+2. Click the **Drone** toggle in the top bar.
+3. Listen, then play some pads over the held drone.
+4. Change the project key (e.g. to G), then to a different scale.
+5. Click **Drone** again to turn it off.
+6. Arm recording, play a short phrase with the drone on, stop, and inspect the snippet.
+
+Expected:
+
+- Turning Drone on sustains a low root note (C in C Major) and the button shows an active state.
+- Pads/keys still play normally on top of the held drone.
+- Changing the key re-pitches the drone to the new root without an audible click or gap; changing scale keeps the root anchor.
+- Turning Drone off stops the held note immediately.
+- The recorded snippet contains only the notes you played — the drone is a live anchor and is not recorded or exported.
 
 ## 6. Backups And Restore
 

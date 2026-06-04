@@ -7,6 +7,7 @@ import {
 } from '../engine/MusicTheory.js';
 import { DEFAULT_PROGRESSION_GLOW, normalizeProgressionGlow } from '../engine/Progressions.js';
 import { DEFAULT_PAD_LAYOUT_TEMPLATE, PAD_LAYOUT_TEMPLATES, normalizePadLayout } from '../engine/PadLayout.js';
+import { degreeColorsForPalette, degreePaletteOptions, normalizeDegreePaletteId } from '../engine/DegreePalettes.js';
 
 export function clampCustomPadCount(value) {
   const parsed = parseInt(value, 10);
@@ -259,6 +260,12 @@ export class CreateLayoutPopover {
           <span class="create-control-popover__value" data-degree-intensity-value>${Math.round((degree.intensity ?? 0.22) * 100)}%</span>
           <input class="tone-row__slider" type="range" min="5" max="75" value="${Math.round((degree.intensity ?? 0.22) * 100)}" data-degree-intensity aria-label="Degree color intensity">
         </label>
+        <label class="create-control-popover__row degree-controls__palette">
+          <span>Palette</span>
+          <select data-degree-palette aria-label="Degree color palette">
+            ${degreePaletteOptions().map(opt => `<option value="${escapeAttr(opt.value)}" title="${escapeAttr(opt.description)}" ${opt.value === normalizeDegreePaletteId(degree.palette) ? 'selected' : ''}>${escapeHtml(opt.label)}</option>`).join('')}
+          </select>
+        </label>
         <div class="degree-controls__swatches" aria-label="Degree colors for ${context.root} ${SCALES[context.scale]?.name || 'Major'}">
           ${intervals.map(interval => {
             const meta = degreeForMidi(60 + interval, { root: 'C', scale: 'chromatic' });
@@ -300,6 +307,21 @@ export class CreateLayoutPopover {
       if (!degree) return;
       degree.intensity = Math.max(0.05, Math.min(0.75, Number(event.target.value) / 100));
       popover.querySelector('[data-degree-intensity-value]')?.replaceChildren(`${Math.round(degree.intensity * 100)}%`);
+      notify();
+    });
+    popover.querySelector('[data-degree-palette]')?.addEventListener('change', (event) => {
+      const degree = this.ensureDegreeHighlighting?.();
+      if (!degree) return;
+      const id = normalizeDegreePaletteId(event.target.value);
+      degree.palette = id;
+      // Picking a palette sets all degree colors; the swatch pickers still let
+      // the user tweak individual colors afterward.
+      const colors = degreeColorsForPalette(id);
+      degree.colors = colors;
+      popover.querySelectorAll('[data-degree-color]').forEach(input => {
+        const interval = Number(input.dataset.degreeColor);
+        if (colors[interval]) input.value = colors[interval];
+      });
       notify();
     });
     popover.querySelectorAll('[data-degree-color]').forEach(input => {

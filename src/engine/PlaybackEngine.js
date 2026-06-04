@@ -497,9 +497,16 @@ export class PlaybackEngine {
       for (const [, voice] of synth._voices) {
         try {
           const time = audioTime ?? this._engine.ctx.currentTime;
-          voice.osc.detune.setTargetAtTime(pt.pitchBend * 200, time, 0.02);
+          const detune = pt.pitchBend * 200;
+          const oscs = [
+            ...(voice.oscillators || []),
+            ...(voice.oscillators2 || []),
+            voice.osc,
+            voice.osc2,
+          ];
+          for (const osc of oscs) osc?.detune?.setTargetAtTime(detune, time, 0.02);
           const modFreq = 400 + (pt.modulation / 2) * 7600;
-          voice.filter.frequency.setTargetAtTime(modFreq, time, 0.05);
+          voice.filter?.frequency.setTargetAtTime(modFreq, time, 0.05);
         } catch (e) { /* ignore */ }
       }
     }

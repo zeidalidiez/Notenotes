@@ -11,6 +11,7 @@ import { ChoicePicker } from '../ui/ChoicePicker.js';
 import { dwellSettings, tremorAllows } from '../ui/AccessibilityProfiles.js';
 import { performanceKeyLabel } from '../ui/PerformanceKeys.js';
 import { createDrumNoiseState, shapedDrumNoiseSample } from '../engine/DrumSynthesis.js';
+import { drumHumanize } from '../engine/Humanize.js';
 
 export const DRUM_KITS = {
   classic: {
@@ -444,18 +445,20 @@ export class SketchKit {
   }
 
   _synthTone(ctx, t, p) {
+    const h = drumHumanize();
+    const decay = p.decay * h.decayMul, vol = p.vol * h.gainMul;
     const o = ctx.createOscillator(), g = ctx.createGain();
     o.type = p.osc;
-    o.frequency.setValueAtTime(p.freq0, t);
-    o.frequency.exponentialRampToValueAtTime(p.freq1, t + p.decay * 0.35);
-    g.gain.setValueAtTime(p.vol, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + p.decay);
+    o.frequency.setValueAtTime(p.freq0 * h.freqMul, t);
+    o.frequency.exponentialRampToValueAtTime(p.freq1 * h.freqMul, t + decay * 0.35);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + decay);
     o.connect(g); g.connect(this._drumOutput());
-    o.start(t); o.stop(t + p.decay);
+    o.start(t); o.stop(t + decay);
     if (p.clicks) {
       const cO = ctx.createOscillator(), cG = ctx.createGain();
-      cO.type = 'square'; cO.frequency.value = 800;
-      cG.gain.setValueAtTime(p.vol * 0.4, t);
+      cO.type = 'square'; cO.frequency.value = 700 + Math.random() * 220;
+      cG.gain.setValueAtTime(vol * 0.4, t);
       cG.gain.exponentialRampToValueAtTime(0.001, t + 0.01);
       cO.connect(cG); cG.connect(this._drumOutput());
       cO.start(t); cO.stop(t + 0.01);
@@ -463,73 +466,103 @@ export class SketchKit {
   }
 
   _synthSnare(ctx, t, p) {
-    const noiselen = p.noiseDecay, bs = ctx.sampleRate * noiselen;
+    const h = drumHumanize();
+    const vol = p.vol * h.gainMul;
+    const noiselen = p.noiseDecay * h.decayMul;
     const buf = this._drumNoiseBuffer(ctx, noiselen, 'snare');
     const n = ctx.createBufferSource(); n.buffer = buf;
     const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = p.noiseHp;
-    const g = ctx.createGain(); g.gain.setValueAtTime(p.vol, t);
+    const g = ctx.createGain(); g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + noiselen);
     n.connect(f); f.connect(g); g.connect(this._drumOutput()); n.start(t);
 
     const o = ctx.createOscillator(); o.type = p.osc;
-    o.frequency.setValueAtTime(p.bodyFreq, t);
-    o.frequency.exponentialRampToValueAtTime(p.bodyFreq * 0.4, t + p.bodyDecay * 0.5);
-    const bg = ctx.createGain(); bg.gain.setValueAtTime(p.vol * 0.7, t);
+    o.frequency.setValueAtTime(p.bodyFreq * h.freqMul, t);
+    o.frequency.exponentialRampToValueAtTime(p.bodyFreq * h.freqMul * 0.4, t + p.bodyDecay * 0.5);
+    const bg = ctx.createGain(); bg.gain.setValueAtTime(vol * 0.7, t);
     bg.gain.exponentialRampToValueAtTime(0.001, t + p.bodyDecay);
     o.connect(bg); bg.connect(this._drumOutput()); o.start(t); o.stop(t + p.bodyDecay);
   }
 
   _synthClap(ctx, t, p) {
+    const h = drumHumanize();
+    const vol = p.vol * h.gainMul;
     for (let i = 0; i < 3; i++) {
-      const off = t + i * 0.012, bs = ctx.sampleRate * 0.04;
-      const buf = this._drumNoiseBuffer(ctx, bs / ctx.sampleRate, 'clap');
+      const off = t + i * 0.012 + Math.random() * 0.003; // slight irregular burst spacing
+      const buf = this._drumNoiseBuffer(ctx, 0.04, 'clap');
       const n = ctx.createBufferSource(); n.buffer = buf;
       const f = ctx.createBiquadFilter(); f.type = 'bandpass';
-      f.frequency.value = p.bpFreq; f.Q.value = p.bpQ;
-      const g = ctx.createGain(); g.gain.setValueAtTime(p.vol, off);
+      f.frequency.value = p.bpFreq * h.freqMul; f.Q.value = p.bpQ;
+      const g = ctx.createGain(); g.gain.setValueAtTime(vol, off);
       g.gain.exponentialRampToValueAtTime(0.001, off + p.decay);
       n.connect(f); f.connect(g); g.connect(this._drumOutput()); n.start(off);
     }
   }
 
   _synthHiHat(ctx, t, p, long) {
-    const dur = long ? p.decay : (p.decay || 0.06);
+    const h = drumHumanize();
+    const dur = (long ? p.decay : (p.decay || 0.06)) * h.decayMul;
+    const vol = p.vol * h.gainMul;
+    const stopAt = t + dur + 0.02;
+
+    // Metallic core: six inharmonic square partials (TR-808-style) through a
+    // band-pass + high-pass. This is what gives a real "shimmer" instead of the
+    // flat "tss" of filtered noise alone.
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass';
+    bp.frequency.value = long ? 8000 : 10000; bp.Q.value = 0.7;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = p.hpFreq;
+    const mg = ctx.createGain();
+    mg.gain.setValueAtTime(vol * 0.55, t);
+    mg.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+    const base = 40 * h.freqMul;
+    const ratios = [2, 3, 4.16, 5.43, 6.79, 8.21];
+    for (const r of ratios) {
+      const o = ctx.createOscillator(); o.type = 'square';
+      o.frequency.value = base * r * (0.99 + Math.random() * 0.02);
+      o.connect(bp); o.start(t); o.stop(stopAt);
+    }
+    bp.connect(hp); hp.connect(mg); mg.connect(this._drumOutput());
+
+    // A little shaped noise keeps the "air" of the original hat layered on top.
     const buf = this._drumNoiseBuffer(ctx, dur, long ? 'cymbal' : 'hihat');
     const n = ctx.createBufferSource(); n.buffer = buf;
-    const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = p.hpFreq;
-    const g = ctx.createGain(); g.gain.setValueAtTime(p.vol, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    n.connect(f); f.connect(g); g.connect(this._drumOutput()); n.start(t);
+    const nf = ctx.createBiquadFilter(); nf.type = 'highpass'; nf.frequency.value = p.hpFreq;
+    const ng = ctx.createGain();
+    ng.gain.setValueAtTime(vol * 0.45, t);
+    ng.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+    n.connect(nf); nf.connect(ng); ng.connect(this._drumOutput()); n.start(t);
   }
 
   _synthRim(ctx, t, p) {
-    const noiselen = p.noiseDecay, bs = ctx.sampleRate * noiselen;
+    const h = drumHumanize();
+    const vol = p.vol * h.gainMul;
+    const noiselen = p.noiseDecay;
     const buf = this._drumNoiseBuffer(ctx, noiselen, 'rim');
     const n = ctx.createBufferSource(); n.buffer = buf;
     const f = ctx.createBiquadFilter(); f.type = 'bandpass';
-    f.frequency.value = p.bpFreq; f.Q.value = p.bpQ;
-    const g = ctx.createGain(); g.gain.setValueAtTime(p.vol, t);
+    f.frequency.value = p.bpFreq * h.freqMul; f.Q.value = p.bpQ;
+    const g = ctx.createGain(); g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + noiselen);
     n.connect(f); f.connect(g); g.connect(this._drumOutput()); n.start(t);
 
     const o = ctx.createOscillator(); o.type = 'sine';
-    o.frequency.setValueAtTime(p.rimFreq, t);
-    o.frequency.exponentialRampToValueAtTime(p.rimFreq * 0.25, t + p.rimDecay);
-    const rg = ctx.createGain(); rg.gain.setValueAtTime(p.vol * 0.5, t);
+    o.frequency.setValueAtTime(p.rimFreq * h.freqMul, t);
+    o.frequency.exponentialRampToValueAtTime(p.rimFreq * h.freqMul * 0.25, t + p.rimDecay);
+    const rg = ctx.createGain(); rg.gain.setValueAtTime(vol * 0.5, t);
     rg.gain.exponentialRampToValueAtTime(0.001, t + p.rimDecay * 2);
     o.connect(rg); rg.connect(this._drumOutput()); o.start(t); o.stop(t + p.rimDecay * 2);
   }
 
   _synthShaker(ctx, t, p) {
-    const dur = p.decay, steps = p.steps;
+    const h = drumHumanize();
+    const vol = p.vol * h.gainMul, dur = p.decay, steps = p.steps;
     for (let i = 0; i < steps; i++) {
       const off = t + i * (dur / steps);
-      const bs = ctx.sampleRate * 0.015;
-      const buf = this._drumNoiseBuffer(ctx, bs / ctx.sampleRate, 'shaker');
+      const buf = this._drumNoiseBuffer(ctx, 0.015, 'shaker');
       const n = ctx.createBufferSource(); n.buffer = buf;
       const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = p.hpFreq;
       const g = ctx.createGain();
-      g.gain.setValueAtTime(p.vol * (1 - i / steps), off);
+      g.gain.setValueAtTime(vol * (1 - i / steps), off);
       g.gain.exponentialRampToValueAtTime(0.001, off + 0.025);
       n.connect(f); f.connect(g); g.connect(this._drumOutput()); n.start(off);
     }

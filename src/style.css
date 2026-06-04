@@ -337,12 +337,6 @@ input, textarea, select, [contenteditable] {
 }
 
 .transport-bar__tap {
-  padding: var(--space-xs) var(--space-sm);
-  border: var(--border-subtle);
-  border-radius: var(--radius-sm);
-  background: var(--surface-3);
-  color: var(--accent-light);
-  font: inherit;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
@@ -352,13 +346,37 @@ input, textarea, select, [contenteditable] {
 }
 
 .transport-bar__tap:hover {
+    border-color: var(--accent-dim);
+  color: var(--accent-bright);
+}
+.transport-bar__tap.is-tapping {
+  background: var(--accent-dim);
+  color: var(--accent-bright);
+  box-shadow: var(--shadow-glow);
+}
+.transport-bar__drone {
+  padding: var(--space-xs) var(--space-sm);
+  border: var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  color: var(--accent-light);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.1s ease, color 0.1s ease, background 0.1s ease, box-shadow 0.1s ease;
+}
+
+.transport-bar__drone:hover {
   border-color: var(--accent-dim);
   color: var(--accent-bright);
 }
 
-.transport-bar__tap.is-tapping {
+.transport-bar__drone.is-active {
   background: var(--accent-dim);
   color: var(--accent-bright);
+  border-color: var(--accent);
   box-shadow: var(--shadow-glow);
 }
 

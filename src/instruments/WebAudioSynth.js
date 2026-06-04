@@ -40,6 +40,22 @@ const FAST_STEAL_RELEASE = 0.05;
 /** Release (seconds) applied to the previous copy when the same note retriggers. */
 const FAST_RETRIGGER_RELEASE = 0.06;
 
+/**
+ * Sample voices are far heavier than synth oscillators — each is an
+ * AudioBufferSourceNode replaying a decoded buffer, which Chrome creates and
+ * tears down much less cheaply. Cap their concurrency tighter than synths. 8
+ * still leaves a full Extensions (13th = 7-note) chord intact.
+ */
+const MAX_SOUNDING_SAMPLE_VOICES = 8;
+
+/**
+ * Minimum seconds between retriggers of the SAME note. Collapses machine-gun
+ * re-strumming / pad-hammering that spawns BufferSources faster than the audio
+ * thread can free them (the STATUS_BREAKPOINT / OOM gesture). Distinct notes —
+ * i.e. the members of a chord — are unaffected, so chords play in full.
+ */
+const MIN_RETRIGGER_SEC = 0.035;
+
 export const SOUND_TRAITS = {
   crush: { id: 'crush', name: 'Crush', hint: 'Blocky bitcrush edge', defaultAmount: 0.35 },
   echo: { id: 'echo', name: 'Echo', hint: 'Repeating delay tail', defaultAmount: 0.3 },
@@ -489,6 +505,8 @@ export class WebAudioSynth {
     this._releasing = new Set();
     /** One-time guard so the rapid-retrigger throttle warning logs only once. */
     this._floodWarned = false;
+    /** midi → AudioContext time of its last trigger, for the retrigger throttle. */
+    this._lastTriggerAt = new Map();
     /** Current patch */
     this.patch = { ...DEFAULT_PATCH };
     this.soundTraits = defaultSoundTraits();
@@ -699,6 +717,13 @@ export class WebAudioSynth {
     const ctx = this.engine.ctx;
     const now = atTime !== undefined ? atTime : ctx.currentTime;
     const p = this.patch;
+
+    // Per-note retrigger throttle: drop spurious rapid re-triggers of the SAME
+    // note before they allocate a voice/BufferSource. Uses the audio clock, so a
+    // chord (distinct notes at the same instant) is never throttled.
+    const lastTrig = this._lastTriggerAt.get(midi);
+    if (lastTrig !== undefined && (now - lastTrig) < MIN_RETRIGGER_SEC) return;
+    this._lastTriggerAt.set(midi, now);
 
     // If this note is already playing, release the old copy quickly so a fast
     // retrigger doesn't leave a full-length duplicate ringing out.
@@ -1054,9 +1079,10 @@ export class WebAudioSynth {
    * click-free, and warn once so the throttle is observable in the console.
    */
   _enforceSoundingCap(now) {
+    const cap = (this.patch && this.patch.type === 'sample') ? MAX_SOUNDING_SAMPLE_VOICES : MAX_SOUNDING_VOICES;
     let culled = false;
     let guard = 0;
-    while (this._voices.size + this._releasing.size > MAX_SOUNDING_VOICES && this._releasing.size > 0 && guard++ < 512) {
+    while (this._voices.size + this._releasing.size > cap && this._releasing.size > 0 && guard++ < 512) {
       const oldest = this._releasing.values().next().value; // Set preserves insertion (age) order
       if (!oldest) break;
       this._retireVoiceNow(oldest, now);

@@ -328,6 +328,9 @@ function mixBuffer(target, source, startSec = 0, gain = 1, pan = 0) {
 
 function renderPatchTone(buffer, startSec, durationSec, midi, velocity = 0.8, patchInput = null, panOffset = 0) {
   const patch = normalizeExportPatch(patchInput || PRESETS.chip_lead || DEFAULT_EXPORT_PATCH);
+  // FM presets render through a dedicated, parity-matched path so the offline
+  // export matches the live modulator->carrier frequency math.
+  if (patch.type === 'fm') { renderFmTone(buffer, startSec, durationSec, midi, velocity, patch, panOffset); return; }
   const start = Math.max(0, Math.floor(startSec * SAMPLE_RATE));
   const release = Math.max(0.02, patch.envelope.release || 0.02);
   const end = Math.min(sampleLength(buffer), Math.ceil((startSec + durationSec + release + 0.02) * SAMPLE_RATE));
@@ -386,6 +389,44 @@ function renderPatchTone(buffer, startSec, durationSec, midi, velocity = 0.8, pa
     const cutoff = filterFrequencyForPatch(patch, midi, t, velocity);
     const filtered = filterStep(wave, filterState, patch.filter.type, cutoff);
     mixSample(buffer, i, filtered * amp * envelopeValue(t, durationSec, patch.envelope), pan);
+  }
+}
+
+// 2-operator FM offline render. Mirrors the live voice: a modulator sine drives
+// the carrier's instantaneous frequency, with the modulation index decaying from
+// `index` toward `index*indexSustain` over `fm.decay` seconds (the same curve
+// the live setValueAtTime -> setTargetAtTime produces).
+function renderFmTone(buffer, startSec, durationSec, midi, velocity = 0.8, patch = null, panOffset = 0) {
+  const p = patch || normalizeExportPatch(PRESETS.fm_epiano);
+  const fm = p.fm || {};
+  const ratio = Math.max(0.01, Number(fm.ratio ?? 2));
+  const index = Math.max(0, Number(fm.index ?? 3));
+  const indexSustain = clamp(Number(fm.indexSustain ?? 0), 0, 1);
+  const modDecay = Math.max(0.005, Number(fm.decay ?? 0.4));
+  const carrierType = p.oscillator.type === 'custom' ? 'sine' : (p.oscillator.type || 'sine');
+
+  const start = Math.max(0, Math.floor(startSec * SAMPLE_RATE));
+  const release = Math.max(0.02, p.envelope.release || 0.02);
+  const end = Math.min(sampleLength(buffer), Math.ceil((startSec + durationSec + release + 0.02) * SAMPLE_RATE));
+  const carrierFreq = midiToFreq(midi);
+  const modFreq = carrierFreq * ratio;
+  const peakDev = index * modFreq;
+  const amp = 0.58 * clamp(velocity, 0, 1.25) * clamp(p.gain ?? 0.5, 0, 1.5);
+  const pan = normalizeTrackPan(panOffset);
+  const filterState = { low: 0, band: 0 };
+  let carrierPhase = 0;
+  let modPhase = 0;
+  for (let i = start; i < end; i++) {
+    const t = (i - start) / SAMPLE_RATE;
+    const idxEnv = peakDev * indexSustain + (peakDev - peakDev * indexSustain) * Math.exp(-t / modDecay);
+    modPhase += modFreq / SAMPLE_RATE;
+    const instFreq = carrierFreq + idxEnv * Math.sin(TWO_PI * modPhase);
+    carrierPhase += instFreq / SAMPLE_RATE;
+    let wave = oscillatorValue(carrierType, carrierPhase);
+    wave = driveSample(wave, velocityAdjustedDrive(p.drive || 0, velocity, p.velocityResponse));
+    const cutoff = filterFrequencyForPatch(p, midi, t, velocity);
+    const filtered = filterStep(wave, filterState, p.filter.type, cutoff);
+    mixSample(buffer, i, filtered * amp * envelopeValue(t, durationSec, p.envelope), pan);
   }
 }
 

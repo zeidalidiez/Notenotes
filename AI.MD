@@ -2207,3 +2207,81 @@ Both rules have explanatory comments in `instruments.css`.
 - `.ctrlmode__placeholder-eyebrow` (the small "Coming soon" uppercase
   label) is no longer used because the placeholder now leads with a
   larger "Future" title.
+
+## FM Synth Voices 0.1.113
+
+Cherry-picked from the `opus/crash-fix-and-section-a-voices` branch
+(Section A FM work) without bringing the rest of that branch (Karplus-Strong
+pluck, additive harmonics, the rapid-retrigger crash fixes, or the
+crash-breadcrumb logger). Only the 2-operator FM voice type and its four
+presets landed on main.
+
+### Voice model
+
+2-operator FM: a sine modulator drives the carrier oscillator's
+instantaneous frequency, with the modulation index decaying exponentially
+from `index` toward `index * indexSustain` over `fm.decay` seconds. The
+fast index decay is what makes the attack clangy and the body mellow. The
+carrier inherits the patch's normal filter and amp envelope so FM presets
+read like the rest of the synth family.
+
+The live path (`WebAudioSynth.noteOn` for `p.type === 'fm'`) builds:
+- a sine `mod` oscillator at `carrierFreq * fm.ratio`,
+- a `modGain` whose `.gain` is `setValueAtTime(peakDev, now)` then
+  `setTargetAtTime(peakDev * indexSustain, now, fm.decay)` — the same
+  curve the offline renderer uses,
+- the carrier (sine by default, or whatever `patch.oscillator.type`
+  is for patches that want a non-sine carrier),
+- the existing per-voice `filter` and `env` GainNodes, and
+- the same `vibrato` LFO the regular synth path uses.
+
+The voice record is `{ oscillators: [carrier], fmMod: mod, fmModGain:
+modGain, vibrato, filter, env, midi, startTime, velocity, kind: 'fm' }`.
+`noteOff`, `panic`, and `_disposeVoiceNodes` all know to stop and drop
+`voice.fmMod` / `voice.fmModGain`. The `kind: 'fm'` tag exists for future
+inspection (`audioVoiceStress` on the opus branch asserts the same).
+
+### Offline parity
+
+`WavExporter.renderPatchTone` short-circuits to a new `renderFmTone`
+function when `patch.type === 'fm'`. The function steps the carrier phase
+with the same instantaneous-frequency math the live setTargetAtTime
+produces, applies the patch's filter and amp envelope, and mixes into
+the buffer with the same pan path. Result: live and WAV export match,
+just like the existing chip and modern paths.
+
+### Presets
+
+Four built-in FM presets ship in `PRESETS`:
+
+- `fm_epiano` — ratio 1, index 2.6, indexSustain 0.12, decay 0.22, lowpass
+  9000 Hz, mild velocity filter brightening.
+- `fm_bell` — ratio 1.41 (slightly inharmonic), index 4.2, indexSustain
+  0.4, decay 1.1, long ringing tail.
+- `fm_glass_bass` — ratio 0.5 (sub-octave modulator), index 1.6, fast
+  decay, dark lowpass.
+- `fm_mallet` — ratio 3.5 (high modulator), index 3.2, no sustain,
+  very short decay. Classic "ting" attack.
+
+All four have `family: 'fm'` and `type: 'fm'`. Picker UI in
+`CreativeMode._patchGroups()` filters by `p.family === 'fm'` and shows
+them in their own "FM synths (2-operator)" group with the kicker "FM
+synth" and a description like "2-op FM - ratio 1.41" when the ratio
+isn't 1.
+
+### Boundaries
+
+- Do not add `fm.ratio` values that depend on a default of `2`. The
+  clamp to `Math.max(0.01, ratio)` guards against divide-by-zero, but
+  ratio 0 collapses the modulator to DC and the carrier math goes
+  silent. The default `?? 2` is a safety net for malformed patches.
+- `indexSustain` is clamped to `[0, 1]`. Values outside the range are
+  clamped; do not rely on the Web Audio setTargetAtTime validator
+  catching them first.
+- FM is a synth voice, not a sample or kit voice. Tone Trait
+  processing (Crush, Echo, Space, Wobble, Drive, Noise) is shared
+  through the existing master chain and applies to FM the same way as
+  chip / modern presets.
+- Custom instruments built from FM presets inherit `type: 'fm'`;
+  the `Create/Edit Instrument` flow already routes them through the
+  FM renderer on export.

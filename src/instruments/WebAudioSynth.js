@@ -307,6 +307,57 @@ export const PRESETS = {
     gain: 0.36,
     drive: 0.02,
   },
+  // --- FM (2-operator) ---
+  // `fm.ratio` = modulator:carrier frequency ratio (integer = harmonic/clean,
+  // non-integer = inharmonic/metallic). `fm.index` = modulation depth; it decays
+  // from `index` toward `index*indexSustain` over `fm.decay` seconds, which is
+  // what makes the attack bright and the body mellow.
+  fm_epiano: {
+    name: 'FM E-Piano',
+    family: 'fm',
+    type: 'fm',
+    oscillator: { type: 'sine', detune: 0 },
+    fm: { ratio: 1, index: 2.6, indexSustain: 0.12, decay: 0.22 },
+    envelope: { attack: 0.002, decay: 1.4, sustain: 0.28, release: 0.45 },
+    filter: { type: 'lowpass', frequency: 9000, Q: 0.5 },
+    keyTrack: 0.12,
+    velocityResponse: { filter: 0.3, drive: 0 },
+    gain: 0.5,
+    drive: 0.02,
+  },
+  fm_bell: {
+    name: 'FM Bell',
+    family: 'fm',
+    type: 'fm',
+    oscillator: { type: 'sine', detune: 0 },
+    fm: { ratio: 1.41, index: 4.2, indexSustain: 0.4, decay: 1.1 },
+    envelope: { attack: 0.001, decay: 2.4, sustain: 0.0, release: 1.4 },
+    filter: { type: 'lowpass', frequency: 11000, Q: 0.4 },
+    gain: 0.42,
+  },
+  fm_glass_bass: {
+    name: 'FM Glass Bass',
+    family: 'fm',
+    type: 'fm',
+    oscillator: { type: 'sine', detune: 0 },
+    fm: { ratio: 0.5, index: 1.6, indexSustain: 0.18, decay: 0.16 },
+    envelope: { attack: 0.004, decay: 0.3, sustain: 0.55, release: 0.18 },
+    filter: { type: 'lowpass', frequency: 2600, Q: 1.4 },
+    keyTrack: 0.2,
+    velocityResponse: { filter: 0.34, drive: 0.04 },
+    gain: 0.5,
+    drive: 0.06,
+  },
+  fm_mallet: {
+    name: 'FM Mallet',
+    family: 'fm',
+    type: 'fm',
+    oscillator: { type: 'sine', detune: 0 },
+    fm: { ratio: 3.5, index: 3.2, indexSustain: 0.0, decay: 0.07 },
+    envelope: { attack: 0.001, decay: 0.5, sustain: 0.0, release: 0.22 },
+    filter: { type: 'lowpass', frequency: 10000, Q: 0.5 },
+    gain: 0.46,
+  },
 };
 
 export class WebAudioSynth {
@@ -565,6 +616,75 @@ export class WebAudioSynth {
       return;
     }
 
+    if (p.type === 'fm') {
+      // 2-operator FM: a modulator oscillator drives the carrier's frequency. A
+      // fast decay on the modulation index gives the classic clangy-attack →
+      // mellow-body motion. The WavExporter mirrors the same instantaneous-
+      // frequency math so exports match.
+      const fm = p.fm || {};
+      const ratio = Math.max(0.01, Number(fm.ratio ?? 2));
+      const index = Math.max(0, Number(fm.index ?? 3));
+      const indexSustain = Math.max(0, Math.min(1, Number(fm.indexSustain ?? 0)));
+      const modDecay = Math.max(0.005, Number(fm.decay ?? 0.4));
+      const carrierFreq = midiToFreq(midi);
+      const modFreq = carrierFreq * ratio;
+
+      const carrier = ctx.createOscillator();
+      carrier.type = p.oscillator.type === 'custom' ? 'sine' : (p.oscillator.type || 'sine');
+      carrier.frequency.setValueAtTime(carrierFreq, now);
+      carrier.detune.setValueAtTime((p.oscillator.detune || 0), now);
+
+      const mod = ctx.createOscillator();
+      mod.type = 'sine';
+      mod.frequency.setValueAtTime(modFreq, now);
+      const modGain = ctx.createGain();
+      const peakDev = index * modFreq; // peak carrier-frequency deviation (Hz)
+      modGain.gain.setValueAtTime(peakDev, now);
+      modGain.gain.setTargetAtTime(peakDev * indexSustain, now, modDecay);
+      mod.connect(modGain);
+      modGain.connect(carrier.frequency);
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = p.filter.type;
+      const baseFilterFreq = this._filterBaseFrequency(midi, velocity);
+      filter.frequency.setValueAtTime(baseFilterFreq, now);
+      this._scheduleFilterEnvelope(filter, baseFilterFreq, now);
+      filter.Q.setValueAtTime(p.filter.Q, now);
+
+      const driveAmount = velocityAdjustedDrive(p.drive, velocity, p.velocityResponse);
+      const drive = driveAmount > 0 ? ctx.createWaveShaper() : null;
+      if (drive) { drive.curve = this._makeDriveCurve(driveAmount); drive.oversample = '2x'; }
+
+      const env = ctx.createGain();
+      this._scheduleAmpEnvelope(env.gain, p.envelope, velocity, now);
+
+      const toneInput = drive || filter;
+      carrier.connect(toneInput);
+      if (drive) drive.connect(filter);
+      filter.connect(env);
+      env.connect(this._toneInput || this._output);
+
+      const vibrato = this._createVibrato([carrier], now);
+      carrier.start(now);
+      mod.start(now);
+
+      const voice = {
+        oscillators: [carrier], fmMod: mod, fmModGain: modGain, vibrato, filter, env,
+        midi, startTime: now, velocity, kind: 'fm',
+      };
+      this._voices.set(midi, voice);
+      this._voiceQueue.push(midi);
+      carrier.addEventListener('ended', () => {
+        if (this._voices.get(midi) === voice) {
+          this._voices.delete(midi);
+          const qi = this._voiceQueue.indexOf(midi);
+          if (qi !== -1) this._voiceQueue.splice(qi, 1);
+        }
+        this._disposeVoiceNodes(voice);
+      }, { once: true });
+      return;
+    }
+
     // Filter
     const filter = ctx.createBiquadFilter();
     filter.type = p.filter.type;
@@ -656,6 +776,7 @@ export class WebAudioSynth {
     for (const osc of voice.oscillators2 || []) { try { osc.stop(stopAt); } catch (_) {} }
     if (voice.vibrato?.lfo) { try { voice.vibrato.lfo.stop(stopAt); } catch (_) {} }
     if (voice.noise) { try { voice.noise.source.stop(stopAt); } catch (_) {} }
+    if (voice.fmMod) { try { voice.fmMod.stop(stopAt); } catch (_) {} }
 
     // Remove from map
     this._voices.delete(midi);
@@ -682,6 +803,7 @@ export class WebAudioSynth {
       for (const osc of voice.oscillators2 || []) { try { osc.stop(now); } catch (_) {} }
       if (voice.vibrato?.lfo) { try { voice.vibrato.lfo.stop(now); } catch (_) {} }
       if (voice.noise) { try { voice.noise.source.stop(now); } catch (_) {} }
+      if (voice.fmMod) { try { voice.fmMod.stop(now); } catch (_) {} }
     }
     this._voices.clear();
     this._voiceQueue = [];
@@ -700,6 +822,8 @@ export class WebAudioSynth {
     for (const o of voice.oscillators2 || []) drop(o);
     if (voice.noise) { drop(voice.noise.source); drop(voice.noise.gain); }
     if (voice.vibrato) { drop(voice.vibrato.lfo); drop(voice.vibrato.gain); }
+    // FM voice extras: the modulator oscillator and its index-envelope gain.
+    drop(voice.fmMod); drop(voice.fmModGain);
   }
 
   /**

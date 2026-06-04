@@ -681,6 +681,25 @@ Tremor Filter, and `?dwell=1` enables Dwell Play, then the normalized settings
 are saved. This is intentionally not a separate build; a helper link can make
 Notenotes playable before a user has to navigate Settings.
 
+### Degree Color Palettes
+
+`src/engine/DegreePalettes.js` is the single source of degree-color truth (keyed
+by chromatic interval 0..11). It is pure data + helpers with no other engine
+imports, so `MusicTheory.js` imports it (not the reverse) and
+`DEFAULT_DEGREE_COLORS` is `degreeColorsForPalette('default')`.
+
+- Palettes: `default` (vivid rainbow), `cbSafe` (Okabe-Ito/Tol CVD-safe), and
+  `viridis` (a monotonic-lightness ramp, orderable for any color vision).
+- `normalizeDegreeHighlighting()` stores a `palette` id and uses that palette as
+  the base `colors`, with explicit per-degree overrides layered on top.
+- The Layout degree panel (`CreateLayoutPopover`) has a Palette `<select>`.
+  Choosing a palette writes its colors into `degreeHighlighting.colors` (and
+  records the id), so the swatch pickers can still tweak individual degrees
+  afterward. ScaleBoard/MicroPiano read `colors` exactly as before — no consumer
+  changes were needed.
+- `relativeLuminance()` / `contrastRatio()` are WCAG helpers used to keep the
+  ramp honest (guarded by a smoke test asserting viridis luminance increases).
+
 Step Play now lives in the Pads mode dropdown. It gives switch-style users a
 large single trigger while still working for keyboard and MIDI input. Any
 performance key or MIDI note-on advances the sequence; keyup/note-off do not

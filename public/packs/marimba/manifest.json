@@ -14,6 +14,11 @@
     "sustain": 0.7,
     "release": 0.4
   },
+  "range": {
+    "lo": 41,
+    "hi": 96,
+    "label": "F2–C7"
+  },
   "zones": [
     {
       "midi": 41,

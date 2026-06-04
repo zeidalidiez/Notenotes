@@ -24,7 +24,7 @@ import { PlaybackEngine } from './engine/PlaybackEngine.js';
 import { ModulationManager } from './engine/ModulationManager.js';
 import { normalizeMusicalContext } from './engine/MusicTheory.js';
 import { meterToTimeSignature, normalizeMeter, pulseCountForMeter } from './engine/Meter.js';
-import { normalizeProgressionContext, progressionFitsContext, progressionLabel } from './engine/Progressions.js';
+import { normalizeProgressionContext, progressionFitsContext, progressionLabel, progressionStepIndexForBar, PROGRESSION_ADVANCE_MODES } from './engine/Progressions.js';
 import { workspaceBackupStatus } from './utils/BackupStatus.js';
 import {
   AUTO_FOLDER_BACKUP_DELAY_MS,
@@ -240,6 +240,7 @@ class App {
     this.transportBar.onPreviewChord = (midis) => {
       this.creativeMode?.previewChord(midis);
     };
+    this.transportBar.onDroneToggle = (enabled) => this.creativeMode?.setDrone(enabled);
     this.transportBar.onBpmChange = (bpm) => {
       if (!this.project) return;
       this.project.bpm = bpm;
@@ -251,6 +252,15 @@ class App {
     this.creativeMode.onRecordArmChanged = (armed) => {
       this.transportBar.setRecordArmed(armed);
     };
+
+    // Advance the Changes chord-tone glow through the progression as playback
+    // crosses bars. This only moves which chord is "hot"; it never touches
+    // playback, recording, export, or snippets. When the transport stops it
+    // resets to the bar the playhead returns to, so the glow doesn't stick.
+    this.transport.onBar((bar) => this._followProgressionToBar(bar));
+    this.transport.onStateChange((state) => {
+      if (state === 'stopped') this._followProgressionToBar(this.transport.currentBar);
+    });
 
     window.addEventListener('project-time-signature-changed', () => {
       this.transportBar.updateTimeSignature();
@@ -519,6 +529,18 @@ class App {
     this.store?.scheduleAutoSave(this.project);
     window.dispatchEvent(new CustomEvent('project-progression-changed', { detail: { ...next } }));
     showToast(`Changes: ${progressionLabel(next)}`);
+  }
+
+  _followProgressionToBar(bar) {
+    if (!this.project) return;
+    const progression = this.project.progression;
+    if (!progression?.enabled || progression.advance !== PROGRESSION_ADVANCE_MODES.strict) return;
+    const nextIndex = progressionStepIndexForBar(progression, bar);
+    if (nextIndex === progression.activeStepIndex) return;
+    // Active step is transient performance state: update in place and refresh
+    // the glow, but don't autosave on every bar boundary.
+    progression.activeStepIndex = nextIndex;
+    window.dispatchEvent(new CustomEvent('project-progression-changed', { detail: { ...progression } }));
   }
 
   _beatColorsForBeats(beats = 4) {

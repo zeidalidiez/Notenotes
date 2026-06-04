@@ -14,6 +14,7 @@ import {
   normalizeMusicalContext,
   SCALES
 } from '../engine/MusicTheory.js';
+import { droneNotesForContext, normalizeDroneSettings } from '../engine/Drone.js';
 import { ScaleBoard } from '../instruments/ScaleBoard.js';
 import { MicroPiano } from '../instruments/MicroPiano.js';
 import { SketchKit } from '../instruments/SketchKit.js';
@@ -79,6 +80,12 @@ export class CreativeMode {
 
     // Synth (shared between Scale Board and Micro Piano)
     this.synth = new WebAudioSynth();
+
+    // Drone: a sustained tonal anchor on the project root. Runtime-only live
+    // state (not recorded/exported); the held MIDI notes are tracked so a key
+    // change can re-pitch them.
+    this._droneSettings = normalizeDroneSettings({ enabled: false });
+    this._droneNotes = [];
 
     // Voice engine — formant-synthesized vocal instrument used by Scale
     // Board's "Voice Sketch" pad mode. Routes through the synth's tone
@@ -647,10 +654,18 @@ export class CreativeMode {
     const custom = this._customInstruments().filter(instrument => instrument.type === 'patch');
     const chipPresets = Object.entries(PRESETS).filter(([, p]) => (p.family || 'chip') === 'chip');
     const modernPresets = Object.entries(PRESETS).filter(([, p]) => p.family === 'modern');
+    const fmPresets = Object.entries(PRESETS).filter(([, p]) => p.family === 'fm');
+    const familyKicker = (p) => {
+      switch (p.family) {
+        case 'fm': return 'FM synth';
+        case 'modern': return 'Modern synth';
+        default: return 'Chip synth';
+      }
+    };
     const presetItem = ([key, patch]) => ({
       value: key,
       label: patch.name,
-      kicker: (patch.family || 'chip') === 'modern' ? 'Modern synth' : 'Chip synth',
+      kicker: familyKicker(patch),
       description: this._patchDescription(patch),
       tags: [patch.oscillator?.type, patch.filter?.type, patch.family].filter(Boolean),
     });
@@ -658,6 +673,9 @@ export class CreativeMode {
       { id: 'chip', label: 'Chip presets', items: chipPresets.map(presetItem) },
       { id: 'modern', label: 'Modern presets', items: modernPresets.map(presetItem) },
     ];
+    if (fmPresets.length) {
+      groups.push({ id: 'fm', label: 'FM synths (2-operator)', items: fmPresets.map(presetItem) });
+    }
     const builtinSamples = this._sampleIndex || [];
     if (builtinSamples.length) {
       groups.push({
@@ -667,8 +685,10 @@ export class CreativeMode {
           value: `builtin:${inst.id}`,
           label: inst.name,
           kicker: inst.category ? `${inst.category} - CC0 sample` : 'CC0 sample',
-          description: 'Multi-sampled real instrument (loads on first use)',
-          tags: ['sample', inst.category, inst.name].filter(Boolean),
+          description: inst.range
+            ? `Sampled ${inst.range} - notes outside this range fold in by octave`
+            : 'Multi-sampled real instrument (loads on first use)',
+          tags: ['sample', inst.category, inst.range, inst.name].filter(Boolean),
         })),
       });
     }
@@ -690,7 +710,13 @@ export class CreativeMode {
 
   _patchDescription(patch = {}) {
     const bits = [];
-    if (patch.oscillator?.type) bits.push(patch.oscillator.type);
+    if (patch.type === 'fm') {
+      bits.push('2-op FM');
+      const fm = patch.fm || {};
+      if (Number.isFinite(fm.ratio) && fm.ratio !== 1) bits.push(`ratio ${fm.ratio}`);
+    } else if (patch.oscillator?.type) {
+      bits.push(patch.oscillator.type);
+    }
     if (patch.unison?.voices) bits.push(`${patch.unison.voices}-voice unison`);
     if (patch.filterEnv) bits.push('filter motion');
     if (patch.vibrato) bits.push('vibrato');
@@ -751,6 +777,51 @@ export class CreativeMode {
     this.controllerMode?.setProjectKey?.(next);
     this.microPiano?.refreshDegreeHighlights?.();
     this.aiSeedPopover?.refresh?.();
+    // Re-pitch a running drone so the anchor follows the new key.
+    if (this._droneSettings.enabled) this._applyDrone();
+  }
+
+  /** Whether the drone anchor is currently sounding. */
+  get droneEnabled() {
+    return !!this._droneSettings.enabled;
+  }
+
+  /**
+   * Toggle (or set) the sustained root drone. Enabling it holds the root of the
+   * project key until it is turned off; it follows key changes and is never
+   * recorded.
+   */
+  setDrone(enabled) {
+    const next = enabled === undefined ? !this._droneSettings.enabled : !!enabled;
+    this._droneSettings = normalizeDroneSettings({ ...this._droneSettings, enabled: next });
+    if (next) {
+      this.ensureAudioReady();
+      this._applyDrone();
+    } else {
+      this._stopDrone();
+    }
+    return next;
+  }
+
+  _applyDrone() {
+    if (!this.synth) return;
+    const wanted = droneNotesForContext(this.project?.musicalContext, this._droneSettings);
+    // Release notes no longer wanted, then hold any new ones. Diffing avoids a
+    // click from stopping and restarting an unchanged note.
+    for (const midi of this._droneNotes) {
+      if (!wanted.includes(midi)) this.synth.noteOff(midi);
+    }
+    for (const midi of wanted) {
+      if (!this._droneNotes.includes(midi)) this.synth.noteOn(midi, 0.5);
+    }
+    this._droneNotes = wanted;
+  }
+
+  _stopDrone() {
+    if (this.synth) {
+      for (const midi of this._droneNotes) this.synth.noteOff(midi);
+    }
+    this._droneNotes = [];
   }
 
   _emitProjectKeyChange(context) {

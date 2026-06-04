@@ -159,7 +159,11 @@ export function progressionPreset(id) {
   return {
     ...preset,
     enabled: true,
-    advance: PROGRESSION_ADVANCE_MODES.manual,
+    // Presets follow playback by default: selecting Changes should make the
+    // chord-tone glow walk the progression bar by bar. `manual` stays a valid
+    // stored mode so old projects (and a future explicit step-control UI) keep
+    // their frozen active step.
+    advance: PROGRESSION_ADVANCE_MODES.strict,
     chordType: preset.chordType || PROGRESSION_CHORD_TYPES.triad,
     activeStepIndex: 0,
     steps: cloneSteps(preset.steps),
@@ -265,6 +269,55 @@ export function activeProgressionResolution(progression = {}, context = {}) {
   if (!normalized.enabled || !normalized.steps.length) return null;
   const step = normalized.steps[normalized.activeStepIndex] || normalized.steps[0];
   return resolveProgressionStep(step, context, { chordType: normalized.chordType });
+}
+
+/**
+ * Total length of one pass through the progression, in bars. Honors each
+ * step's `durationBars`. Returns 0 when the progression has no usable steps.
+ */
+export function progressionTotalBars(progression = {}) {
+  const normalized = normalizeProgressionContext(progression);
+  return normalized.steps.reduce((sum, step) => sum + step.durationBars, 0);
+}
+
+/**
+ * Which step index is active at an absolute (0-based) bar position, looping
+ * the progression over its total length and honoring per-step `durationBars`.
+ * This is the pure core of "advance through the progression" bar-following.
+ * Returns 0 for empty/invalid progressions so callers can glow the tonic.
+ */
+export function progressionStepIndexForBar(progression = {}, bar = 0) {
+  const normalized = normalizeProgressionContext(progression);
+  const steps = normalized.steps;
+  if (!steps.length) return 0;
+
+  const total = steps.reduce((sum, step) => sum + step.durationBars, 0);
+  if (!(total > 0)) return 0;
+
+  const safeBar = Number.isFinite(bar) ? bar : 0;
+  let pos = safeBar % total;
+  if (pos < 0) pos += total;
+
+  let cursor = 0;
+  for (let i = 0; i < steps.length; i++) {
+    cursor += steps[i].durationBars;
+    if (pos < cursor) return i;
+  }
+  return steps.length - 1;
+}
+
+/**
+ * Manual next/prev for the active step. Returns a normalized progression with
+ * `activeStepIndex` nudged by `delta` and wrapped within the step list. Used by
+ * explicit step controls and tests; bar-following uses the index helper above.
+ */
+export function advanceProgressionContext(progression = {}, delta = 1) {
+  const normalized = normalizeProgressionContext(progression);
+  const len = normalized.steps.length;
+  if (!len) return normalized;
+  const step = Number.isInteger(delta) ? delta : Math.trunc(delta) || 1;
+  const next = (((normalized.activeStepIndex + step) % len) + len) % len;
+  return { ...normalized, activeStepIndex: next };
 }
 
 export function progressionFitsContext(progression = {}, context = {}) {

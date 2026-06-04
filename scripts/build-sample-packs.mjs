@@ -35,6 +35,8 @@ const RAW_BASE = 'https://raw.githubusercontent.com/sgossner/VCSL/master';
 const TREE_API = 'https://api.github.com/repos/sgossner/VCSL/git/trees/master?recursive=1';
 
 const NOTE_INDEX = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const midiToName = (m) => `${NOTE_NAMES[((m % 12) + 12) % 12]}${Math.floor(m / 12) - 1}`;
 
 /** Parse a scientific note token (C4, A#2, A#-1) from a sample filename → MIDI (C4=60). */
 function noteToMidi(token) {
@@ -216,10 +218,13 @@ function buildInstrument(inst, allFiles) {
     manifestZones.push({ midi, file: `${midi}.mp3`, bytes });
   }
 
+  const mids = manifestZones.map((z) => z.midi);
+  const lo = Math.min(...mids), hi = Math.max(...mids);
   const manifest = {
     id: inst.id, name: inst.name, icon: inst.icon, category: inst.category,
     type: 'sample', source: 'VCSL (CC0)', playbackMode: inst.playbackMode,
     gain: inst.gain, brightness: inst.brightness, envelope: inst.env,
+    range: { lo, hi, label: `${midiToName(lo)}–${midiToName(hi)}` },
     zones: manifestZones.map(({ midi, file }) => ({ midi, file })),
   };
   writeFileSync(resolve(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
@@ -241,7 +246,7 @@ function main() {
     if (res) { index.push(res.manifest); grand += res.bytes; }
   }
   writeFileSync(resolve(OUT_ROOT, 'index.json'), JSON.stringify(
-    index.map(({ id, name, icon, category }) => ({ id, name, icon, category, path: `${id}/manifest.json` })),
+    index.map(({ id, name, icon, category, range }) => ({ id, name, icon, category, range: range && range.label, path: `${id}/manifest.json` })),
     null, 2,
   ));
   console.log(`\n• done — ${index.length} instruments, ${(grand / 1024 / 1024).toFixed(2)} MB total in public/packs/`);

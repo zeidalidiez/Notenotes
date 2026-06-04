@@ -20,7 +20,15 @@ import {
   rootNoteOptions,
 } from '../src/ui/CreateInstrumentPopover.js';
 import { padPerformanceIndex, pianoPerformanceIndex } from '../src/modes/input/PerformanceInputRouter.js';
-import { correctMidiToScale, normalizeMusicalContext } from '../src/engine/MusicTheory.js';
+import { correctMidiToScale, normalizeDegreeHighlighting, normalizeMusicalContext } from '../src/engine/MusicTheory.js';
+import {
+  DEGREE_PALETTES,
+  degreeColorsForPalette,
+  degreePaletteOptions,
+  normalizeDegreePaletteId,
+  relativeLuminance,
+  contrastRatio,
+} from '../src/engine/DegreePalettes.js';
 import { PRESETS } from '../src/instruments/WebAudioSynth.js';
 import {
   DEFAULT_PAD_LAYOUT_TEMPLATE,
@@ -62,13 +70,17 @@ import {
 } from '../src/engine/StereoWidth.js';
 import {
   activeProgressionResolution,
+  advanceProgressionContext,
   normalizeProgressionContext,
   normalizeProgressionGlow,
   progressionChoiceGroups,
   progressionFitsContext,
   progressionLabel,
   progressionPreset,
+  progressionStepIndexForBar,
+  progressionTotalBars,
   resolveProgressionStep,
+  PROGRESSION_ADVANCE_MODES,
 } from '../src/engine/Progressions.js';
 import {
   suggestNextChords,
@@ -76,6 +88,18 @@ import {
   romanForQuality,
   MAX_CHORD_SUGGESTIONS,
 } from '../src/engine/ChordSuggestions.js';
+import {
+  TapTempo,
+  bpmFromIntervals,
+  clampBpm,
+  TAP_MIN_BPM,
+  TAP_MAX_BPM,
+} from '../src/engine/TapTempo.js';
+import {
+  droneNotesForContext,
+  normalizeDroneSettings,
+  DEFAULT_DRONE_OCTAVE,
+} from '../src/engine/Drone.js';
 import { StageEventStream } from '../src/stage/StageEventStream.js';
 import {
   STAGE_CANVAS_TRACK_LIMIT,
@@ -359,6 +383,178 @@ test('chord suggestions lead with the next step of an active progression', () =>
 
   // No progression -> no progression-led suggestion.
   assert.equal(progressionNextSuggestion(null, C), null);
+  });
+
+test('progression presets follow playback while a stored manual mode stays frozen', () => {
+  // Selecting a Changes preset opts into bar-following advancement.
+  assert.equal(progressionPreset('axis').advance, PROGRESSION_ADVANCE_MODES.strict);
+  // Old saved projects stored advance explicitly as manual; that choice is
+  // preserved on load, so their active step never moves on its own.
+  const stored = normalizeProgressionContext({
+    id: 'axis',
+    enabled: true,
+    advance: 'manual',
+    steps: progressionPreset('axis').steps,
+  });
+  assert.equal(stored.advance, PROGRESSION_ADVANCE_MODES.manual);
+  // A custom progression with no advance field defaults to manual, not strict.
+  const custom = normalizeProgressionContext({
+    id: 'custom',
+    enabled: true,
+    steps: [{ degree: 'I' }, { degree: 'V' }],
+  });
+  assert.equal(custom.advance, PROGRESSION_ADVANCE_MODES.manual);
+});
+
+test('progression step index follows bars, honoring durations and looping', () => {
+  const axis = progressionPreset('axis'); // I-V-vi-IV, one bar each, 4 bars total
+  assert.equal(progressionTotalBars(axis), 4);
+  assert.equal(progressionStepIndexForBar(axis, 0), 0);
+  assert.equal(progressionStepIndexForBar(axis, 1), 1);
+  assert.equal(progressionStepIndexForBar(axis, 3), 3);
+  // Loops back to the first step after a full pass.
+  assert.equal(progressionStepIndexForBar(axis, 4), 0);
+  assert.equal(progressionStepIndexForBar(axis, 6), 2);
+
+  // Multi-bar steps: I for 2 bars, IV for 1, V for 1 (total 4 bars).
+  const weighted = normalizeProgressionContext({
+    id: 'custom',
+    enabled: true,
+    steps: [
+      { degree: 'I', durationBars: 2 },
+      { degree: 'IV', durationBars: 1 },
+      { degree: 'V', durationBars: 1 },
+    ],
+  });
+  assert.equal(progressionTotalBars(weighted), 4);
+  assert.equal(progressionStepIndexForBar(weighted, 0), 0);
+  assert.equal(progressionStepIndexForBar(weighted, 1), 0); // still in the 2-bar I
+  assert.equal(progressionStepIndexForBar(weighted, 2), 1); // IV
+  assert.equal(progressionStepIndexForBar(weighted, 3), 2); // V
+  assert.equal(progressionStepIndexForBar(weighted, 4), 0); // wrap
+
+  // Empty/off progressions glow the tonic (index 0) and never throw.
+  assert.equal(progressionStepIndexForBar(null, 5), 0);
+  assert.equal(progressionStepIndexForBar({ enabled: false }, 5), 0);
+});
+
+test('manual progression advance nudges and wraps the active step', () => {
+  const axis = progressionPreset('axis'); // 4 steps
+  assert.equal(advanceProgressionContext(axis, 1).activeStepIndex, 1);
+  assert.equal(advanceProgressionContext(axis, 4).activeStepIndex, 0); // full loop
+  assert.equal(advanceProgressionContext(axis, -1).activeStepIndex, 3); // wrap backward
+  // Default delta is one step forward; empty progressions are a safe no-op.
+  assert.equal(advanceProgressionContext(axis).activeStepIndex, 1);
+  assert.equal(advanceProgressionContext({ enabled: false }).activeStepIndex, 0);
+test('tap tempo derives BPM from inter-tap timing and clamps to range', () => {
+  assert.equal(clampBpm(120), 120);
+  assert.equal(clampBpm(10), TAP_MIN_BPM);   // too slow -> floor
+  assert.equal(clampBpm(999), TAP_MAX_BPM);  // too fast -> ceiling
+  assert.equal(clampBpm('nope'), null);
+
+  // 500ms between taps is two per second -> 120 BPM.
+  assert.equal(bpmFromIntervals([500, 500, 500]), 120);
+  // 1000ms intervals -> 60 BPM; averaging smooths jitter to ~120.
+  assert.equal(bpmFromIntervals([1000]), 60);
+  assert.equal(bpmFromIntervals([480, 520, 500]), 120);
+  // Nothing usable yet.
+  assert.equal(bpmFromIntervals([]), null);
+  assert.equal(bpmFromIntervals([-10, 0]), null);
+});
+
+test('TapTempo accumulates taps, ignores stale gaps, and resets cleanly', () => {
+  const tap = new TapTempo();
+  // First tap can't define a tempo on its own.
+  assert.equal(tap.tap(0), null);
+  assert.equal(tap.tap(500), 120);   // one 500ms interval -> 120
+  assert.equal(tap.tap(1000), 120);  // steady -> still 120
+  assert.equal(tap.tapCount, 3);
+
+  // A gap longer than the reset window starts a fresh count instead of
+  // blending an abandoned tap into the new tempo.
+  assert.equal(tap.tap(1000 + 5000), null);
+  assert.equal(tap.tap(1000 + 5000 + 750), 80); // 750ms -> 80 BPM
+
+  // Out-of-order timestamps are ignored without throwing.
+  assert.equal(tap.tap(1000 + 5000 + 750 - 100), 80);
+
+  // A very fast tap run clamps at the max BPM rather than overshooting.
+  const fast = new TapTempo();
+  fast.tap(0); fast.tap(100); fast.tap(200); // 100ms -> 600 BPM, clamps
+  assert.equal(fast.bpm, TAP_MAX_BPM);
+
+  fast.reset();
+  assert.equal(fast.tapCount, 0);
+  assert.equal(fast.bpm, null);
+test('drone holds the root of the key and follows key changes', () => {
+  // Disabled -> no notes.
+  assert.deepEqual(droneNotesForContext({ root: 'C', scale: 'major' }, { enabled: false }), []);
+
+  // Enabled -> the root at the default octave (C3 = 48), low enough to anchor.
+  assert.deepEqual(droneNotesForContext({ root: 'C', scale: 'major' }, { enabled: true }), [48]);
+
+  // Follows the project key: G major root drone is G3 = 55.
+  assert.deepEqual(droneNotesForContext({ root: 'G', scale: 'major' }, { enabled: true }), [55]);
+
+  // Optional open fifth adds the perfect fifth above.
+  assert.deepEqual(droneNotesForContext({ root: 'C', scale: 'minor' }, { enabled: true, addFifth: true }), [48, 55]);
+
+  // Octave choice transposes the anchor (C2 = 36).
+  assert.deepEqual(droneNotesForContext({ root: 'C', scale: 'major' }, { enabled: true, octave: 2 }), [36]);
+});
+
+test('drone settings normalize octave and flags safely', () => {
+  assert.deepEqual(normalizeDroneSettings(), { enabled: false, octave: DEFAULT_DRONE_OCTAVE, addFifth: false });
+  assert.equal(normalizeDroneSettings({ octave: 99 }).octave, 6);   // clamp high
+  assert.equal(normalizeDroneSettings({ octave: 0 }).octave, 1);    // clamp low
+  assert.equal(normalizeDroneSettings({ octave: 'x' }).octave, DEFAULT_DRONE_OCTAVE); // invalid -> default
+  assert.equal(normalizeDroneSettings({ enabled: 1, addFifth: 'yes' }).enabled, true);
+  assert.equal(normalizeDroneSettings({ addFifth: 'yes' }).addFifth, true);
+test('degree palettes expose 12 colors, normalize ids, and hand back copies', () => {
+  // Every palette covers all 12 chromatic intervals.
+  for (const palette of Object.values(DEGREE_PALETTES)) {
+    for (let i = 0; i < 12; i++) {
+      assert.match(palette.colors[i], /^#[0-9a-f]{6}$/i, `${palette.id} interval ${i}`);
+    }
+  }
+  // Unknown / bad ids fall back to default.
+  assert.equal(normalizeDegreePaletteId('cbSafe'), 'cbSafe');
+  assert.equal(normalizeDegreePaletteId('nope'), 'default');
+  assert.equal(normalizeDegreePaletteId(null), 'default');
+
+  // degreeColorsForPalette returns a fresh, mutation-safe copy.
+  const a = degreeColorsForPalette('cbSafe');
+  a[0] = '#000000';
+  assert.notEqual(degreeColorsForPalette('cbSafe')[0], '#000000');
+
+  // Picker options cover every palette.
+  assert.equal(degreePaletteOptions().length, Object.keys(DEGREE_PALETTES).length);
+});
+
+test('viridis palette ramps lightness so degrees stay orderable for any vision', () => {
+  const colors = DEGREE_PALETTES.viridis.colors;
+  let prev = -1;
+  for (let i = 0; i < 12; i++) {
+    const lum = relativeLuminance(colors[i]);
+    assert.ok(lum > prev, `viridis luminance should increase at interval ${i}`);
+    prev = lum;
+  }
+  // Contrast helper sanity: black vs white is the WCAG max (21:1).
+  assert.ok(Math.abs(contrastRatio('#000000', '#ffffff') - 21) < 0.1);
+});
+
+test('degree highlighting applies the selected palette as its base colors', () => {
+  const cb = normalizeDegreeHighlighting({ enabled: true, palette: 'cbSafe' });
+  assert.equal(cb.palette, 'cbSafe');
+  assert.deepEqual(cb.colors, degreeColorsForPalette('cbSafe'));
+
+  // Explicit per-degree overrides still win over the palette base.
+  const tweaked = normalizeDegreeHighlighting({ palette: 'viridis', colors: { 0: '#abcdef' } });
+  assert.equal(tweaked.colors[0], '#abcdef');
+  assert.equal(tweaked.colors[1], degreeColorsForPalette('viridis')[1]);
+
+  // Missing palette stays backward-compatible with the vivid default.
+  assert.equal(normalizeDegreeHighlighting({}).palette, 'default');
 });
 
 test('note correction quantizes piano and MIDI notes only when enabled', () => {

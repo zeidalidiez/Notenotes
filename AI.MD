@@ -252,6 +252,23 @@ meter: normalizeMeter(...),
 timeSignature: meterToTimeSignature(...)
 ```
 
+### Tap Tempo
+
+`src/engine/TapTempo.js` derives a BPM from the timing of repeated taps. The
+math is pure and clock-free: the caller passes each tap's timestamp in
+milliseconds (the UI uses `performance.now()`), so it is deterministic to test.
+
+- `TapTempo.tap(now)` records a tap and returns the current BPM, or `null` until
+  there are at least two taps. A gap longer than `resetMs` (2000ms) restarts the
+  count so an abandoned tap never blends into a new tempo; non-monotonic
+  timestamps are ignored. Intervals are kept in a rolling window and averaged.
+- `bpmFromIntervals()` and `clampBpm()` are the pure helpers; BPM is clamped to
+  the same `40–240` range Transport accepts.
+- `TransportBar` owns one `TapTempo` instance and a `#bpm-tap-button`. Each tap
+  routes through `_setBpm()`, so it persists via `onBpmChange` exactly like the
+  number input and the mobile BPM modal. Do not write `transport.bpm` directly
+  from the tap path; keep it going through `_setBpm()`.
+
 ## Data Model
 
 Project sketch:
@@ -403,8 +420,21 @@ Rules:
   and Pads agree about which pitch classes belong to the active Changes chord.
 - Progression glow means "current chord tones are hot", not "notes are in
   scale." In-scale identity already belongs to degree colors.
-- The active step currently stays whatever `project.progression.activeStepIndex`
-  says. There is no automatic bar-following or manual next-step UI yet.
+- The active step advances with playback when `progression.advance === 'strict'`,
+  which is the default for any preset selected from the Changes picker.
+  `progressionStepIndexForBar(progression, bar)` is the pure bar-following core:
+  it loops the progression over its total length and honors each step's
+  `durationBars`. `progressionTotalBars()` reports that loop length, and
+  `advanceProgressionContext(progression, delta)` is the pure manual next/prev
+  nudge (wraps within the step list) for a future explicit step-control UI.
+  `manual` stays a valid stored mode; old saved projects stored `advance:
+  'manual'` explicitly, so their active step stays frozen exactly as before.
+- `main.js` subscribes to `transport.onBar` and calls `_followProgressionToBar()`,
+  which updates `activeStepIndex` in place and dispatches
+  `project-progression-changed` so ScaleBoard/MicroPiano glow follows. It also
+  re-syncs on the transport `stopped` state so the glow returns with the
+  playhead. This is glow-only: it never autosaves per bar and never touches
+  playback, recording, export, or snippets.
 - Do not mutate snippets to add progression data. Snippets remain portable
   note/hit/audio objects; if a progression is unavailable in an old project,
   only the future glow/context layer should be absent.
@@ -543,6 +573,22 @@ longer forces all hit events into a tiny strip at the bottom; events without
 pitch still spread by lane across the full field.
 
 ## Instruments
+
+### Drone
+
+`src/engine/Drone.js` is the pure note layer for the sustained tonal anchor.
+`droneNotesForContext(context, settings)` returns the root MIDI note at the
+chosen octave (default 3, so it anchors below the pads), plus the perfect fifth
+when `addFifth` is set; it returns `[]` when disabled.
+`normalizeDroneSettings()` clamps the octave to 1–6.
+
+`CreativeMode` owns the live drone: `setDrone(enabled)` holds/releases the notes
+through the shared synth, `_applyDrone()` diffs the wanted notes against the
+held ones (so a key change re-pitches without clicking), and
+`applyProjectMusicalContext()` re-applies it on key changes. Drone state is
+runtime-only — it is never recorded, exported, or auto-started on load (audio
+needs a user gesture). `TransportBar` owns the `Drone` toggle and reflects state
+with `setDroneActive()`; `main.js` routes `onDroneToggle` to `setDrone()`.
 
 ### Pads / ScaleBoard
 
@@ -699,6 +745,25 @@ URL profiles are applied in `main.js` after project load. `?tremor=1` enables
 Tremor Filter, and `?dwell=1` enables Dwell Play, then the normalized settings
 are saved. This is intentionally not a separate build; a helper link can make
 Notenotes playable before a user has to navigate Settings.
+
+### Degree Color Palettes
+
+`src/engine/DegreePalettes.js` is the single source of degree-color truth (keyed
+by chromatic interval 0..11). It is pure data + helpers with no other engine
+imports, so `MusicTheory.js` imports it (not the reverse) and
+`DEFAULT_DEGREE_COLORS` is `degreeColorsForPalette('default')`.
+
+- Palettes: `default` (vivid rainbow), `cbSafe` (Okabe-Ito/Tol CVD-safe), and
+  `viridis` (a monotonic-lightness ramp, orderable for any color vision).
+- `normalizeDegreeHighlighting()` stores a `palette` id and uses that palette as
+  the base `colors`, with explicit per-degree overrides layered on top.
+- The Layout degree panel (`CreateLayoutPopover`) has a Palette `<select>`.
+  Choosing a palette writes its colors into `degreeHighlighting.colors` (and
+  records the id), so the swatch pickers can still tweak individual degrees
+  afterward. ScaleBoard/MicroPiano read `colors` exactly as before — no consumer
+  changes were needed.
+- `relativeLuminance()` / `contrastRatio()` are WCAG helpers used to keep the
+  ramp honest (guarded by a smoke test asserting viridis luminance increases).
 
 Step Play now lives in the Pads mode dropdown. It gives switch-style users a
 large single trigger while still working for keyboard and MIDI input. Any
@@ -2226,3 +2291,81 @@ Both rules have explanatory comments in `instruments.css`.
 - `.ctrlmode__placeholder-eyebrow` (the small "Coming soon" uppercase
   label) is no longer used because the placeholder now leads with a
   larger "Future" title.
+
+## FM Synth Voices 0.1.113
+
+Cherry-picked from the `opus/crash-fix-and-section-a-voices` branch
+(Section A FM work) without bringing the rest of that branch (Karplus-Strong
+pluck, additive harmonics, the rapid-retrigger crash fixes, or the
+crash-breadcrumb logger). Only the 2-operator FM voice type and its four
+presets landed on main.
+
+### Voice model
+
+2-operator FM: a sine modulator drives the carrier oscillator's
+instantaneous frequency, with the modulation index decaying exponentially
+from `index` toward `index * indexSustain` over `fm.decay` seconds. The
+fast index decay is what makes the attack clangy and the body mellow. The
+carrier inherits the patch's normal filter and amp envelope so FM presets
+read like the rest of the synth family.
+
+The live path (`WebAudioSynth.noteOn` for `p.type === 'fm'`) builds:
+- a sine `mod` oscillator at `carrierFreq * fm.ratio`,
+- a `modGain` whose `.gain` is `setValueAtTime(peakDev, now)` then
+  `setTargetAtTime(peakDev * indexSustain, now, fm.decay)` — the same
+  curve the offline renderer uses,
+- the carrier (sine by default, or whatever `patch.oscillator.type`
+  is for patches that want a non-sine carrier),
+- the existing per-voice `filter` and `env` GainNodes, and
+- the same `vibrato` LFO the regular synth path uses.
+
+The voice record is `{ oscillators: [carrier], fmMod: mod, fmModGain:
+modGain, vibrato, filter, env, midi, startTime, velocity, kind: 'fm' }`.
+`noteOff`, `panic`, and `_disposeVoiceNodes` all know to stop and drop
+`voice.fmMod` / `voice.fmModGain`. The `kind: 'fm'` tag exists for future
+inspection (`audioVoiceStress` on the opus branch asserts the same).
+
+### Offline parity
+
+`WavExporter.renderPatchTone` short-circuits to a new `renderFmTone`
+function when `patch.type === 'fm'`. The function steps the carrier phase
+with the same instantaneous-frequency math the live setTargetAtTime
+produces, applies the patch's filter and amp envelope, and mixes into
+the buffer with the same pan path. Result: live and WAV export match,
+just like the existing chip and modern paths.
+
+### Presets
+
+Four built-in FM presets ship in `PRESETS`:
+
+- `fm_epiano` — ratio 1, index 2.6, indexSustain 0.12, decay 0.22, lowpass
+  9000 Hz, mild velocity filter brightening.
+- `fm_bell` — ratio 1.41 (slightly inharmonic), index 4.2, indexSustain
+  0.4, decay 1.1, long ringing tail.
+- `fm_glass_bass` — ratio 0.5 (sub-octave modulator), index 1.6, fast
+  decay, dark lowpass.
+- `fm_mallet` — ratio 3.5 (high modulator), index 3.2, no sustain,
+  very short decay. Classic "ting" attack.
+
+All four have `family: 'fm'` and `type: 'fm'`. Picker UI in
+`CreativeMode._patchGroups()` filters by `p.family === 'fm'` and shows
+them in their own "FM synths (2-operator)" group with the kicker "FM
+synth" and a description like "2-op FM - ratio 1.41" when the ratio
+isn't 1.
+
+### Boundaries
+
+- Do not add `fm.ratio` values that depend on a default of `2`. The
+  clamp to `Math.max(0.01, ratio)` guards against divide-by-zero, but
+  ratio 0 collapses the modulator to DC and the carrier math goes
+  silent. The default `?? 2` is a safety net for malformed patches.
+- `indexSustain` is clamped to `[0, 1]`. Values outside the range are
+  clamped; do not rely on the Web Audio setTargetAtTime validator
+  catching them first.
+- FM is a synth voice, not a sample or kit voice. Tone Trait
+  processing (Crush, Echo, Space, Wobble, Drive, Noise) is shared
+  through the existing master chain and applies to FM the same way as
+  chip / modern presets.
+- Custom instruments built from FM presets inherit `type: 'fm'`;
+  the `Create/Edit Instrument` flow already routes them through the
+  FM renderer on export.

@@ -15,7 +15,7 @@ import {
   velocityAdjustedFilterFrequency,
 } from '../engine/VelocityResponse.js';
 import { normalizeStereoWidth, panForVoice } from '../engine/StereoWidth.js';
-import { adsrEnvelopeValueAt, createEnvelopeParamCurve } from '../engine/EnvelopeCurves.js';
+import { adsrEnvelopeValueAt, createAttackDecayCurve } from '../engine/EnvelopeCurves.js';
 import { pickZone, playableMidi } from './sampleZone.js';
 import { humanize } from '../engine/Humanize.js';
 
@@ -318,6 +318,8 @@ export class WebAudioSynth {
     this._voices = new Map();
     /** Voice queue for stealing */
     this._voiceQueue = [];
+    /** Live sample sources in trigger order; hard-bounds concurrent BufferSource nodes */
+    this._liveSampleSources = [];
     /** Current patch */
     this.patch = { ...DEFAULT_PATCH };
     this.soundTraits = defaultSoundTraits();
@@ -423,8 +425,10 @@ export class WebAudioSynth {
     const sustainFrequency = baseFrequency + (openFrequency - baseFrequency) * sustain;
     filter.frequency.cancelScheduledValues(now);
     filter.frequency.setValueAtTime(baseFrequency, now);
-    filter.frequency.setValueCurveAtTime(createEnvelopeParamCurve(baseFrequency, openFrequency, 'attack'), now, attack);
-    filter.frequency.setValueCurveAtTime(createEnvelopeParamCurve(openFrequency, sustainFrequency, 'decay'), now + attack, decay);
+    // One combined attack+decay curve: two adjacent setValueCurveAtTime calls
+    // overlap when Chrome quantizes the decay's start frame onto the attack's
+    // end frame (NotSupportedError on fast retrigger).
+    filter.frequency.setValueCurveAtTime(createAttackDecayCurve(baseFrequency, openFrequency, sustainFrequency, attack, decay), now, attack + decay);
   }
 
   _envelopeLevelAt(envelope, elapsed, velocity = 1) {
@@ -437,8 +441,9 @@ export class WebAudioSynth {
     const sustain = Math.max(0, Math.min(1, envelope.sustain ?? DEFAULT_PATCH.envelope.sustain));
     gainParam.cancelScheduledValues(now);
     gainParam.setValueAtTime(0, now);
-    gainParam.setValueCurveAtTime(createEnvelopeParamCurve(0, velocity, 'attack'), now, attack);
-    gainParam.setValueCurveAtTime(createEnvelopeParamCurve(velocity, velocity * sustain, 'decay'), now + attack, decay);
+    // One combined attack+decay curve so the decay never starts on the same
+    // quantized render frame the attack ends on (Chrome NotSupportedError).
+    gainParam.setValueCurveAtTime(createAttackDecayCurve(0, velocity, velocity * sustain, attack, decay), now, attack + decay);
   }
 
   _createOscillatorStack(midi, oscPatch, gainAmount, now, layerOffset = 0, extraDetune = 0) {
@@ -538,11 +543,21 @@ export class WebAudioSynth {
       source.connect(filter);
       filter.connect(env);
       env.connect(this._toneInput || this._output);
+
+      // Hard-cap concurrently-live sample sources independent of the _voices map.
+      // Retriggering the same pad keeps _voices at 1 (the future-stop on the old
+      // source never frees it), so without this ceiling fast pads pile up hundreds
+      // of live resamplers and crash the tab. Stop the oldest at `now` instead.
+      while (this._liveSampleSources.length >= MAX_VOICES) {
+        this._stopSampleSourceNow(this._liveSampleSources.shift(), now);
+      }
       source.start(now);
 
       const voice = { source, filter, env, midi, startTime: now, velocity, sample: true };
       this._voices.set(midi, voice);
       this._voiceQueue.push(midi);
+      const liveEntry = { source, env };
+      this._liveSampleSources.push(liveEntry);
 
       // Always clean up when the sample finishes OR is stopped (gated + oneShot).
       // Without this, fast retriggering piles up BufferSource/filter/gain nodes
@@ -555,6 +570,8 @@ export class WebAudioSynth {
           const queueIdx = this._voiceQueue.indexOf(midi);
           if (queueIdx !== -1) this._voiceQueue.splice(queueIdx, 1);
         }
+        const liveIdx = this._liveSampleSources.indexOf(liveEntry);
+        if (liveIdx !== -1) this._liveSampleSources.splice(liveIdx, 1);
         this._disposeVoiceNodes(voice);
       }, { once: true });
 
@@ -683,9 +700,27 @@ export class WebAudioSynth {
       if (voice.vibrato?.lfo) { try { voice.vibrato.lfo.stop(now); } catch (_) {} }
       if (voice.noise) { try { voice.noise.source.stop(now); } catch (_) {} }
     }
+    for (const entry of this._liveSampleSources) this._stopSampleSourceNow(entry, now);
+    this._liveSampleSources = [];
     this._voices.clear();
     this._voiceQueue = [];
     if (this._toneInput && this._output) this._rebuildEffects();
+  }
+
+  /**
+   * Free an evicted sample source promptly: declick the envelope, then stop the
+   * source at `now` so the renderer releases the node this render quantum instead
+   * of at its future scheduled stop. Bounds concurrent BufferSource nodes.
+   * @param {{source: any, env: any}} [entry]
+   * @param {number} now
+   */
+  _stopSampleSourceNow(entry, now) {
+    if (!entry) return;
+    try {
+      entry.env.gain.cancelScheduledValues(now);
+      entry.env.gain.setTargetAtTime(0, now, 0.003);
+    } catch (_) {}
+    try { entry.source.stop(now); } catch (_) {}
   }
 
   /**

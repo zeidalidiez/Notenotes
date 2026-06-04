@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test:smoke": "node tests/smoke.mjs",
+    "test": "npm run test:smoke && npm run test:unit",
+    "test:unit": "node --import ./tests/fixtures/register-loader.mjs --test tests/unit/*.test.js",
+    "test:smoke": "node --import ./tests/fixtures/register-loader.mjs tests/smoke.mjs",
     "preview": "vite preview"
   },
   "devDependencies": {

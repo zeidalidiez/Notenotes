@@ -7,6 +7,8 @@ import { TransportState } from '../engine/Transport.js';
 import { ARP_MODES } from '../engine/ArpeggioManager.js';
 import { NOTE_CORRECTION_MODES, NOTE_NAMES, SCALES, normalizeMusicalContext, normalizeNoteCorrectionMode, scaleDescription, scaleFamilyLabel } from '../engine/MusicTheory.js';
 import { ALLOWED_GROUPINGS, METER_PICKER_IDS, METER_PRESETS, meterLabel, normalizeMeter, pulseCountForMeter } from '../engine/Meter.js';
+import { normalizeProgressionContext, parseDegreeToken, progressionChoiceGroups, progressionLabel, progressionPreset } from '../engine/Progressions.js';
+import { suggestNextChords } from '../engine/ChordSuggestions.js';
 import { normalizeProgressionContext, progressionChoiceGroups, progressionLabel, progressionPreset } from '../engine/Progressions.js';
 import { TapTempo } from '../engine/TapTempo.js';
 import { ChoicePicker } from './ChoicePicker.js';
@@ -31,6 +33,7 @@ export class TransportBar {
     this.onProjectKeyChange = null;
     this.onProjectMeterChange = null;
     this.onProjectProgressionChange = null;
+    this.onPreviewChord = null;
     this.onDroneToggle = null;
     this.onBpmChange = null;
     this.onMoreOpen = null;
@@ -42,6 +45,7 @@ export class TransportBar {
     this._projectProgression = normalizeProgressionContext();
     this._scalePicker = null;
     this._progressionPicker = null;
+    this._suggestPopover = null;
     this._tapTempo = new TapTempo();
     this._droneActive = false;
   }
@@ -104,6 +108,7 @@ export class TransportBar {
           <span class="choice-picker-button__label" id="project-progression-label">${this._progressionButtonLabel(this._projectProgression)}</span>
           <span class="choice-picker-button__chevron" aria-hidden="true">▼</span>
         </button>
+        <button class="transport-bar__suggest" id="chord-suggest-button" type="button" aria-label="Suggest next chord" aria-haspopup="dialog" title="Gentle next-chord suggestions for this key">Suggest</button>
         <button class="transport-bar__drone" id="project-drone-toggle" type="button" aria-pressed="false" aria-label="Drone — sustain the root of the key" title="Sustain the root of the key as a tonal anchor">Drone</button>
         <span class="transport-bar__project-key-label">Correction</span>
         <select id="project-correction-select" aria-label="Piano and MIDI scale correction">
@@ -230,6 +235,9 @@ export class TransportBar {
       event.preventDefault();
       this._openProgressionPicker(event.currentTarget);
     });
+    this.el.querySelector('#chord-suggest-button')?.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      this._openSuggestPopover(event.currentTarget);
     this.el.querySelector('#project-drone-toggle')?.addEventListener('pointerdown', (event) => {
       event.preventDefault();
       const next = !this._droneActive;
@@ -377,6 +385,79 @@ export class TransportBar {
       },
     });
     this._progressionPicker.open(anchor);
+  }
+
+  _currentProgressionDegreeIndex() {
+    const prog = this._projectProgression;
+    if (!prog?.enabled || !prog.steps?.length) return null;
+    const step = prog.steps[prog.activeStepIndex] || prog.steps[0];
+    const parsed = parseDegreeToken(step?.degree);
+    return parsed ? parsed.degreeIndex : null;
+  }
+
+  _openSuggestPopover() {
+    this._closeSuggestPopover();
+    const suggestions = suggestNextChords(this._projectKey, {
+      progression: this._projectProgression,
+      currentDegreeIndex: this._currentProgressionDegreeIndex(),
+    });
+
+    const overlay = document.createElement('div');
+    overlay.className = 'suggest-popover-backdrop';
+    const intro = this._projectProgression?.enabled
+      ? `Where your changes could go from <strong>${this._progressionButtonLabel(this._projectProgression).replace('Changes: ', '')}</strong>`
+      : `Some chords that sit well in <strong>${this._projectKey.root} ${this._scaleLabel(this._projectKey.scale)}</strong>`;
+    overlay.innerHTML = `
+      <div class="suggest-popover" role="dialog" aria-modal="true" aria-label="Next chord suggestions">
+        <div class="suggest-popover__header">
+          <span class="suggest-popover__title">Where to next?</span>
+          <button class="suggest-popover__close" id="suggest-close" type="button" aria-label="Close">✕</button>
+        </div>
+        <p class="suggest-popover__intro">${intro}</p>
+        <div class="suggest-popover__list">
+          ${suggestions.length ? suggestions.map((s, i) => `
+            <button class="suggest-chord" type="button" data-index="${i}">
+              <span class="suggest-chord__roman">${s.roman}</span>
+              <span class="suggest-chord__notes">${s.noteNames.join(' · ')}</span>
+              <span class="suggest-chord__reason">${s.reason}</span>
+            </button>
+          `).join('') : '<p class="suggest-popover__empty">No suggestions for this scale yet.</p>'}
+        </div>
+        <p class="suggest-popover__hint">Tap a chord to hear it. Suggestions never change what you play.</p>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    this._suggestPopover = overlay;
+
+    overlay.addEventListener('pointerdown', (e) => {
+      if (e.target === overlay) this._closeSuggestPopover();
+    });
+    overlay.querySelector('#suggest-close')?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this._closeSuggestPopover();
+    });
+    overlay.querySelectorAll('.suggest-chord').forEach(button => {
+      button.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        const index = Number(button.dataset.index);
+        const chord = suggestions[index];
+        if (chord && this.onPreviewChord) this.onPreviewChord(chord.midis);
+        button.classList.remove('is-playing');
+        void button.offsetWidth;
+        button.classList.add('is-playing');
+      });
+    });
+    this._suggestKeyHandler = (e) => { if (e.key === 'Escape') this._closeSuggestPopover(); };
+    document.addEventListener('keydown', this._suggestKeyHandler);
+  }
+
+  _closeSuggestPopover() {
+    this._suggestPopover?.remove();
+    this._suggestPopover = null;
+    if (this._suggestKeyHandler) {
+      document.removeEventListener('keydown', this._suggestKeyHandler);
+      this._suggestKeyHandler = null;
+    }
   }
 
   setArpLabel(mode) {

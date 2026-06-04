@@ -603,7 +603,25 @@ Expected:
 - WAV export succeeds in all supported time signatures.
 - Clip timing is sensible in each meter.
 
-### 5.3 Tap Tempo
+### 5.3 Suggest Next Chord
+
+Steps:
+
+1. In Create, set the project key to C and scale to Major, with Changes off.
+2. Click the **Suggest** button in the top bar.
+3. Read the suggested chords, then tap one.
+4. Close the popover, set Changes to The Axis, and click **Suggest** again.
+5. Change the project key/scale (e.g. to A Minor) and open Suggest once more.
+
+Expected:
+
+- With Changes off, suggestions are sensible chords for the key (C Major leads with I = C·E·G) and each lists its note names.
+- Tapping a suggestion plays the chord once and gives a brief visual pulse; it does not record anything or change the current instrument.
+- With The Axis on, the first suggestion is the next chord in the progression (V = G·B·D), labelled "next in your changes", followed by functional alternatives.
+- Suggestions update to the new key/scale, and chords that don't fit the scale are not offered.
+- Closing the popover (✕, backdrop, or Esc) leaves the project unchanged.
+
+### 5.4 Tap Tempo
 
 Steps:
 
@@ -621,7 +639,7 @@ Expected:
 - After a long pause, the next taps start a fresh tempo instead of blending with the old one.
 - The chosen BPM persists after reload (it is saved with the project, like the number input).
 
-### 5.4 Drone Mode
+### 5.5 Drone Mode
 
 Steps:
 

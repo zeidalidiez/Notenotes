@@ -237,6 +237,9 @@ class App {
     this.transportBar.onProjectProgressionChange = (progression) => {
       this._setProjectProgression(progression);
     };
+    this.transportBar.onPreviewChord = (midis) => {
+      this.creativeMode?.previewChord(midis);
+    };
     this.transportBar.onDroneToggle = (enabled) => this.creativeMode?.setDrone(enabled);
     this.transportBar.onBpmChange = (bpm) => {
       if (!this.project) return;

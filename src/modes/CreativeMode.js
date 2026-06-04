@@ -448,6 +448,25 @@ export class CreativeMode {
     return peaks.map(value => Math.round((value / max) * 100) / 100);
   }
 
+  /**
+   * Audition a chord (a short, non-recorded preview) for the Suggest-next-chord
+   * hints. This is a discrete UI gesture like tapping a pad, not transport-synced
+   * playback, so it does not touch recording, snippets, or the scheduler.
+   */
+  previewChord(midis = []) {
+    if (!Array.isArray(midis) || !midis.length || !this.synth) return;
+    this.ensureAudioReady();
+    for (const midi of midis) {
+      if (Number.isFinite(midi)) this.synth.noteOn(midi, 0.6);
+    }
+    clearTimeout(this._previewChordTimer);
+    this._previewChordTimer = setTimeout(() => {
+      for (const midi of midis) {
+        if (Number.isFinite(midi)) this.synth.noteOff(midi);
+      }
+    }, 850);
+  }
+
   ensureAudioReady() {
     try {
       if (!this.engine._initialized) {

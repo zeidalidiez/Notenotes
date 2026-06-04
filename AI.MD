@@ -439,6 +439,25 @@ Rules:
   note/hit/audio objects; if a progression is unavailable in an old project,
   only the future glow/context layer should be absent.
 
+### Chord Suggestions
+
+`src/engine/ChordSuggestions.js` answers "what chord might come next?" It is a
+pure, context-only layer: it never changes what plays, records, or exports.
+
+- `suggestNextChords(context, { currentDegreeIndex, progression, limit })`
+  returns ranked, deduped suggestions, each resolved against the current
+  key/scale (via `resolveProgressionStep`) so note names and chord quality are
+  always correct; degrees that can't form a chord in the scale are dropped.
+- Ranking comes from a functional-harmony successor table by diatonic degree.
+  When `currentDegreeIndex` is null it suggests strong openers led by the tonic.
+- When an active progression is passed, `progressionNextSuggestion()` puts that
+  progression's upcoming step first (reason `next in your changes`), and the
+  same degree is not repeated as a functional suggestion.
+- `TransportBar` owns the **Suggest** button and a small popover that reads the
+  project key and active Changes. Tapping a suggestion calls `onPreviewChord`,
+  which `main.js` routes to `CreativeMode.previewChord()` — a short, non-recorded
+  audition (a discrete gesture like a pad tap, not transport-synced playback).
+
 ## IndexedDB And Audio Assets
 
 `ProjectStore.js` owns persistence. The IndexedDB stores are:

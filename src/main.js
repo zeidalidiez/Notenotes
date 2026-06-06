@@ -191,6 +191,14 @@ class App {
       });
     }
 
+    // Share the same per-snippet usage provider that the SnippetTray uses, so
+    // the new Inspect browser's usage badge and "Most used" sort see the same
+    // data Creative mode shows. `creativeMode._snippetInstrumentUsage` is the
+    // same method CreativeMode hands to its own SnippetTray.
+    this.editMode?.setSnippetUsageProvider?.(
+      (snippetId) => this.creativeMode?._snippetInstrumentUsage?.(snippetId)
+    );
+
     // Create and render Settings Panel (needs project)
     this.settingsPanel = new SettingsPanel({
       transport: this.transport,

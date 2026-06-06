@@ -320,6 +320,13 @@ class App {
     this._bindAudioVisibilityResume();
     this._buildAudioUnlockPrompt();
 
+    // Inspect is the new default landing tab. Apply it last so `_switchMode`
+    // runs after every mode view + EditMode is mounted, and so the onChange
+    // callback (which calls `_switchMode` + canvas refresh) fires exactly
+    // once with the correct active mode.
+    this.modeTabs.setActive(Modes.PIANOROLL);
+    this._switchMode(Modes.PIANOROLL);
+
     console.log('[App] Notenotes ready.');
   }
 
@@ -744,10 +751,11 @@ class App {
     main.className = 'main-content';
     main.id = 'main-content';
 
-    // Mode views
-    // Creative mode uses real instrument UI
+    // Mode views. No view starts with `is-active` here — `modeTabs.setActive()`
+    // is called at the end of `init()` and `_switchMode` toggles the class
+    // exactly once. Inspect is the new default landing tab.
     const creativeView = document.createElement('div');
-    creativeView.className = 'mode-view is-active';
+    creativeView.className = 'mode-view';
     creativeView.id = `view-${Modes.CREATIVE}`;
     creativeView.setAttribute('role', 'tabpanel');
     creativeView.appendChild(this.creativeMode.render());

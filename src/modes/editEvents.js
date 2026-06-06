@@ -193,7 +193,12 @@ export const EditEventsMixin = {
       });
     });
 
-    document.addEventListener('keydown', (e) => {
+    // _bindEvents runs on every _rebuildAll, so remove any previously-registered
+    // handler before re-adding — otherwise document keydown listeners accumulate.
+    if (this._documentKeydownHandler) {
+      document.removeEventListener('keydown', this._documentKeydownHandler);
+    }
+    this._documentKeydownHandler = (e) => {
       if ((e.code === 'Delete' || e.code === 'Backspace') && this._selectedNoteIdx !== null) {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
         if (this.el.closest('.mode-view.is-active')) {
@@ -201,6 +206,7 @@ export const EditEventsMixin = {
           this._deleteSelectedNote();
         }
       }
-    });
+    };
+    document.addEventListener('keydown', this._documentKeydownHandler);
   },
 };

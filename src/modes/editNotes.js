@@ -89,20 +89,27 @@ export const EditNotesMixin = {
       const finalLeft = parseFloat(el.style.left);
       const newTick = Math.round(finalLeft / TICK_WIDTH / this._gridSize) * this._gridSize;
 
+      // Tick (horizontal) movement applies to both drum and MIDI-roll hits; the
+      // type (vertical) change is drum-only. Without the tick update outside the
+      // isDrum guard, dragging a hit on a MIDI roll moved visually but was lost
+      // on the next rebuild.
+      let changed = newTick !== origTick;
+      if (newTick !== origTick) hit.startTick = Math.max(0, newTick);
+
       if (isDrum) {
         const finalTop = parseFloat(el.style.top);
         const finalPct = finalTop / (100 / DRUM_TYPES.length);
         const newTypeIdx = DRUM_TYPES.length - 1 - Math.round(finalPct);
         const newType = DRUM_TYPES[Math.max(0, Math.min(DRUM_TYPES.length - 1, newTypeIdx))];
-        const changed = newTick !== origTick || (newType && newType.id !== hit.type);
-        if (newTick !== origTick) hit.startTick = Math.max(0, newTick);
         if (newType && newType.id !== hit.type) {
+          changed = true;
           hit.type = newType.id;
           el.title = newType.id;
         }
-        if (changed) {
-          this._onEdit('Move hit', beforeState);
-        }
+      }
+
+      if (changed) {
+        this._onEdit('Move hit', beforeState);
       }
     };
 

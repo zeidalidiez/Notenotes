@@ -146,7 +146,7 @@ export const EditRhythmFitMixin = {
     this._rebuildAll();
   },
 
-  _applyRhythmFitToSnippet(options) {
+  _applyRhythmFitToSnippet(options, _commit = false) {
     const isDrum = this._snippet?.type === 'drum';
     const events = isDrum ? (this._snippet.hits || []) : (this._snippet.notes || []);
     const result = fitRhythmEvents(events, options);

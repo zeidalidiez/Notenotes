@@ -5,74 +5,17 @@
  */
 
 import { SheetMusicView } from '../export/SheetMusicView.js';
-import { downloadBlob, projectToMidiBlob, safeFilename, snippetToMidiBlob } from '../export/MidiExporter.js';
-import { projectToWavBlob, snippetToWavBlob } from '../export/WavExporter.js';
 import { CHORD_TYPES, ARP_PATTERNS, ARP_RATES } from '../engine/ArpeggioManager.js';
 import { APP_VERSION } from '../version.js';
 import { pulseCountForMeter } from '../engine/Meter.js';
-import {
-  DISCLAIMER_TEXT as AI_DISCLAIMER_TEXT,
-  PROVIDER_IDS as AI_PROVIDER_IDS,
-  clearAllApiKeys as aiClearAllApiKeys,
-  readAiSettings,
-  readApiKey as aiReadApiKey,
-  writeAiSettings,
-  writeApiKey as aiWriteApiKey,
-} from '../ai/aiSettings.js';
-import { OpenAIProvider } from '../ai/OpenAIProvider.js';
-import { AnthropicProvider } from '../ai/AnthropicProvider.js';
-import { GeminiProvider } from '../ai/GeminiProvider.js';
 import { showToast } from './Toast.js';
 import { compareAppVersions, latestVersionFromSourceText } from '../utils/AppVersion.js';
-import { ensureAccessibilitySettings } from './AccessibilityProfiles.js';
 import { SaveSectionMixin } from './settings/saveSection.js';
+import { AiSectionMixin } from './settings/aiSection.js';
+import { ExportSectionMixin } from './settings/exportSection.js';
+import { AccessibilitySectionMixin } from './settings/accessibilitySection.js';
 
 const LATEST_VERSION_URL = 'https://raw.githubusercontent.com/zeidalidiez/Notenotes/main/src/version.js';
-
-function escapeHtml(s) {
-  return String(s ?? '').replace(/[&<>"']/g, c => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  }[c]));
-}
-function escapeAttr(s) { return escapeHtml(s); }
-
-function apiKeyPlaceholderFor(providerId) {
-  switch (providerId) {
-    case 'openai':    return 'sk-...';
-    case 'anthropic': return 'sk-ant-...';
-    case 'gemini':    return 'AIza...';
-    default:          return 'paste your API key';
-  }
-}
-
-function modelDisplayLabel(providerId, modelId) {
-  // Surface tier hints inline so users don't have to read the docs to know
-  // which model their free key actually works with.
-  if (providerId === 'gemini') {
-    if (modelId === 'gemini-2.5-flash')      return `${modelId}  (best free)`;
-    if (modelId === 'gemini-2.5-flash-lite') return `${modelId}  (free, lighter)`;
-    if (modelId === 'gemini-1.5-flash')      return `${modelId}  (free tier · older)`;
-    if (modelId === 'gemini-2.5-pro')        return `${modelId}  (paid, best quality)`;
-    if (modelId === 'gemini-1.5-pro')        return `${modelId}  (paid, older)`;
-  }
-  return modelId;
-}
-
-function providerModelsForUi(providerId) {
-  switch (providerId) {
-    case 'openai':
-      return new OpenAIProvider().listModels();
-    case 'anthropic':
-      return new AnthropicProvider().listModels();
-    case 'gemini':
-      return new GeminiProvider().listModels();
-    case 'ollama':
-      return new OpenAIProvider({ baseUrl: 'http://localhost:11434/v1', requiresKey: false, id: 'ollama' }).listModels();
-    case 'mock':
-    default:
-      return ['mock-canned-v1'];
-  }
-}
 
 export class SettingsPanel {
   /**
@@ -231,174 +174,6 @@ export class SettingsPanel {
     `;
   }
 
-  _renderAISection() {
-    const aiSettings = readAiSettings(this.project);
-    const provider = aiSettings.provider || 'mock';
-    const showOllamaUrl = provider === AI_PROVIDER_IDS.ollama;
-    const showApiKey = provider === AI_PROVIDER_IDS.openai
-      || provider === AI_PROVIDER_IDS.anthropic
-      || provider === AI_PROVIDER_IDS.gemini;
-    const apiKey = showApiKey ? aiReadApiKey(provider) : '';
-    const keyStaged = showApiKey && !!apiKey;
-    const models = providerModelsForUi(provider);
-    return `
-      <div class="settings-group">
-        <h3 class="settings-group__title">AI Seed (experimental)</h3>
-        <div class="settings-row" style="display: block;">
-          <p class="settings-help" style="margin: 0 0 var(--space-sm) 0; color: var(--text-tertiary); font-size: var(--font-size-xs); line-height: 1.45;">
-            Lets you ask an LLM to seed a snippet you'll then play with or refine. The AI is one of your instruments — the user is still the composer.
-            Notenotes is BYO-key. <strong>Keys live in memory only and are forgotten when you reload — you'll re-enter them each session.</strong> Provider billing may apply. We never see, log, or relay your prompts.
-          </p>
-        </div>
-        <div class="settings-row">
-          <label class="settings-label" for="setting-ai-provider">Provider</label>
-          <select class="settings-select" id="setting-ai-provider">
-            <option value="mock"      ${provider === 'mock'      ? 'selected' : ''}>Mock (offline test)</option>
-            <option value="openai"    ${provider === 'openai'    ? 'selected' : ''}>OpenAI</option>
-            <option value="anthropic" ${provider === 'anthropic' ? 'selected' : ''}>Anthropic (Claude)</option>
-            <option value="gemini"    ${provider === 'gemini'    ? 'selected' : ''}>Google Gemini</option>
-            <option value="ollama"    ${provider === 'ollama'    ? 'selected' : ''}>Ollama (local)</option>
-          </select>
-        </div>
-        <div class="settings-row">
-          <label class="settings-label" for="setting-ai-model">Model</label>
-          <select class="settings-select" id="setting-ai-model">
-            ${models.map(m => `<option value="${escapeAttr(m)}" ${aiSettings.model === m ? 'selected' : ''}>${escapeHtml(modelDisplayLabel(provider, m))}</option>`).join('')}
-          </select>
-        </div>
-        ${showOllamaUrl ? `
-        <div class="settings-row">
-          <label class="settings-label" for="setting-ai-ollama-url">Ollama base URL</label>
-          <input class="settings-input" id="setting-ai-ollama-url" type="url" value="${escapeAttr(aiSettings.ollamaBaseUrl || 'http://localhost:11434/v1')}" placeholder="http://localhost:11434/v1" />
-        </div>
-        ` : ''}
-        ${showApiKey ? `
-        <div class="settings-row">
-          <label class="settings-label" for="setting-ai-api-key">API key (this session)</label>
-          <input class="settings-input" id="setting-ai-api-key" type="password" value="${escapeAttr(apiKey)}" placeholder="${escapeAttr(apiKeyPlaceholderFor(provider))}" autocomplete="off" />
-        </div>
-        <div class="settings-row" style="display: block;">
-          <p class="settings-help" style="margin: 0 0 var(--space-xs) 0; color: var(--text-tertiary); font-size: var(--font-size-xs); line-height: 1.4;">
-            ${escapeHtml(AI_DISCLAIMER_TEXT)}
-          </p>
-          <label class="settings-row" style="justify-content: flex-start; gap: 8px;">
-            <input type="checkbox" id="setting-ai-disclaimer" ${aiSettings.disclaimerAccepted ? 'checked' : ''} />
-            <span class="settings-label" style="white-space: normal;">I understand and accept these terms.</span>
-          </label>
-          <p class="settings-help" style="margin: var(--space-xs) 0 0 0; color: var(--text-tertiary); font-size: 11px;">
-            ${keyStaged ? 'Key staged for this session. Reload the app to forget it.' : 'No key staged.'}
-          </p>
-        </div>
-        ` : ''}
-        <div class="settings-row" style="justify-content: flex-start; gap: 8px;">
-          <button class="btn btn--ghost btn--sm" id="setting-ai-clear-keys" type="button">Forget AI key for this session</button>
-        </div>
-      </div>
-    `;
-  }
-
-  _renderSheetSection() {
-    const snippets = (this.project?.snippets || []).filter(s => s.type !== 'audio');
-    const allSnippets = this.project?.snippets || [];
-    const options = snippets.length
-      ? snippets.map(s => `<option value="${s.id}">${s.name || `${(s.notes?.length || 0) + (s.hits?.length || 0)} events`}</option>`).join('')
-      : '<option value="">No MIDI snippets yet</option>';
-    const wavOptions = allSnippets.length
-      ? allSnippets.map(s => `<option value="${s.id}">${s.name || (s.type === 'audio' ? 'Audio in recording' : `${(s.notes?.length || 0) + (s.hits?.length || 0)} events`)}</option>`).join('')
-      : '<option value="">No snippets yet</option>';
-
-    return `
-      <div class="settings-section" id="section-sheet">
-        <div class="settings-group">
-          <h3 class="settings-group__title">MIDI Export</h3>
-          <p class="settings-desc">Export the whole Canvas arrangement or an individual MIDI/drum snippet as a standard .mid file.</p>
-          <div class="settings-row">
-            <label class="settings-label">Canvas</label>
-            <button class="btn btn--ghost" id="export-canvas-midi" style="font-size:0.75rem;min-height:30px;padding:2px 10px;">Export MIDI</button>
-          </div>
-          <div class="settings-row">
-            <label class="settings-label">Snippet</label>
-            <select class="settings-select" id="export-snippet-select" aria-label="MIDI snippet to export">
-              ${options}
-            </select>
-          </div>
-          <div class="settings-row">
-            <label class="settings-label"></label>
-            <button class="btn btn--ghost" id="export-snippet-midi" style="font-size:0.75rem;min-height:30px;padding:2px 10px;" ${snippets.length ? '' : 'disabled'}>Export Snippet MIDI</button>
-          </div>
-        </div>
-        <div class="settings-group">
-          <h3 class="settings-group__title">Audio Export</h3>
-          <p class="settings-desc">Export browser-rendered WAV files for a snippet or the whole Canvas. Tone settings are rendered into WAV. MP3 will need an optional encoder dependency later.</p>
-          <div class="settings-row">
-            <label class="settings-label">Canvas</label>
-            <select class="settings-select" id="export-canvas-wav-channels" aria-label="Canvas WAV channel mode">
-              <option value="stereo" selected>Stereo (pan)</option>
-              <option value="mono">Mono</option>
-            </select>
-          </div>
-          <div class="settings-row">
-            <label class="settings-label"></label>
-            <button class="btn btn--ghost" id="export-canvas-wav" style="font-size:0.75rem;min-height:30px;padding:2px 10px;">Export WAV</button>
-          </div>
-          <div class="settings-row">
-            <label class="settings-label">Snippet</label>
-            <select class="settings-select" id="export-snippet-wav-select" aria-label="WAV snippet to export">
-              ${wavOptions}
-            </select>
-          </div>
-          <div class="settings-row">
-            <label class="settings-label">Channels</label>
-            <select class="settings-select" id="export-snippet-wav-channels" aria-label="Snippet WAV channel mode">
-              <option value="auto" selected>Auto</option>
-              <option value="mono">Mono</option>
-              <option value="stereo">Stereo</option>
-            </select>
-          </div>
-          <div class="settings-row">
-            <label class="settings-label"></label>
-            <button class="btn btn--ghost" id="export-snippet-wav" style="font-size:0.75rem;min-height:30px;padding:2px 10px;" ${allSnippets.length ? '' : 'disabled'}>Export Snippet WAV</button>
-          </div>
-        </div>
-        <div class="settings-group">
-          <h3 class="settings-group__title">Sheet Music</h3>
-          <div id="section-sheet-music"></div>
-        </div>
-      </div>`;
-  }
-
-  _renderAccessibilitySection() {
-    const accessibility = ensureAccessibilitySettings(this.project);
-    const tremor = accessibility.tremorFilter;
-    const dwell = accessibility.dwellPlay;
-    return `
-      <div class="settings-section" id="section-accessibility">
-        <div class="settings-group">
-          <h3 class="settings-group__title">Accessibility Profiles</h3>
-          <p class="settings-desc">These settings change how Notenotes receives input. They can also be turned on from a shared link, such as <code>?tremor=1</code> or <code>?dwell=1</code>, so a user does not need to click through setup before the app becomes playable.</p>
-          <div class="settings-row" style="justify-content: flex-start; gap: 10px;">
-            <input type="checkbox" id="setting-tremor-enabled" ${tremor.enabled ? 'checked' : ''} />
-            <label class="settings-label" for="setting-tremor-enabled">Tremor filter</label>
-          </div>
-          <p class="settings-desc">Ignores accidental rapid re-triggers of the same pad, key, or drum sound.</p>
-          <div class="settings-row">
-            <label class="settings-label">Tremor window (<span id="setting-tremor-display">${tremor.thresholdMs}</span> ms)</label>
-            <input class="settings-range" id="setting-tremor-threshold" type="range" min="60" max="1000" step="10" value="${tremor.thresholdMs}" aria-label="Tremor filter threshold" />
-          </div>
-          <div class="settings-row" style="justify-content: flex-start; gap: 10px;">
-            <input type="checkbox" id="setting-dwell-enabled" ${dwell.enabled ? 'checked' : ''} />
-            <label class="settings-label" for="setting-dwell-enabled">Dwell play</label>
-          </div>
-          <p class="settings-desc">Hover over a playable pad, key, or drum sound until the dwell timer completes. Useful for head trackers, eye trackers, and users who can aim more easily than click.</p>
-          <div class="settings-row">
-            <label class="settings-label">Dwell time (<span id="setting-dwell-display">${dwell.thresholdMs}</span> ms)</label>
-            <input class="settings-range" id="setting-dwell-threshold" type="range" min="150" max="2000" step="25" value="${dwell.thresholdMs}" aria-label="Dwell play threshold" />
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
   _bindEvents() {
     // Overlay close
     this.el.querySelector('#settings-overlay')?.addEventListener('pointerdown', () => this.close());
@@ -549,88 +324,6 @@ export class SettingsPanel {
       });
     }
 
-  _bindAISettingsEvents(body) {
-    if (!body) return;
-    const refreshSection = () => {
-      // Re-render only the settings section to reflect provider/disclaimer changes.
-      body.innerHTML = this._renderSettingsSection();
-      this._bindSettingsEvents();
-    };
-
-    body.querySelector('#setting-ai-provider')?.addEventListener('change', (e) => {
-      const provider = e.target.value;
-      const models = providerModelsForUi(provider);
-      // Pick a sensible default model when switching providers.
-      const model = models[0] || '';
-      writeAiSettings(this.project, { provider, model });
-      this.store?.scheduleAutoSave(this.project);
-      refreshSection();
-    });
-
-    body.querySelector('#setting-ai-model')?.addEventListener('change', (e) => {
-      writeAiSettings(this.project, { model: e.target.value });
-      this.store?.scheduleAutoSave(this.project);
-    });
-
-    body.querySelector('#setting-ai-ollama-url')?.addEventListener('change', (e) => {
-      writeAiSettings(this.project, { ollamaBaseUrl: e.target.value || 'http://localhost:11434/v1' });
-      this.store?.scheduleAutoSave(this.project);
-    });
-
-    body.querySelector('#setting-ai-api-key')?.addEventListener('change', (e) => {
-      const aiSettings = readAiSettings(this.project);
-      aiWriteApiKey(aiSettings.provider, (e.target.value || '').trim());
-      showToast('API key saved locally');
-    });
-
-    body.querySelector('#setting-ai-disclaimer')?.addEventListener('change', (e) => {
-      writeAiSettings(this.project, { disclaimerAccepted: !!e.target.checked });
-      this.store?.scheduleAutoSave(this.project);
-    });
-
-    body.querySelector('#setting-ai-clear-keys')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      aiClearAllApiKeys();
-      showToast('AI keys forgotten');
-      refreshSection();
-    });
-  }
-
-  _bindAccessibilityEvents() {
-    const body = this.el.querySelector('#settings-body');
-    const accessibility = ensureAccessibilitySettings(this.project);
-    const save = () => {
-      this.store?.scheduleAutoSave(this.project);
-      window.dispatchEvent(new CustomEvent('settings-accessibility-changed', { detail: accessibility }));
-    };
-
-    body.querySelector('#setting-tremor-enabled')?.addEventListener('change', (e) => {
-      accessibility.tremorFilter.enabled = !!e.target.checked;
-      save();
-      showToast(accessibility.tremorFilter.enabled ? 'Tremor filter enabled' : 'Tremor filter off');
-    });
-
-    body.querySelector('#setting-tremor-threshold')?.addEventListener('input', (e) => {
-      const ms = Math.max(60, Math.min(1000, parseInt(e.target.value, 10) || 180));
-      accessibility.tremorFilter.thresholdMs = ms;
-      body.querySelector('#setting-tremor-display')?.replaceChildren(String(ms));
-      save();
-    });
-
-    body.querySelector('#setting-dwell-enabled')?.addEventListener('change', (e) => {
-      accessibility.dwellPlay.enabled = !!e.target.checked;
-      save();
-      showToast(accessibility.dwellPlay.enabled ? 'Dwell play enabled' : 'Dwell play off');
-    });
-
-    body.querySelector('#setting-dwell-threshold')?.addEventListener('input', (e) => {
-      const ms = Math.max(150, Math.min(2000, parseInt(e.target.value, 10) || 450));
-      accessibility.dwellPlay.thresholdMs = ms;
-      body.querySelector('#setting-dwell-display')?.replaceChildren(String(ms));
-      save();
-    });
-  }
-
   _beatColorsForBeats(beats = 4) {
     const defaults = ['#1e1e2e', '#2a2a3e', '#1e1e2e', '#2a2a3e', '#242436'];
     const existing = this.project?.settings?.beatColors || defaults;
@@ -721,86 +414,6 @@ export class SettingsPanel {
     }
   }
 
-  _bindExportEvents() {
-    const body = this.el.querySelector('#settings-body');
-    body.querySelector('#export-canvas-midi')?.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      if (!this.project) return;
-      const stats = { renderedEvents: 0, skippedMismatchedClips: 0 };
-      const blob = projectToMidiBlob(this.project, { stats });
-      if (!stats.renderedEvents) {
-        showToast('No MIDI or drum Canvas clips to export');
-        return;
-      }
-      downloadBlob(blob, safeFilename(`${this.project.name || 'notenotes'}-canvas`, 'mid'));
-      showToast(stats.skippedMismatchedClips ? 'Canvas MIDI exported, skipped mismatched clips' : 'Canvas MIDI exported');
-    });
-
-    body.querySelector('#export-canvas-wav')?.addEventListener('pointerdown', async (e) => {
-      e.preventDefault();
-      if (!this.project) return;
-      const btn = e.currentTarget;
-      btn.disabled = true;
-      showToast('Rendering Canvas WAV...');
-      try {
-        const stats = { skippedAudio: 0, skippedMismatchedClips: 0, renderedClips: 0 };
-        const channelMode = body.querySelector('#export-canvas-wav-channels')?.value || 'stereo';
-        const blob = await projectToWavBlob(this.project, { store: this.store, stats, channelMode });
-        if (!stats.renderedClips) {
-          showToast('No audible Canvas clips to export');
-          return;
-        }
-        downloadBlob(blob, safeFilename(`${this.project.name || 'notenotes'}-canvas`, 'wav'));
-        const skipped = [];
-        if (stats.skippedAudio) skipped.push(`${stats.skippedAudio} unavailable audio clip${stats.skippedAudio === 1 ? '' : 's'}`);
-        if (stats.skippedMismatchedClips) skipped.push(`${stats.skippedMismatchedClips} mismatched clip${stats.skippedMismatchedClips === 1 ? '' : 's'}`);
-        showToast(skipped.length ? `Canvas WAV exported, skipped ${skipped.join(' and ')}` : 'Canvas WAV exported');
-      } catch (err) {
-        console.error('[Settings] Canvas WAV export failed:', err);
-        showToast('Canvas WAV export failed');
-      } finally {
-        btn.disabled = false;
-      }
-    });
-
-    body.querySelector('#export-snippet-midi')?.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      const snippetId = body.querySelector('#export-snippet-select')?.value;
-      const snippet = this.project?.snippets?.find(s => s.id === snippetId);
-      if (!snippet) return;
-      const stats = { renderedEvents: 0 };
-      const blob = snippetToMidiBlob(snippet, this.project, { stats });
-      if (!stats.renderedEvents) {
-        showToast('Selected snippet has no MIDI events');
-        return;
-      }
-      downloadBlob(blob, safeFilename(snippet.name || 'snippet', 'mid'));
-      showToast('Snippet MIDI exported');
-    });
-
-    body.querySelector('#export-snippet-wav')?.addEventListener('pointerdown', async (e) => {
-      e.preventDefault();
-      const snippetId = body.querySelector('#export-snippet-wav-select')?.value;
-      const snippet = this.project?.snippets?.find(s => s.id === snippetId);
-      if (!snippet) return;
-      const btn = e.currentTarget;
-      btn.disabled = true;
-      showToast('Rendering snippet WAV...');
-      try {
-        const stats = { skippedAudio: 0 };
-        const channelMode = body.querySelector('#export-snippet-wav-channels')?.value || 'auto';
-        const blob = await snippetToWavBlob(snippet, this.project, { store: this.store, stats, channelMode });
-        downloadBlob(blob, safeFilename(snippet.name || 'snippet', 'wav'));
-        showToast(stats.skippedAudio ? 'Snippet WAV exported without unavailable audio' : 'Snippet WAV exported');
-      } catch (err) {
-        console.error('[Settings] Snippet WAV export failed:', err);
-        showToast(err?.message || 'Snippet WAV export failed');
-      } finally {
-        btn.disabled = false;
-      }
-    });
-  }
-
   open() {
     this.openTo(this._activeSection);
   }
@@ -832,4 +445,4 @@ export class SettingsPanel {
   }
 }
 
-Object.assign(SettingsPanel.prototype, SaveSectionMixin);
+Object.assign(SettingsPanel.prototype, SaveSectionMixin, AiSectionMixin, ExportSectionMixin, AccessibilitySectionMixin);

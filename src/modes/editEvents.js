@@ -18,8 +18,9 @@ export const EditEventsMixin = {
       this._rebuildGrids();
     });
 
-    toolbar.querySelector('#edit-load-clip-select')?.addEventListener('change', (e) => {
-      this._loadSnippetById(e.target.value);
+    toolbar.querySelector('#edit-close-btn')?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this.loadSnippet(null);
     });
 
     toolbar.querySelector('#edit-velocity-range')?.addEventListener('input', (e) => {

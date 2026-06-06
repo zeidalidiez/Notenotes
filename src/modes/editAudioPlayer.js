@@ -36,10 +36,7 @@ export const EditAudioPlayerMixin = {
     const name = this._escapeAttr(this._snippet.name || 'Audio');
     return `
       <div class="edit-toolbar__group">
-        <span class="edit-toolbar__label">Load</span>
-        <select class="edit-toolbar__select edit-toolbar__select--clip" id="edit-load-clip-select" aria-label="Load clip">
-          ${this._renderClipOptions()}
-        </select>
+        <button class="btn btn--ghost edit-toolbar__btn" id="edit-close-btn" type="button" title="Back to snippet library" aria-label="Back to snippet library">‹ Library</button>
       </div>
       <div class="edit-toolbar__group">
         <input type="text" class="edit-toolbar__name-input" id="edit-snippet-name" value="${name}" placeholder="Audio clip name" title="Edit audio clip name" />
@@ -94,8 +91,9 @@ export const EditAudioPlayerMixin = {
         }
       });
     }
-    toolbar.querySelector('#edit-load-clip-select')?.addEventListener('change', (e) => {
-      this._loadSnippetById(e.target.value);
+    toolbar.querySelector('#edit-close-btn')?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this.loadSnippet(null);
     });
     toolbar.querySelector('#edit-new-midi-toolbar')?.addEventListener('click', (e) => {
       e.preventDefault();
@@ -105,6 +103,46 @@ export const EditAudioPlayerMixin = {
       e.preventDefault();
       this._createBlankSnippet('drum');
     });
+  },
+
+  /**
+   * Pause the native <audio> element and reset its playback position. Safe
+   * to call when no audio element exists or when nothing is playing. Used by
+   * `_stopInspectPlayback()` in the base EditMode and by the play-button
+   * handler in `main.js`.
+   */
+  pauseAudioPlayback() {
+    const player = this.el?.querySelector('.edit-audio__player');
+    if (player && !player.paused) {
+      try { player.pause(); } catch { /* ignore */ }
+    }
+  },
+
+  stopAudioPlayback() {
+    const player = this.el?.querySelector('.edit-audio__player');
+    if (player) {
+      try { player.pause(); } catch { /* ignore */ }
+      try { player.currentTime = 0; } catch { /* ignore */ }
+    }
+  },
+
+  /**
+   * Toggle play/pause on the open audio snippet's <audio> element. Mirrors
+   * what the native controls do but is callable from `main.js`'s
+   * play-button handler when in Inspect.
+   */
+  toggleAudioPlayback() {
+    const player = this.el?.querySelector('.edit-audio__player');
+    if (!player) return;
+    if (!player.src && !this._snippet?.audioDataUrl && !this._snippet?.audioUrl) return;
+    if (player.paused) {
+      const playPromise = player.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => { /* autoplay-blocked; ignore */ });
+      }
+    } else {
+      try { player.pause(); } catch { /* ignore */ }
+    }
   },
 
   async _resolveAudioPlayerSource() {

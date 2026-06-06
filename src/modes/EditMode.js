@@ -26,6 +26,9 @@ export class EditMode {
 
     this.onSnippetRenamed = null;
     this.onSnippetCreated = null;
+    /** Fired whenever the loaded snippet changes. `main.js` uses this to
+     * update the `PlaybackEngine`'s inspect source (or clear it). */
+    this.onInspectSnippetChanged = null;
     /** Set by `main.js` — same data shape `SnippetTray.setSnippetUsageProvider` expects. */
     this._snippetUsageProvider = null;
 
@@ -64,6 +67,9 @@ export class EditMode {
 
   loadSnippet(snippet, clipId = null) {
     const snippetChanged = this._snippet?.id !== snippet?.id;
+    // Stop any current inspect playback before swapping snippets, so audio
+    // doesn't bleed across clips and the transport doesn't keep ticking.
+    this._stopInspectPlayback();
     this._snippet = snippet;
     this._clipId = clipId;
     this._selectedNoteIdx = null;
@@ -79,6 +85,19 @@ export class EditMode {
     } else {
       this._renderEmpty();
     }
+
+    if (this.onInspectSnippetChanged) this.onInspectSnippetChanged(this._snippet);
+  }
+
+  /**
+   * Stop any inspect-scoped playback that the editor started: pauses the
+   * native audio element, stops the Transport, and clears the inspect source
+   * on the PlaybackEngine via the `onInspectSnippetChanged` callback. Safe
+   * to call when nothing is playing.
+   */
+  _stopInspectPlayback() {
+    this.stopAudioPlayback?.();
+    try { this.transport?.stop?.(); } catch { /* ignore */ }
   }
 
   refreshSnippetList() {

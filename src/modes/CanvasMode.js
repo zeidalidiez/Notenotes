@@ -23,6 +23,7 @@ import { ChoicePicker } from '../ui/ChoicePicker.js';
 import { renderToneBadges, toneBadgeItemsForClip } from '../ui/ToneBadges.js';
 import { CanvasStageRenderer } from '../stage/CanvasStageRenderer.js';
 import { STAGE_CANVAS_TRACK_LIMIT, stageEventsForCanvasTracks, stageTracksForCanvas, stageUnitTicksForMeter } from '../stage/StageModel.js';
+import { peaksFromArrayBuffer } from '../utils/audioPeaks.js';
 
 /** Pixels per bar at default zoom */
 const DEFAULT_BAR_WIDTH = 120;
@@ -643,7 +644,7 @@ export class CanvasMode {
     if (this._audioPeakLoads.has(snippet.id)) return;
     this._audioPeakLoads.add(snippet.id);
     this.store.audioSnippetToArrayBuffer(snippet)
-      .then(arrayBuffer => this._audioPeaksFromArrayBuffer(arrayBuffer))
+      .then(arrayBuffer => peaksFromArrayBuffer(arrayBuffer))
       .then(peaks => {
         if (peaks?.length) {
           snippet.audioPeaks = peaks;
@@ -653,40 +654,6 @@ export class CanvasMode {
       })
       .catch(err => console.warn('[CanvasMode] Audio peak analysis failed:', err))
       .finally(() => this._audioPeakLoads.delete(snippet.id));
-  }
-
-  async _audioPeaksFromArrayBuffer(arrayBuffer, bins = 48) {
-    if (!arrayBuffer) return [];
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return [];
-    const ctx = new AudioCtx();
-    try {
-      const decoded = await ctx.decodeAudioData(arrayBuffer.slice(0));
-      const length = decoded.length || 0;
-      if (!length) return [];
-      const channels = Math.max(1, decoded.numberOfChannels || 1);
-      const blockSize = Math.max(1, Math.floor(length / bins));
-      const peaks = [];
-      for (let i = 0; i < bins; i++) {
-        const start = i * blockSize;
-        const end = i === bins - 1 ? length : Math.min(length, start + blockSize);
-        let sum = 0;
-        let count = 0;
-        for (let ch = 0; ch < channels; ch++) {
-          const data = decoded.getChannelData(ch);
-          for (let j = start; j < end; j++) {
-            const sample = data[j] || 0;
-            sum += sample * sample;
-            count++;
-          }
-        }
-        peaks.push(count ? Math.sqrt(sum / count) : 0);
-      }
-      const max = Math.max(...peaks, 0.0001);
-      return peaks.map(value => Math.round((value / max) * 100) / 100);
-    } finally {
-      await ctx.close?.();
-    }
   }
 
   _renderToneBadges(clip) {

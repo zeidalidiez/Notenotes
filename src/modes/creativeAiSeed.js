@@ -8,14 +8,29 @@ import { showToast } from '../ui/Toast.js';
 import { INSTRUMENTS } from './creativeConstants.js';
 
 export const CreativeAiSeedMixin = {
+  /**
+   * Map CreativeMode's instrument enum to the AI's smaller surface.
+   * Controller is treated as scaleboard for AI purposes — it uses the same
+   * scale-locked pad primitive. Mic returns null because the AI does not
+   * generate audio (intentional scope limit).
+   */
   _mapInstrumentToAi(creativeInstrumentId) {
     return mapCreativeInstrumentToAi(creativeInstrumentId);
   },
 
+  /**
+   * Tell the AIController what instrument it should write events for, plus
+   * the runtime context the prompt needs (scale, root, pad count for scale-
+   * locked, etc.).
+   */
   _buildAIInstrumentInfo() {
     return buildAIInstrumentInfo(this.activeInstrument, { scaleBoard: this.scaleBoard });
   },
 
+  /**
+   * Handle an AI-seeded snippet. Mirrors the post-recording flow but tags
+   * the snippet for the tray badge and uses an AI-flavored toast.
+   */
   _onAISnippetCreated(snippet) {
     if (!snippet) return;
     this.snippetTray.addSnippet(snippet);

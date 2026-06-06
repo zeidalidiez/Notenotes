@@ -676,21 +676,6 @@ export class CreativeMode {
     return SCALES[context.scale]?.intervals || SCALES.major.intervals;
   }
 
-  /**
-   * Map CreativeMode's instrument enum to the AI's smaller surface.
-   * Controller is treated as scaleboard for AI purposes — it uses the same
-   * scale-locked pad primitive. Mic returns null because the AI does not
-   * generate audio (intentional scope limit).
-   */
-  /**
-   * Tell the AIController what instrument it should write events for, plus
-   * the runtime context the prompt needs (scale, root, pad count for scale-
-   * locked, etc.).
-   */
-  /**
-   * Handle an AI-seeded snippet. Mirrors the post-recording flow but tags
-   * the snippet for the tray badge and uses an AI-flavored toast.
-   */
   _isCreativeActive() {
     return !!this.el?.closest('.mode-view.is-active');
   }

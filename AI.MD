@@ -308,7 +308,8 @@ Project sketch:
     degreeHighlighting: {},
     backupContents: 'current',
     versionHistoryLimit: 5,
-    aiSettings: {}
+    aiSettings: {},
+    inspectBrowser: { sort: 'newest', filter: 'all', view: 'list', search: '' }
   }
 }
 ```
@@ -722,6 +723,55 @@ ChoicePicker is category-first, searchable, mobile-friendly, and DOM-native. It
 closes by outside-click, Escape, or selecting an item; do not add visible close
 buttons unless the rest of the app's modal language changes. Do not build another
 one-off long dropdown for creative libraries.
+
+## Inspect Mode
+
+Inspect is the default landing tab. The browser (no clip open) is a real file
+explorer, not a dropdown, and the play button auditions only the open clip.
+
+Architecture and rules:
+
+- **Default tab.** `ModeTabs` constructs with `activeMode = Modes.PIANOROLL`.
+  `main.js` removes the hard-coded `is-active` on the Creative view and calls
+  `modeTabs.setActive(Modes.PIANOROLL)` at the end of `init()`. Create mode
+  still fully initializes (synth, kits, PlaybackEngine, recording, Stage); only
+  the initial CSS visibility changes.
+- **Browser.** `EditMode._renderEmpty()` (in `src/modes/EditMode.js`) renders
+  a search box, type pills (All · MIDI · Drum · Audio), sort selector, list/
+  grid toggle, and New MIDI/Drum Clip buttons. Items show a mini SVG preview
+  (shared via `src/ui/snippetPreview.js` with `SnippetTray`), type badge, name,
+  meta (`12 notes · 2 bars` / `Audio · 3.4s`), short date, AI badge, usage
+  badge, and a delete (✕) control. Clicking an item calls `loadSnippet()`.
+- **Browser preferences persist additively** at
+  `project.settings.inspectBrowser = { sort, filter, view, search }` with
+  defaults `{ sort: 'newest', filter: 'all', view: 'list', search: '' }`.
+  Stored via `_setBrowserPrefs()`; an additive `project.settings.inspectBrowser`
+  field is safe for old projects.
+- **Close button.** The MIDI/drum and audio toolbars have a `‹ Library` button
+  that calls `loadSnippet(null)`, which stops any inspect playback and
+  re-renders the browser. The in-editor Load `<select>` is gone — the browser
+  is the only way to choose a clip. `_renderClipOptions()` and the
+  `#edit-load-clip-select` listeners are deleted.
+- **Scoped playback.** `PlaybackEngine.setInspectSource(snippet|null)` routes
+  `_processTick` through `_processInspectTick`, which schedules notes/hits from
+  the snippet on dedicated `modern_keys` synth / `classic` kit instances and
+  loops the clip over its `durationTicks`. The inspect source is updated via
+  `EditMode.onInspectSnippetChanged` (callback) rather than reaching into
+  `editMode._snippet` directly.
+- **Centralized play routing.** `TransportBar` exposes an `onPlayToggle`
+  callback (set to `main.js._handlePlayToggle`). The same method handles
+  Space in `_bindKeyboard()`. The Inspect-browser state (no clip open) is a
+  no-op — pressing Space while browsing does not fall through to Canvas
+  playback.
+- **Mode changes always stop.** `modeTabs.onChange` calls `transport.stop()`,
+  `playbackEngine.setInspectSource(null)`, and `editMode.stopAudioPlayback()`
+  on every tab transition, so switching into or out of Inspect always
+  silences the previous source.
+- **Audio in Inspect.** Audio snippets keep using the native `<audio>`
+  element with `controls`. `editAudioPlayer.js` exposes
+  `toggleAudioPlayback()`, `pauseAudioPlayback()`, and `stopAudioPlayback()`
+  for `main.js` to call from `_handlePlayToggle` and the close/mode-change
+  flows.
 
 ## Accessibility Profiles
 

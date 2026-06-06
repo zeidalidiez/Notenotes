@@ -137,10 +137,6 @@ export class ScaleBoard {
     else this._updateNotes();
   }
 
-  /**
-   * Set the VoiceEngine instance. May be called after construction once
-   * the AudioEngine has initialized and the synth's tone input exists.
-   */
   /** Set callbacks for note events (used by recording system) */
   setNoteCallbacks(onNoteOn, onNoteOff) {
     this._onNoteOn = onNoteOn;

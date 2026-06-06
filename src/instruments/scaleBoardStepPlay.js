@@ -405,6 +405,7 @@ export const ScaleBoardStepPlayMixin = {
     const esc = (e) => {
       if (e.key === 'Escape') {
         e.preventDefault();
+        this._closeStepEditor();
       }
     };
     this._stepEditorKeyHandler = esc;
@@ -497,7 +498,10 @@ export const ScaleBoardStepPlayMixin = {
         e.stopPropagation();
         const index = parseInt(button.dataset.clearAlt, 10);
         this._pushStepEditorUndo();
-        if (this._stepEditorSequence[index]) delete this._stepEditorSequence[index].alternateDegree;
+        if (this._stepEditorSequence[index]) {
+          delete this._stepEditorSequence[index].alternateDegree;
+          delete this._stepEditorSequence[index].alternateMidi;
+        }
         if (this._stepEditorAltTarget === index) this._stepEditorAltTarget = null;
         this._refreshStepEditorSequence();
       });

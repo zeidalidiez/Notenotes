@@ -395,6 +395,16 @@ export class EditMode {
       item.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
+          // stopPropagation: opening a clip via Space/Enter must not also
+          // fire the document-level keydown handler in main.js. Without
+          // this, pressing Space on a focused browser item runs
+          // _loadSnippetById (which sets _inspectSnippet) and then bubbles
+          // to the document handler, which calls _handlePlayToggle and
+          // starts transport — surprising behavior that contradicts the
+          // "click opens, no auto-play" convention. Stopping the event
+          // matches the pointer-click path exactly: the next Space (or
+          // play-button click) starts the snippet.
+          e.stopPropagation();
           this._loadSnippetById(item.dataset.id);
         }
       });

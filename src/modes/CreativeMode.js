@@ -41,6 +41,7 @@ import { showToast } from '../ui/Toast.js';
 import { StageEventStream } from '../stage/StageEventStream.js';
 import { CanvasStageRenderer } from '../stage/CanvasStageRenderer.js';
 import { STAGE_LIVE_LANE_LIMIT, stageUnitTicksForMeter } from '../stage/StageModel.js';
+import { peaksFromBlob } from '../utils/audioPeaks.js';
 
 const INSTRUMENTS = {
   SCALEBOARD: 'scaleboard',
@@ -371,7 +372,7 @@ export class CreativeMode {
         const beats = this.transport.bpm / 60;
         const ticksPerBeat = this.transport.ticksPerBeat;
         const durationTicks = Math.max(480, Math.round((elapsedMs / 1000) * beats * ticksPerBeat));
-        const audioPeaks = await this._audioPeaksFromBlob(blob);
+        const audioPeaks = await peaksFromBlob(blob);
         const snippet = {
           id: crypto.randomUUID(),
           createdAt: Date.now(),
@@ -405,47 +406,6 @@ export class CreativeMode {
     });
 
     this._initialized = true;
-  }
-
-  async _audioPeaksFromBlob(blob, bins = 48) {
-    if (!blob?.size) return [];
-    try {
-      const arrayBuffer = await blob.arrayBuffer();
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return [];
-      const ctx = new AudioCtx();
-      const decoded = await ctx.decodeAudioData(arrayBuffer.slice(0));
-      await ctx.close?.();
-      return this._audioPeaksFromBuffer(decoded, bins);
-    } catch (err) {
-      console.warn('[CreativeMode] Audio peak analysis failed:', err);
-      return [];
-    }
-  }
-
-  _audioPeaksFromBuffer(buffer, bins = 48) {
-    const length = buffer?.length || 0;
-    if (!length) return [];
-    const channels = Math.max(1, buffer.numberOfChannels || 1);
-    const blockSize = Math.max(1, Math.floor(length / bins));
-    const peaks = [];
-    for (let i = 0; i < bins; i++) {
-      const start = i * blockSize;
-      const end = i === bins - 1 ? length : Math.min(length, start + blockSize);
-      let sum = 0;
-      let count = 0;
-      for (let ch = 0; ch < channels; ch++) {
-        const data = buffer.getChannelData(ch);
-        for (let j = start; j < end; j++) {
-          const sample = data[j] || 0;
-          sum += sample * sample;
-          count++;
-        }
-      }
-      peaks.push(count ? Math.sqrt(sum / count) : 0);
-    }
-    const max = Math.max(...peaks, 0.0001);
-    return peaks.map(value => Math.round((value / max) * 100) / 100);
   }
 
   /**

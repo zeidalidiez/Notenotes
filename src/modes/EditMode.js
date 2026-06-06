@@ -217,7 +217,7 @@ export class EditMode {
     const type = s.type === 'audio' ? 'audio' : s.type === 'drum' ? 'drum' : 'midi';
     const typeBadge = type === 'audio' ? 'AUDIO' : type === 'drum' ? 'DRUM' : 'MIDI';
     const autoMeta = type === 'audio'
-      ? `Audio · ${(s.durationTicks / 480).toFixed(1)}s`
+      ? `Audio · ${(s.durationTicks * (this.transport?.secondsPerTick || (60 / 120 / 480))).toFixed(1)}s`
       : `${noteCount} ${type === 'drum' ? 'hits' : 'notes'}`;
     const bars = Math.ceil(s.durationTicks / ticksPerBarForMeter(s.meter || s.timeSignature, 480));
     const barsMeta = type === 'audio' ? '' : ` · ${bars} bar${bars > 1 ? 's' : ''}`;
@@ -232,7 +232,7 @@ export class EditMode {
       : '';
 
     return `
-      <div class="edit-browser__item edit-browser__item--${type}${s.aiSeeded ? ' is-ai-seeded' : ''}" data-id="${s.id}" role="listitem" tabindex="0" aria-label="Open ${this._escapeAttr(displayName)}">
+      <div class="edit-browser__item edit-browser__item--${type}${s.aiSeeded ? ' is-ai-seeded' : ''}" data-id="${this._escapeAttr(s.id)}" role="listitem" tabindex="0" aria-label="Open ${this._escapeAttr(displayName)}">
         <div class="edit-browser__item-preview">${renderSnippetPreviewSVG(s)}</div>
         <div class="edit-browser__item-info">
           <div class="edit-browser__item-line">
@@ -243,7 +243,7 @@ export class EditMode {
           <div class="edit-browser__item-meta">${autoMeta}${barsMeta} · ${created}</div>
         </div>
         <div class="edit-browser__item-actions">
-          <button class="edit-browser__action-btn edit-browser__delete-btn" data-delete="${s.id}" type="button" aria-label="Delete ${this._escapeAttr(displayName)}" title="Delete">✕</button>
+          <button class="edit-browser__action-btn edit-browser__delete-btn" data-delete="${this._escapeAttr(s.id)}" type="button" aria-label="Delete ${this._escapeAttr(displayName)}" title="Delete">✕</button>
         </div>
       </div>
     `;

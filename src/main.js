@@ -173,11 +173,21 @@ class App {
       this.playbackEngine?.setInspectSource(nextSource);
     };
 
-    // Wire snippet selection: SnippetTray → EditMode
+    // Wire snippet selection: SnippetTray → EditMode.
+    //
+    // Call order matters here. The mode-tab onChange handler unconditionally
+    // stops playback and clears the inspect source, so it must run *before*
+    // `loadSnippet` establishes the new inspect source. Otherwise opening a
+    // snippet from the tray sets `_inspectSnippet`, then `setActive` fires
+    // onChange and clears it back to null — leaving the user looking at the
+    // piano roll with no inspect source, and pressing Space / play does
+    // nothing (the `if (!snippet) return` guard in `_handlePlayToggle`
+    // swallows the event). `setActive` also triggers `onChange`, which
+    // already calls `_switchMode`, so a separate `_switchMode` here is
+    // redundant.
     this.creativeMode.snippetTray.onSnippetSelected((snippet) => {
-      this.editMode.loadSnippet(snippet);
       this.modeTabs.setActive(Modes.PIANOROLL);
-      this._switchMode(Modes.PIANOROLL);
+      this.editMode.loadSnippet(snippet);
       showToast(snippet.type === 'audio' ? 'Audio preview' : 'Editing snippet');
     });
 

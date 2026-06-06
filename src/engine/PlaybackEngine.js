@@ -641,5 +641,14 @@ export class PlaybackEngine {
     this._allNotesOff();
     this._allInspectNotesOff();
     this._trackSynths.clear();
+    this._trackKits.clear();
+    // Release the dedicated inspect synth/kit references so their audio
+    // resources can be garbage-collected, matching how the per-track
+    // synths/kit entries are cleared above.
+    this._inspectSynth = null;
+    this._inspectKit = null;
+    this._inspectActiveNotes.clear();
+    this._lastInspectLocalTick = null;
+    this._inspectSource = null;
   }
 }

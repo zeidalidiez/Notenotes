@@ -162,14 +162,16 @@ export const CanvasEventsMixin = {
       });
     });
 
-    // Delete selected clip with Delete/Backspace key
-    document.addEventListener('keydown', (e) => {
+    // Delete selected clip with Delete/Backspace key. Stored on the instance so
+    // destroy() can remove it — otherwise each construction leaks a handler on document.
+    this._documentKeydownHandler = (e) => {
       if ((e.code === 'Delete' || e.code === 'Backspace') && this._selectedClip) {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
         e.preventDefault();
         this._deleteSelectedClip();
       }
-    });
+    };
+    document.addEventListener('keydown', this._documentKeydownHandler);
 
     // Sync scroll between ruler and tracks
     this._tracksContainer?.addEventListener('scroll', () => {

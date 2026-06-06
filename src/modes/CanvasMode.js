@@ -400,6 +400,10 @@ export class CanvasMode {
 
   destroy() {
     if (this._animFrame) cancelAnimationFrame(this._animFrame);
+    if (this._documentKeydownHandler) {
+      document.removeEventListener('keydown', this._documentKeydownHandler);
+      this._documentKeydownHandler = null;
+    }
     this._stageOverlay?.close({ silent: true });
     this._stageOverlay = null;
   }

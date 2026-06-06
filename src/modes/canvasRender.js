@@ -505,28 +505,7 @@ export const CanvasRenderMixin = {
               }
               const previousInstrumentId = this._applyRecordedInstrumentToTrack(track, snippet);
               clip.startBar = startBar;
-              track.clips.push(clip);
-              this.store?.scheduleAutoSave(this.project);
-              this.undoManager?.push({
-                type: 'addClip',
-                description: `Add clip to ${track.name}`,
-                undo: () => {
-                  track.clips = track.clips.filter(c => c.id !== clip.id);
-                  if (previousInstrumentId !== null) {
-                    track.instrumentId = previousInstrumentId;
-                    this.onTrackInstrumentChanged?.(track.id);
-                  }
-                  this._renderTracks();
-                },
-                redo: () => {
-                  this._applyRecordedInstrumentToTrack(track, snippet);
-                  track.clips.push(clip);
-                  this._renderTracks();
-                },
-              });
-              this._renderTracks();
-              this._autoSetLoopFromClips();
-              showToast(`Clip added to ${track.name}`);
+              this._commitClipAdd(track, clip, snippet, previousInstrumentId);
             }
           }
         }

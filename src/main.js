@@ -163,12 +163,31 @@ class App {
     this.editMode.onSnippetCreated = (snippet) => {
       this.creativeMode.snippetTray.addSnippet(snippet);
     };
+    // EditMode → PlaybackEngine: keep the inspect source in sync as the
+    // open snippet changes. The callback pattern keeps EditMode UI-only
+    // and PlaybackEngine access in the orchestrator.
+    this._inspectSnippet = null;
+    this.editMode.onInspectSnippetChanged = (snippet) => {
+      this._inspectSnippet = snippet;
+      const nextSource = snippet && snippet.type !== 'audio' ? snippet : null;
+      this.playbackEngine?.setInspectSource(nextSource);
+    };
 
-    // Wire snippet selection: SnippetTray → EditMode
+    // Wire snippet selection: SnippetTray → EditMode.
+    //
+    // Call order matters here. The mode-tab onChange handler unconditionally
+    // stops playback and clears the inspect source, so it must run *before*
+    // `loadSnippet` establishes the new inspect source. Otherwise opening a
+    // snippet from the tray sets `_inspectSnippet`, then `setActive` fires
+    // onChange and clears it back to null — leaving the user looking at the
+    // piano roll with no inspect source, and pressing Space / play does
+    // nothing (the `if (!snippet) return` guard in `_handlePlayToggle`
+    // swallows the event). `setActive` also triggers `onChange`, which
+    // already calls `_switchMode`, so a separate `_switchMode` here is
+    // redundant.
     this.creativeMode.snippetTray.onSnippetSelected((snippet) => {
-      this.editMode.loadSnippet(snippet);
       this.modeTabs.setActive(Modes.PIANOROLL);
-      this._switchMode(Modes.PIANOROLL);
+      this.editMode.loadSnippet(snippet);
       showToast(snippet.type === 'audio' ? 'Audio preview' : 'Editing snippet');
     });
 
@@ -190,6 +209,14 @@ class App {
         this.creativeMode.snippetTray.addSnippet(snippet);
       });
     }
+
+    // Share the same per-snippet usage provider that the SnippetTray uses, so
+    // the new Inspect browser's usage badge and "Most used" sort see the same
+    // data Creative mode shows. `creativeMode._snippetInstrumentUsage` is the
+    // same method CreativeMode hands to its own SnippetTray.
+    this.editMode?.setSnippetUsageProvider?.(
+      (snippetId) => this.creativeMode?._snippetInstrumentUsage?.(snippetId)
+    );
 
     // Create and render Settings Panel (needs project)
     this.settingsPanel = new SettingsPanel({
@@ -247,6 +274,7 @@ class App {
     this.transportBar.onArmRecordClick = (armed) => {
       this.creativeMode?.setRecordArmed?.(armed);
     };
+    this.transportBar.onPlayToggle = () => this._handlePlayToggle();
     this.transportBar.onProjectKeyChange = (context) => {
       this._setProjectMusicalContext(context, { source: 'transport' });
     };
@@ -319,6 +347,13 @@ class App {
     this._setupAudioInit();
     this._bindAudioVisibilityResume();
     this._buildAudioUnlockPrompt();
+
+    // Inspect is the new default landing tab. Apply it last so `_switchMode`
+    // runs after every mode view + EditMode is mounted, and so the onChange
+    // callback (which calls `_switchMode` + canvas refresh) fires exactly
+    // once with the correct active mode.
+    this.modeTabs.setActive(Modes.PIANOROLL);
+    this._switchMode(Modes.PIANOROLL);
 
     console.log('[App] Notenotes ready.');
   }
@@ -744,10 +779,11 @@ class App {
     main.className = 'main-content';
     main.id = 'main-content';
 
-    // Mode views
-    // Creative mode uses real instrument UI
+    // Mode views. No view starts with `is-active` here — `modeTabs.setActive()`
+    // is called at the end of `init()` and `_switchMode` toggles the class
+    // exactly once. Inspect is the new default landing tab.
     const creativeView = document.createElement('div');
-    creativeView.className = 'mode-view is-active';
+    creativeView.className = 'mode-view';
     creativeView.id = `view-${Modes.CREATIVE}`;
     creativeView.setAttribute('role', 'tabpanel');
     creativeView.appendChild(this.creativeMode.render());
@@ -770,14 +806,52 @@ class App {
     // Mode tabs (bottom)
     app.appendChild(this.modeTabs.render());
 
-    // Mode switching
+    // Mode switching. Stop any playback on every tab change so switching
+    // into or out of Inspect always silences the previous source. Per the
+    // INSPECT_MODE_REVAMP spec, this is the simplest correct rule: every
+    // tab boundary is a hard stop.
+    //
+    // Note: `_inspectSnippet` is intentionally NOT cleared here. It tracks
+    // the clip loaded in EditMode (`editMode._snippet`), which doesn't
+    // change on a tab switch — opening a clip and then visiting Canvas
+    // does not unload it. The piano roll still shows the same clip when
+    // the user returns, so play must continue to drive it. `_handlePlayToggle`
+    // re-establishes the PlaybackEngine's inspect source on the next
+    // press, so we don't need to do it eagerly here.
     this.modeTabs.onChange((mode) => {
+      this.transport.stop();
+      this.playbackEngine?.setInspectSource?.(null);
+      this.editMode?.stopAudioPlayback?.();
       this._switchMode(mode);
       // Refresh canvas when switching to it
       if (mode === Modes.CANVAS && this.canvasMode) {
         this.canvasMode.refresh();
       }
     });
+  }
+
+  /**
+   * Centralized play/pause handler. In Inspect with a clip open, audition
+   * only that clip. In Inspect with no clip open (browsing the library),
+   * do nothing — this is the greptile-flagged fix that prevents Space
+   * in the browser from silently starting Canvas playback. Outside Inspect,
+   * play the Canvas arrangement as before.
+   */
+  _handlePlayToggle() {
+    const inInspect = this.modeTabs.activeMode === Modes.PIANOROLL;
+    const snippet = this._inspectSnippet;
+    if (inInspect) {
+      if (!snippet) return; // browser state: no-op
+      if (snippet.type === 'audio') {
+        this.editMode.toggleAudioPlayback();
+      } else {
+        this.playbackEngine?.setInspectSource?.(snippet);
+        this.transport.toggle();
+      }
+      return;
+    }
+    this.playbackEngine?.setInspectSource?.(null);
+    this.transport.toggle();
   }
 
   /**
@@ -948,11 +1022,12 @@ class App {
       // Don't capture when typing in inputs
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable) return;
 
-      // Space → Play/Pause
+      // Space → Play/Pause. Routed through `_handlePlayToggle` so Inspect
+      // mode can audition the open clip instead of the Canvas arrangement.
       if (e.code === 'Space') {
         e.preventDefault();
         if (this._initialized) {
-          this.transport.toggle();
+          this._handlePlayToggle();
         }
       }
 

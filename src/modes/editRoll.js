@@ -85,10 +85,7 @@ export const EditRollMixin = {
 
     return `
       <div class="edit-toolbar__group">
-        <span class="edit-toolbar__label">Load</span>
-        <select class="edit-toolbar__select edit-toolbar__select--clip" id="edit-load-clip-select" aria-label="Load editable clip">
-          ${this._renderClipOptions()}
-        </select>
+        <button class="btn btn--ghost edit-toolbar__btn" id="edit-close-btn" type="button" title="Back to snippet library" aria-label="Back to snippet library">‹ Library</button>
       </div>
       <div class="edit-toolbar__group">
         <input type="text" class="edit-toolbar__name-input" id="edit-snippet-name" value="${this._snippet.name || 'Snippet'}" placeholder="Snippet name" title="Edit snippet name" />
@@ -149,19 +146,6 @@ export const EditRollMixin = {
       if (clip) return clip;
     }
     return null;
-  },
-
-  _renderClipOptions() {
-    const snippets = (this.project?.snippets || []).filter(Boolean);
-    if (!snippets.length) return '<option value="">No clips</option>';
-    return snippets.map(s => {
-      const count = (s.notes?.length || 0) + (s.hits?.length || 0);
-      const type = s.type === 'audio' ? 'Audio' : s.type === 'drum' ? 'Drum' : 'MIDI';
-      const label = s.name || `${type} clip`;
-      const selected = s.id === this._snippet?.id ? 'selected' : '';
-      const suffix = s.type === 'audio' ? '' : ` (${count})`;
-      return `<option value="${s.id}" ${selected}>${type}: ${label}${suffix}</option>`;
-    }).join('');
   },
 
   _renderShadowOptions(isDrum) {

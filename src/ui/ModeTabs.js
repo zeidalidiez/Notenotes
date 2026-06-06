@@ -11,7 +11,7 @@ export const Modes = {
 export class ModeTabs {
   constructor() {
     this.el = null;
-    this.activeMode = Modes.CREATIVE;
+    this.activeMode = Modes.PIANOROLL;
     this._onChangeCallbacks = [];
   }
 

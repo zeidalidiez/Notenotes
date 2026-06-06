@@ -51,6 +51,19 @@ export class PlaybackEngine {
     /** Currently active notes (for noteOff scheduling) */
     this._activeNotes = new Map(); // key: `${trackId}-${pitch}`, value: { synth, noteOffTick }
 
+    /** When set, `_processTick` schedules only this snippet, ignoring
+     *  Canvas tracks. Set via `setInspectSource(snippet|null)`. */
+    this._inspectSource = null;
+    /** Local tick of the previous inspect tick — used to detect loop wrap
+     *  so we can release any held notes from the previous iteration. */
+    this._lastInspectLocalTick = null;
+    /** Notes held during inspect playback (key → { synth, pitch, endLocal }). */
+    this._inspectActiveNotes = new Map();
+    /** Dedicated inspect synth (lazy-created). */
+    this._inspectSynth = null;
+    /** Dedicated inspect kit (lazy-created). */
+    this._inspectKit = null;
+
     this._initialized = false;
     this._lastProcessedTick = -1;
     this._audioBuffers = new Map();
@@ -77,9 +90,11 @@ export class PlaybackEngine {
     this.transport.onStateChange((state) => {
       if (state === TransportState.STOPPED) {
         this._allNotesOff();
+        this._allInspectNotesOff();
         this._lastProcessedTick = -1;
         this._lastModIdx.clear();
         this._lastClipLocalTick.clear();
+        this._lastInspectLocalTick = null;
       }
     });
 
@@ -240,6 +255,108 @@ export class PlaybackEngine {
   }
 
   /**
+   * Set the snippet the inspect-mode play button should audition. Pass
+   * `null` to return to Canvas playback. Resets the scheduling cursor so
+   * a re-armed play always starts cleanly.
+   * @param {object|null} snippet
+   */
+  setInspectSource(snippet) {
+    const next = snippet || null;
+    if (this._inspectSource === next) return;
+    this._allInspectNotesOff();
+    this._inspectSource = next;
+    this._lastProcessedTick = -1;
+    this._lastInspectLocalTick = null;
+  }
+
+  _getInspectSynth() {
+    if (!this._inspectSynth) {
+      const synth = new WebAudioSynth();
+      synth.init();
+      const preset = PRESETS.modern_keys || PRESETS.chip_lead;
+      if (preset) synth.loadPatch(preset);
+      synth.setSoundTraits(this.project?.settings?.soundTraits);
+      this._inspectSynth = synth;
+    }
+    return this._inspectSynth;
+  }
+
+  _getInspectKit() {
+    if (!this._inspectKit) {
+      const kit = new SketchKit();
+      kit.init();
+      kit.loadKit('classic');
+      kit.setSoundTraits(this.project?.settings?.soundTraits);
+      this._inspectKit = kit;
+    }
+    return this._inspectKit;
+  }
+
+  _allInspectNotesOff() {
+    if (this._inspectSynth) this._inspectSynth.allNotesOff();
+    if (this._inspectKit) this._inspectKit.panic?.();
+    this._inspectActiveNotes.clear();
+  }
+
+  _processInspectTick(tick, nextTickTime) {
+    if (!this._inspectSource) return;
+    const snippet = this._inspectSource;
+    const duration = Math.max(1, snippet.durationTicks || 1);
+    const localTick = tick % duration;
+
+    // Detect loop wrap. When we cross from end-of-clip back to 0, drop
+    // any still-held notes so a long note from the previous loop doesn't
+    // bleed into the next.
+    const prevLocal = this._lastInspectLocalTick;
+    if (prevLocal !== null && localTick < prevLocal) {
+      for (const [, entry] of this._inspectActiveNotes) {
+        entry.synth.noteOff(entry.pitch, nextTickTime);
+      }
+      this._inspectActiveNotes.clear();
+    }
+    this._lastInspectLocalTick = localTick;
+
+    // MIDI notes
+    if (snippet.notes && snippet.notes.length) {
+      const synth = this._getInspectSynth();
+      if (synth) {
+        for (const note of snippet.notes) {
+          if (note.startTick === localTick) {
+            synth.setSoundTraits(note.soundTraits || snippet.soundTraits || this.project?.settings?.soundTraits);
+            synth.noteOn(note.pitch, note.velocity || 0.8, nextTickTime);
+            this._inspectActiveNotes.set(`midi-${note.pitch}-${localTick}-${Math.random().toString(36).slice(2, 7)}`, {
+              synth,
+              pitch: note.pitch,
+              endLocal: localTick + (note.durationTick || 240),
+            });
+          }
+        }
+      }
+    }
+
+    // Drum hits
+    if (snippet.hits && snippet.hits.length) {
+      const kit = this._getInspectKit();
+      if (kit) {
+        for (const hit of snippet.hits) {
+          if (hit.startTick === localTick) {
+            kit.setSoundTraits(hit.soundTraits || snippet.soundTraits || this.project?.settings?.soundTraits);
+            kit._triggerSound(hit.type || 'kick', nextTickTime);
+          }
+        }
+      }
+    }
+
+    // Release held notes whose duration elapsed
+    for (const [key, entry] of this._inspectActiveNotes) {
+      if (localTick >= entry.endLocal) {
+        entry.synth.noteOff(entry.pitch, nextTickTime);
+        this._inspectActiveNotes.delete(key);
+      }
+    }
+  }
+
+  /**
    * Process a transport tick — check all tracks for notes to play.
    * @param {number} tick - Current transport tick
    * @param {number} nextTickTime - AudioContext time this tick occurs
@@ -247,6 +364,14 @@ export class PlaybackEngine {
   _processTick(tick, nextTickTime) {
     if (!this.project?.tracks) return;
     if (this.transport.state === TransportState.STOPPED) return;
+
+    // Inspect mode owns playback while a snippet is being inspected.
+    // The browser state (no snippet open) is handled in main.js, which
+    // never sets an inspect source and so this branch stays inert.
+    if (this._inspectSource) {
+      this._processInspectTick(tick, nextTickTime);
+      return;
+    }
 
     const ticksPerBar = this.transport.ticksPerBar;
 
@@ -514,6 +639,16 @@ export class PlaybackEngine {
 
   destroy() {
     this._allNotesOff();
+    this._allInspectNotesOff();
     this._trackSynths.clear();
+    this._trackKits.clear();
+    // Release the dedicated inspect synth/kit references so their audio
+    // resources can be garbage-collected, matching how the per-track
+    // synths/kit entries are cleared above.
+    this._inspectSynth = null;
+    this._inspectKit = null;
+    this._inspectActiveNotes.clear();
+    this._lastInspectLocalTick = null;
+    this._inspectSource = null;
   }
 }

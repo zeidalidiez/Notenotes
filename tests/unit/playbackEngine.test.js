@@ -166,3 +166,99 @@ test('BUG: recorded modulation reaches a modern voice oscillators (currently swa
     'voice.osc (undefined) and the throw was swallowed — modulation never applied'
   );
 });
+
+// --- INSPECT MODE PLAYBACK ---
+//
+// INSPECT_MODE_REVAMP.md Feature D adds a "play only the inspected clip"
+// path. setInspectSource(snippet) routes _processTick through
+// _processInspectTick, which schedules notes/hits from the snippet
+// (not Canvas tracks) and loops the clip over its own durationTicks.
+
+test('inspect source schedules the snippet notes and ignores Canvas tracks', () => {
+  const ctx = freshEngine();
+  const transport = makeFakeTransport({ ticksPerBar: 1920 });
+  const project = midiTrackProject({
+    notes: [
+      { pitch: 60, startTick: 0, durationTick: 120, velocity: 0.8 },
+      { pitch: 64, startTick: 480, durationTick: 120, velocity: 0.8 },
+    ],
+  });
+  const pe = new PlaybackEngine(transport, project);
+  const inspectSnippet = {
+    id: 'inspect-1',
+    type: 'midi',
+    durationTicks: 960,
+    notes: [
+      { pitch: 67, startTick: 0, durationTick: 240, velocity: 0.9 },
+      { pitch: 72, startTick: 480, durationTick: 240, velocity: 0.9 },
+    ],
+  };
+  pe.setInspectSource(inspectSnippet);
+
+  const events = [];
+  const orig = pe._getInspectSynth().noteOn.bind(pe._getInspectSynth());
+  pe._getInspectSynth().noteOn = (pitch, vel, time) => { events.push({ pitch, time }); return orig(pitch, vel, time); };
+
+  for (let tick = 0; tick < 960; tick++) pe._processTick(tick, ctx.currentTime + tick * 0.001);
+
+  // Only the inspect snippet's notes fire — no Canvas-track notes.
+  assert.equal(events.length, 2, 'inspect source fires only the snippet notes');
+  assert.deepEqual(events.map(e => e.pitch), [67, 72]);
+});
+
+test('inspect source loops the clip over its durationTicks', () => {
+  const ctx = freshEngine();
+  const transport = makeFakeTransport({ ticksPerBar: 1920 });
+  const project = { tracks: [], settings: {} };
+  const pe = new PlaybackEngine(transport, project);
+  pe.setInspectSource({
+    id: 'loop-test',
+    type: 'midi',
+    durationTicks: 240,
+    notes: [{ pitch: 60, startTick: 0, durationTick: 120, velocity: 0.8 }],
+  });
+
+  const events = [];
+  const orig = pe._getInspectSynth().noteOn.bind(pe._getInspectSynth());
+  pe._getInspectSynth().noteOn = (pitch, vel, time) => { events.push({ pitch, time }); return orig(pitch, vel, time); };
+
+  // Drive 1.5 loops. The same note should fire on the start of each loop:
+  // tick 0 (local 0) and tick 240 (local 0 after wrap). The third candidate
+  // would be tick 480, which is out of the 0..359 range.
+  for (let tick = 0; tick < 360; tick++) pe._processTick(tick, ctx.currentTime + tick * 0.001);
+
+  assert.equal(events.length, 2, 'looped note fires at the start of each loop iteration');
+});
+
+test('clearing the inspect source returns to Canvas-track playback', () => {
+  const ctx = freshEngine();
+  const transport = makeFakeTransport({ ticksPerBar: 1920 });
+  const project = midiTrackProject({
+    notes: [{ pitch: 60, startTick: 0, durationTick: 120, velocity: 0.8 }],
+  });
+  const pe = new PlaybackEngine(transport, project);
+
+  // First: arm inspect source with a DIFFERENT note so we can prove it
+  // didn't fire while inspect was active.
+  pe.setInspectSource({
+    id: 'inspect-x',
+    type: 'midi',
+    durationTicks: 480,
+    notes: [{ pitch: 80, startTick: 0, durationTick: 240, velocity: 0.8 }],
+  });
+  for (let tick = 0; tick < 240; tick++) pe._processTick(tick, ctx.currentTime + tick * 0.001);
+
+  // Now clear inspect source and drive a tick that should hit the
+  // Canvas track's note at tick 0.
+  pe.setInspectSource(null);
+  const canvasEvents = [];
+  const synth = pe._getSynthForTrack(project.tracks[0]);
+  pe._trackSynths.set('t1', { synth, instrumentId: 'modern_keys' });
+  const orig = synth.noteOn.bind(synth);
+  synth.noteOn = (pitch, vel, time) => { canvasEvents.push({ pitch, time }); return orig(pitch, vel, time); };
+
+  pe._processTick(0, ctx.currentTime);
+
+  assert.equal(canvasEvents.length, 1);
+  assert.equal(canvasEvents[0].pitch, 60, 'Canvas-track note fires once inspect source is cleared');
+});

@@ -810,11 +810,18 @@ class App {
     // into or out of Inspect always silences the previous source. Per the
     // INSPECT_MODE_REVAMP spec, this is the simplest correct rule: every
     // tab boundary is a hard stop.
+    //
+    // Note: `_inspectSnippet` is intentionally NOT cleared here. It tracks
+    // the clip loaded in EditMode (`editMode._snippet`), which doesn't
+    // change on a tab switch — opening a clip and then visiting Canvas
+    // does not unload it. The piano roll still shows the same clip when
+    // the user returns, so play must continue to drive it. `_handlePlayToggle`
+    // re-establishes the PlaybackEngine's inspect source on the next
+    // press, so we don't need to do it eagerly here.
     this.modeTabs.onChange((mode) => {
       this.transport.stop();
       this.playbackEngine?.setInspectSource?.(null);
       this.editMode?.stopAudioPlayback?.();
-      this._inspectSnippet = null;
       this._switchMode(mode);
       // Refresh canvas when switching to it
       if (mode === Modes.CANVAS && this.canvasMode) {

@@ -163,6 +163,15 @@ class App {
     this.editMode.onSnippetCreated = (snippet) => {
       this.creativeMode.snippetTray.addSnippet(snippet);
     };
+    // EditMode → PlaybackEngine: keep the inspect source in sync as the
+    // open snippet changes. The callback pattern keeps EditMode UI-only
+    // and PlaybackEngine access in the orchestrator.
+    this._inspectSnippet = null;
+    this.editMode.onInspectSnippetChanged = (snippet) => {
+      this._inspectSnippet = snippet;
+      const nextSource = snippet && snippet.type !== 'audio' ? snippet : null;
+      this.playbackEngine?.setInspectSource(nextSource);
+    };
 
     // Wire snippet selection: SnippetTray → EditMode
     this.creativeMode.snippetTray.onSnippetSelected((snippet) => {
@@ -255,6 +264,7 @@ class App {
     this.transportBar.onArmRecordClick = (armed) => {
       this.creativeMode?.setRecordArmed?.(armed);
     };
+    this.transportBar.onPlayToggle = () => this._handlePlayToggle();
     this.transportBar.onProjectKeyChange = (context) => {
       this._setProjectMusicalContext(context, { source: 'transport' });
     };
@@ -786,14 +796,45 @@ class App {
     // Mode tabs (bottom)
     app.appendChild(this.modeTabs.render());
 
-    // Mode switching
+    // Mode switching. Stop any playback on every tab change so switching
+    // into or out of Inspect always silences the previous source. Per the
+    // INSPECT_MODE_REVAMP spec, this is the simplest correct rule: every
+    // tab boundary is a hard stop.
     this.modeTabs.onChange((mode) => {
+      this.transport.stop();
+      this.playbackEngine?.setInspectSource?.(null);
+      this.editMode?.stopAudioPlayback?.();
+      this._inspectSnippet = null;
       this._switchMode(mode);
       // Refresh canvas when switching to it
       if (mode === Modes.CANVAS && this.canvasMode) {
         this.canvasMode.refresh();
       }
     });
+  }
+
+  /**
+   * Centralized play/pause handler. In Inspect with a clip open, audition
+   * only that clip. In Inspect with no clip open (browsing the library),
+   * do nothing — this is the greptile-flagged fix that prevents Space
+   * in the browser from silently starting Canvas playback. Outside Inspect,
+   * play the Canvas arrangement as before.
+   */
+  _handlePlayToggle() {
+    const inInspect = this.modeTabs.activeMode === Modes.PIANOROLL;
+    const snippet = this._inspectSnippet;
+    if (inInspect) {
+      if (!snippet) return; // browser state: no-op
+      if (snippet.type === 'audio') {
+        this.editMode.toggleAudioPlayback();
+      } else {
+        this.playbackEngine?.setInspectSource?.(snippet);
+        this.transport.toggle();
+      }
+      return;
+    }
+    this.playbackEngine?.setInspectSource?.(null);
+    this.transport.toggle();
   }
 
   /**
@@ -964,11 +1005,12 @@ class App {
       // Don't capture when typing in inputs
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable) return;
 
-      // Space → Play/Pause
+      // Space → Play/Pause. Routed through `_handlePlayToggle` so Inspect
+      // mode can audition the open clip instead of the Canvas arrangement.
       if (e.code === 'Space') {
         e.preventDefault();
         if (this._initialized) {
-          this.transport.toggle();
+          this._handlePlayToggle();
         }
       }
 

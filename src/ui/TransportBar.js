@@ -29,6 +29,10 @@ export class TransportBar {
     this.onKeysClick = null;
     this.onModResetClick = null;
     this.onPanicClick = null;
+    /** Optional override for the play/pause button. If set, called instead
+     *  of `transport.toggle()`. `main.js` uses this to route Inspect-mode
+     *  play through `_handlePlayToggle`. */
+    this.onPlayToggle = null;
     this.onArmRecordClick = null;
     this.onProjectKeyChange = null;
     this.onProjectMeterChange = null;
@@ -155,7 +159,8 @@ export class TransportBar {
     // Play/pause
     this.el.querySelector('#btn-play').addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      this.transport.toggle();
+      if (this.onPlayToggle) this.onPlayToggle();
+      else this.transport.toggle();
     });
 
     // Stop

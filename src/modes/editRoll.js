@@ -653,20 +653,27 @@ export const EditRollMixin = {
     if (!panes.length) return;
     const transport = this.transport;
     if (!transport) return;
-    const snippetDuration = Number(this._snippet?.durationTicks) || 0;
 
+    // Read the snippet's durationTicks *fresh* on every frame instead of
+    // capturing it once at start time. All current mutations go through
+    // `_rebuildAll` (which restarts this loop), but the coupling is
+    // implicit — a future in-place mutation that skips the rebuild would
+    // otherwise leave the playhead looping at the wrong interval. Reading
+    // fresh eliminates the risk with no measurable cost.
+    //
+    // Loop termination always goes through `cancelAnimationFrame` in
+    // `_stopPlayheadAnimation` (called at the top of `_renderEditor` and
+    // at the start of `loadSnippet` before the DOM wipe). The `playhead`
+    // reference is held by the pane object, so the loop does not need to
+    // detect teardown on its own.
     const tick = () => {
       const playheads = panes.map(p => p.playhead).filter(Boolean);
-      if (!playheads.length) {
-        // Panes were torn down (e.g. via _rebuildAll) — stop the loop.
-        this._playheadAnim = null;
-        return;
-      }
       const currentState = transport.state;
       const shouldShow = currentState !== TransportState.STOPPED;
       if (!shouldShow) {
         for (const el of playheads) el.style.display = 'none';
       } else {
+        const snippetDuration = Number(this._snippet?.durationTicks) || 0;
         const left = this._playheadLeftForTick(transport.currentTick, snippetDuration);
         for (const el of playheads) {
           el.style.display = 'block';

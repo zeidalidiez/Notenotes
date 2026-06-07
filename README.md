@@ -19,7 +19,7 @@ Notenotes is a pre-DAW. Think of it as the napkin sketch before you sit down at 
 I built this app primarily to experiment with music myself, and to understand ways to think about music outside of the constraints of what I've learned in music theory. I am a long time musician who has trouble putting ideas into a DAW, so I needed a noodling board of sorts. This is not ever meant to replace a DAW, and as such I don't want to focus on production and effects. In my head you come up with a hook on Notenotes and then you build it into a song elsewhere. 
 
 
-**Color over notation** Beats can be colors. Pads can be colors (this is in progress). I want people to read songs in different ways.
+**Color over notation** Beats can be colors. Pads can be colors. I want people to read songs in different ways.
 
 **Unconventional instruments** Plug in a controller - the buttons become your scale. Extremely intuitive, easy to pick up.
 
@@ -46,29 +46,43 @@ It's a Progressive Web App. In Chrome, use the three-dot menu, then Cast, save, 
 
 ### Create - the jam space
 
-![Create mode - Pads with numbered, scale-locked pads](scale.gif)
+![Create mode - pads, instruments, and record](readme_images/createmode.gif)
 
 Pick a scale. Mash the pads. Switch instruments mid-loop. Press record, jam, press stop - your loop becomes a snippet.
 
-### Controller - your gamepad is an instrument
+### Scales - in-key, always
 
-![Controller mode - gamepad as a scale-locked instrument](controller.gif)
+![Scale picker - lock the project to a key](readme_images/scales.gif)
 
-<sub>Controller artwork by [nicefrog](https://opengameart.org/users/nicefrog) - [Generic Gamepad Template](https://opengameart.org/content/generic-gamepad-template), released under [CC0](https://creativecommons.org/publicdomain/zero/1.0/). Thank you, nicefrog.</sub>
-
-Plug in any USB or Bluetooth controller. D-pad and face buttons map to the scale by default, or you can teach buttons to trigger exact notes and drum sounds. Learned buttons are global in Create, so a Kick button can still fire while you are looking at Piano, and a C4 button can still fire while you are looking at Kit. Analog sticks bend pitch and add modulation. Shoulders and triggers are held musical modifiers: make the next button a Triad, 7th, Sus2, Power chord, 9th, 11th, 13th, or octave jump without turning effects on and off mid-take. Pass the controller to a friend who's never touched a keyboard - watch what happens.
+Pick a key and scale in the top bar. Every press on a pad, every note on the piano, every drum hit is in key. You can't pick a wrong note - the app won't let you. Step Play, Keys, and Pad mode all read from the same scale, so changing the key once updates everything.
 
 ### Canvas - composition as collage
 
-![Canvas mode - dragging snippets onto a multi-track timeline](canvas.gif)
+![Canvas mode - dragging snippets onto a multi-track timeline](readme_images/canvas.gif)
 
 Drag your captured snippets onto typed tracks. MIDI goes on MIDI tracks, drums go on drum tracks, and audio goes on audio tracks. Move them, mute them, pan them, layer them, or use the Time tool to flip a clip into half-time or double-time without rewriting the original snippet. Hit play and listen to the song you didn't know you were writing.
 
 ### Inspect - when you're ready for detail
 
-![Inspect mode - piano roll editor for refining notes](inspect.gif)
+![Inspect mode - piano roll editor for refining notes](readme_images/inspect.gif)
 
-Inspect is the landing tab. When you open Notenotes you land here, in a searchable library of your snippets with mini previews, type filters, sortable list and grid views, and quick `New MIDI Clip` / `New Drum Clip` buttons. Open one to fine-edit in the piano roll, audition it with the play button, then hit `‹ Library` to come back and pick another. The play button only sounds the clip you're looking at, and switching tabs always stops any in-flight playback. Or skip Inspect entirely - Notenotes works without it.
+Inspect is the landing tab. When you open Notenotes you land here, in a searchable library of your snippets with mini previews, type filters, sortable list and grid views, and quick `New MIDI Clip` / `New Drum Clip` buttons. Open one to fine-edit in the piano roll, audition it with the play button, then hit `Library` to come back and pick another. The play button only sounds the clip you're looking at, and switching tabs always stops any in-flight playback. Or skip Inspect entirely - Notenotes works without it.
+
+### Stage - performance visuals
+
+![Stage mode - live performance visualizer](readme_images/stagemode.gif)
+
+Open Stage from Create or Canvas and the screen turns into a live performance visualizer. **Trace** is a neon highway of falling notes. **Thread** draws pitch as a ribbon so melodies read as a shape, not a line. **Pulse** keeps the rhythm energy on a clock face. **Halo** is a circle-of-fifths bloom for pitch classes. **Pocket** is a groove clock where hits land as pips and held notes grow into arcs inside the current pulse. Use the view selector, arrow buttons, or a left/right swipe to move between live views. Same notes, same project - just a different way to look at what you're playing.
+
+### Patch picker - audition any patch in Inspect
+
+![Inspect - Patch picker lets you audition any synth or kit](readme_images/patchinstruments.gif)
+
+While a clip is open in Inspect, the toolbar has a **Patch** group (MIDI) or **Kit** group (drum). The button shows the snippet's currently recorded instrument and opens the same searchable picker Canvas uses for track instruments. Pick a different patch and the snippet plays under it on the next press of Play. The choice becomes the snippet's default when you drop it on a Canvas track - and you can still override the track's instrument in Canvas per clip.
+
+<sub>Controller artwork by [nicefrog](https://opengameart.org/users/nicefrog) - [Generic Gamepad Template](https://opengameart.org/content/generic-gamepad-template), released under [CC0](https://creativecommons.org/publicdomain/zero/1.0/). Thank you, nicefrog.</sub>
+
+Plug in any USB or Bluetooth controller. The Controller Lab (under **Labs** in the instrument rail) holds the four shoulder/trigger modifier slots, current bindings, fallback notes, and saved binding presets. D-pad and face buttons map to the scale by default, or you can teach buttons to trigger exact notes and drum sounds. Learned buttons are global in Create, so a Kick button can still fire while you are looking at Piano, and a C4 button can still fire while you are looking at Kit. Analog sticks bend pitch and add modulation. Shoulders and triggers are held musical modifiers: make the next button a Triad, 7th, Sus2, Power chord, 9th, 11th, 13th, or octave jump without turning effects on and off mid-take. Pass the controller to a friend who's never touched a keyboard - watch what happens.
 
 ---
 
@@ -107,7 +121,7 @@ Plus: **16 synth presets** split into Chip and Modern families, picked from the 
 
 - **Create: playing and capturing.** 16 synth presets, 4 drum kits, scale-locked or chromatic, hold and arpeggio modes. Chip, Modern, and Custom patch instruments are chosen from a searchable picker so the list can grow without turning into a scroll trap. Chip presets stay punchy and retro, while every Modern preset uses richer synth motion like a supporting oscillator, light unison, curved attack/decay envelopes, stereo spread, filter movement, vibrato or key tracking, restrained drive, and velocity response without making quick taps disappear.
 - **Canvas: arranging.** Typed MIDI, drum, and audio tracks with drag-and-drop, per-track mute / solo / pan, user-set track colors, searchable track instrument pickers, drum tracks that can pick the same built-in kits as the Kit screen, a cleaner toolbar for adding tracks and shaping selected clips, a one-click **Trim** to clean empty space, a **Time** tool for non-destructive half-time / double-time clip timing, and an auto-calculated loop region. Click the ruler numbers to move the playhead. Clips will not stack on top of each other by accident. When you drag near another clip, they snap edge to edge instead of silently overlapping; when Time makes a clip grow, later clips on that track are pushed right so the clip start stays put. Track pan opens from each lane and is heard in live Canvas playback and stereo Canvas WAV export. On touch screens, drag empty Canvas space to pan the timeline, drag Canvas clips to move them, long-press a clip to delete it, and scroll the snippet dock horizontally unless you drag a snippet upward into a track. Dropping a recorded MIDI clip onto a MIDI track also brings over the instrument it was recorded with, then you can change the track from there. Audio clips use a LINE badge and show a lightweight real peak preview when the app has the audio bytes, so quiet space and loud moments are easier to see. Recorded **pitch-bend**, **modulation**, and Tone badges ride on clips and snippets, while Time badges appear on arranged clips so you can see what has movement, timing changes, or effects before and after arranging.
-- **Inspect: refining.** Tap-to-add piano roll. Rename Audio In recordings from the audio preview, switch between MIDI, drum, and audio clips without leaving Inspect, edit selected-note velocity with clearer note-level velocity meters, use vertical zoom, set the octave range (C1-C6), split MIDI view, use **2x** / **1/2** snippet length buttons, snap an entire snippet with **Quantize all**, and use **Fit Rhythm** to stretch MIDI notes or drum hits into 1, 2, or 4 bars with a Keep-my-feel to Make-it-clean slider, optional even spacing, and preview before apply. The Inspect ruler follows the snippet/content length instead of forcing a long empty timeline. Turn on a one-clip **Shadow** view so you can line up a melody against another MIDI or drum idea without merging anything. Drum Inspect now has the same timeline ruler and left-to-right clip growth as MIDI, and drum hits draw as grid blocks so they read more like intentional steps instead of dots floating away from where you clicked. Drum clips can shadow MIDI too, as a rough timing guide. The Inspect library (when no clip is open) is a real file explorer — search, type pills, sort, list/grid — so a growing snippet collection does not become a scroll trap. Browser preferences (sort, filter, view) persist with the project. The play button auditions only the open clip, and `‹ Library` returns to the browser. While the snippet plays, a vertical playhead matching the Canvas style sweeps over the grid and loops with the clip, so you can see exactly where playback is. A **Patch** (MIDI) or **Kit** (drum) picker on the toolbar shows the snippet's currently recorded instrument and lets you audition the snippet under a different one; the choice becomes the snippet's default for future Canvas drops (and is overridden by whatever the user picks in Canvas per track).
+- **Inspect: refining.** Tap-to-add piano roll. Rename Audio In recordings from the audio preview, switch between MIDI, drum, and audio clips without leaving Inspect, edit selected-note velocity with clearer note-level velocity meters, use vertical zoom, set the octave range (C1-C6), split MIDI view, use **2x** / **1/2** snippet length buttons, snap an entire snippet with **Quantize all**, and use **Fit Rhythm** to stretch MIDI notes or drum hits into 1, 2, or 4 bars with a Keep-my-feel to Make-it-clean slider, optional even spacing, and preview before apply. The Inspect ruler follows the snippet/content length instead of forcing a long empty timeline. Turn on a one-clip **Shadow** view so you can line up a melody against another MIDI or drum idea without merging anything. Drum Inspect now has the same timeline ruler and left-to-right clip growth as MIDI, and drum hits draw as grid blocks so they read more like intentional steps instead of dots floating away from where you clicked. Drum clips can shadow MIDI too, as a rough timing guide. The Inspect library (when no clip is open) is a real file explorer — search, type pills, sort, list/grid — so a growing snippet collection does not become a scroll trap. Browser preferences (sort, filter, view) persist with the project. The play button auditions only the open clip, and `Library` returns to the browser. While the snippet plays, a vertical playhead matching the Canvas style sweeps over the grid and loops with the clip, so you can see exactly where playback is. A **Patch** (MIDI) or **Kit** (drum) picker on the toolbar shows the snippet's currently recorded instrument and lets you audition the snippet under a different one; the choice becomes the snippet's default for future Canvas drops (and is overridden by whatever the user picks in Canvas per track).
 
 You never have to leave Create to make a song. The other modes are there when you want them.
 
@@ -306,8 +320,8 @@ The clips above were captured by hand and they're meant to evolve. If you want t
 
 1. **Tool to install:** [Kap](https://getkap.co) (Mac), [ScreenToGif](https://www.screentogif.com) (Windows), or [Peek](https://github.com/phw/peek) (Linux). All free.
 2. **Aspect:** record the browser window at ~1280×720 for sharp playback in the README.
-3. **Export:** GIF or short MP4. Keep clips **5–10 seconds**, **under 5MB**.
-4. **Replace** `scale.gif`, `controller.gif`, `canvas.gif`, or `inspect.gif` in the repo root with your new capture.
+3. **Export:** GIF or short MP4. Keep clips **5–10 seconds**, **under 5MB**. If your capture runs long (the `stagemode.gif` clip is a known exception at ~17MB), re-encode with HandBrake or `ffmpeg -i in.mov -vf "fps=15,scale=960:-1" out.gif` to land under 5MB.
+4. **Replace** the gifs in `readme_images/` with your new capture. Current set: `createmode.gif`, `scales.gif`, `canvas.gif`, `inspect.gif`, `stagemode.gif`, `patchinstruments.gif`.
 
 >  The most compelling clips show **a real interaction**: pressing pads, dragging clips, switching instruments. Avoid showing menus - show *making music*.
 

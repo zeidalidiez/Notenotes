@@ -80,8 +80,6 @@ Open Stage from Create or Canvas and the screen turns into a live performance vi
 
 While a clip is open in Inspect, the toolbar has a **Patch** group (MIDI) or **Kit** group (drum). The button shows the snippet's currently recorded instrument and opens the same searchable picker Canvas uses for track instruments. Pick a different patch and the snippet plays under it on the next press of Play. The choice becomes the snippet's default when you drop it on a Canvas track - and you can still override the track's instrument in Canvas per clip.
 
-<sub>Controller artwork by [nicefrog](https://opengameart.org/users/nicefrog) - [Generic Gamepad Template](https://opengameart.org/content/generic-gamepad-template), released under [CC0](https://creativecommons.org/publicdomain/zero/1.0/). Thank you, nicefrog.</sub>
-
 Plug in any USB or Bluetooth controller. The Controller Lab (under **Labs** in the instrument rail) holds the four shoulder/trigger modifier slots, current bindings, fallback notes, and saved binding presets. D-pad and face buttons map to the scale by default, or you can teach buttons to trigger exact notes and drum sounds. Learned buttons are global in Create, so a Kick button can still fire while you are looking at Piano, and a C4 button can still fire while you are looking at Kit. Analog sticks bend pitch and add modulation. Shoulders and triggers are held musical modifiers: make the next button a Triad, 7th, Sus2, Power chord, 9th, 11th, 13th, or octave jump without turning effects on and off mid-take. Pass the controller to a friend who's never touched a keyboard - watch what happens.
 
 ---

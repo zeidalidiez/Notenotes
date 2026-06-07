@@ -269,11 +269,42 @@ export class PlaybackEngine {
    * instrument differs from the cached inspect synth/kit, the engine
    * drops them so the next `_getInspectSynth` / `_getInspectKit` builds
    * a fresh instance with the new patch/kit loaded.
+   *
+   * The Inspect patch picker mutates the snippet in place and calls
+   * `setInspectSource` again with the *same* object reference, so the
+   * reference-equality check at the top is followed by a per-channel
+   * instrument-id check. If the resolved instrument changed, the
+   * matching cache is dropped even though the reference is unchanged.
    * @param {object|null} snippet
    */
   setInspectSource(snippet) {
     const next = snippet || null;
-    if (this._inspectSource === next) return;
+
+    // Resolve the snippet's intended instrument up front. We need this
+    // even on the same-reference path so the cache-drop branch can run
+    // when the picker mutates `snippet.instrumentId` in place.
+    const midiId = next?.type === 'midi'
+      ? (next.patchRecorded?.instrumentId || next.instrumentId || next.patchId || 'modern_keys')
+      : null;
+    const kitId = next?.type === 'drum'
+      ? (next.kitRecorded?.instrumentId || next.instrumentId || next.kitId || 'classic')
+      : null;
+
+    if (this._inspectSource === next) {
+      // Same snippet reference — but the picker may have just mutated
+      // its `instrumentId` / `patchRecorded` / `kitRecorded`. Drop the
+      // matching cached synth/kit so the next Play auditions under the
+      // new patch/kit. No transport reset is needed: the user is
+      // changing the patch while paused or browsing, not while a note
+      // is ringing.
+      if (midiId && this._inspectSynthInstrumentId && this._inspectSynthInstrumentId !== midiId) {
+        this._inspectSynth = null;
+      }
+      if (kitId && this._inspectKitInstrumentId && this._inspectKitInstrumentId !== kitId) {
+        this._inspectKit = null;
+      }
+      return;
+    }
 
     this._allInspectNotesOff();
     this._inspectSource = next;
@@ -290,17 +321,11 @@ export class PlaybackEngine {
       return;
     }
 
-    // If the snippet's instrument changed, drop the cached synth/kit so
-    // the next `_getInspectSynth` / `_getInspectKit` rebuilds them with
-    // the new preset. We don't rebuild eagerly here because no audio is
-    // playing yet (the play button hasn't been pressed) — building on
-    // demand keeps idle state cheap.
-    const midiId = next.type === 'midi'
-      ? (next.patchRecorded?.instrumentId || next.instrumentId || next.patchId || 'modern_keys')
-      : null;
-    const kitId = next.type === 'drum'
-      ? (next.kitRecorded?.instrumentId || next.instrumentId || next.kitId || 'classic')
-      : null;
+    // New snippet reference — drop the cached synth/kit so the next
+    // `_getInspectSynth` / `_getInspectKit` rebuilds them with the new
+    // preset. We don't rebuild eagerly here because no audio is playing
+    // yet (the play button hasn't been pressed) — building on demand
+    // keeps idle state cheap.
     if (midiId && this._inspectSynthInstrumentId && this._inspectSynthInstrumentId !== midiId) {
       this._inspectSynth = null;
     }

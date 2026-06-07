@@ -128,6 +128,29 @@ test('MIDI: existing patchRecorded is replaced (not merged) on a new pick', () =
   assert.ok(snippet.patchRecorded.capturedAt >= firstCapturedAt);
 });
 
+test('MIDI: legacy snippet (instrumentId set, no patchRecorded) gets the block on first pick', () => {
+  // Pre-feature snippets may have `instrumentId` but no `patchRecorded`
+  // block. Picking the same id in the new picker should NOT be a
+  // no-op — it should write the recorded block so the snippet
+  // participates in the same flow as freshly recorded ones (WAV
+  // export, Canvas drop, re-arm).
+  const snippet = makeMidiSnippet({ instrumentId: 'heartbound' });
+  assert.equal(snippet.patchRecorded, undefined, 'precondition: no block yet');
+  const ok = setInstrument.call({}, snippet, 'heartbound');
+  assert.equal(ok, true, 'legacy snippet is upgraded, not skipped');
+  assert.ok(snippet.patchRecorded, 'patchRecorded is now written');
+  assert.equal(snippet.patchRecorded.instrumentId, 'heartbound');
+});
+
+test('Drum: legacy snippet (instrumentId set, no kitRecorded) gets the block on first pick', () => {
+  const snippet = makeDrumSnippet({ instrumentId: 'classic' });
+  assert.equal(snippet.kitRecorded, undefined, 'precondition: no block yet');
+  const ok = setInstrument.call({}, snippet, 'classic');
+  assert.equal(ok, true, 'legacy drum snippet is upgraded, not skipped');
+  assert.ok(snippet.kitRecorded, 'kitRecorded is now written');
+  assert.equal(snippet.kitRecorded.instrumentId, 'classic');
+});
+
 /**
  * The EditMode constructor expects transport / undoManager / store /
  * project. We don't call any of them in these pure-helper tests, but

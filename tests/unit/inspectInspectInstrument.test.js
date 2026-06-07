@@ -151,3 +151,56 @@ test('MIDI and drum instruments are tracked independently', () => {
   pe._getInspectKit();
   assert.equal(pe._inspectKitInstrumentId, 'classic');
 });
+
+test('in-place mutation of a snippet\'s instrument re-arms the cached synth', () => {
+  // The Inspect patch picker mutates `snippet.instrumentId` in place
+  // via `EditMode._setSnippetInstrument` and then calls
+  // `setInspectSource(snippet)` with the SAME object reference. The
+  // engine must detect the instrument change and drop the cached synth
+  // so the next press of Play auditions under the new patch.
+  freshEngine();
+  const transport = makeFakeTransport({ ticksPerBar: 1920 });
+  const project = { tracks: [], settings: {} };
+  const pe = new PlaybackEngine(transport, project);
+
+  const snippet = midiSnippet('heartbound');
+  pe.setInspectSource(snippet);
+  const first = pe._getInspectSynth();
+  assert.equal(pe._inspectSynthInstrumentId, 'heartbound');
+
+  // The picker mutates in place and re-fires with the same reference.
+  snippet.instrumentId = 'modern_keys';
+  snippet.patchRecorded = {
+    instrumentId: 'modern_keys',
+    patchSnapshot: null,
+    capturedAt: Date.now(),
+  };
+  pe.setInspectSource(snippet);
+
+  // Even though the reference is unchanged, the resolved instrument
+  // moved, so the synth must be dropped and rebuilt.
+  assert.equal(pe._inspectSynth, null, 'cached synth is dropped on in-place instrument change');
+  const second = pe._getInspectSynth();
+  assert.notEqual(second, first, 'second read produces a new instance');
+  assert.equal(pe._inspectSynthInstrumentId, 'modern_keys');
+});
+
+test('in-place mutation with the same instrument id is a no-op (no rebuild)', () => {
+  // Setting `instrumentId` to its current value (e.g. the picker re-
+  // selecting the active option) must not churn the cached synth.
+  freshEngine();
+  const transport = makeFakeTransport({ ticksPerBar: 1920 });
+  const project = { tracks: [], settings: {} };
+  const pe = new PlaybackEngine(transport, project);
+
+  const snippet = midiSnippet('heartbound');
+  pe.setInspectSource(snippet);
+  const first = pe._getInspectSynth();
+  assert.equal(pe._inspectSynthInstrumentId, 'heartbound');
+
+  // Re-select the same id. Resolved instrument is unchanged, so the
+  // synth must be preserved.
+  pe.setInspectSource(snippet);
+  assert.equal(pe._inspectSynth, first, 'synth instance is preserved');
+  assert.equal(pe._inspectSynthInstrumentId, 'heartbound');
+});

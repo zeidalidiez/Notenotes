@@ -11,7 +11,7 @@ import { showToast } from '../ui/Toast.js';
 import { ChoicePicker } from '../ui/ChoicePicker.js';
 import { renderSnippetPreviewSVG } from '../ui/snippetPreview.js';
 import { PRESETS } from '../instruments/WebAudioSynth.js';
-import { drumInstrumentGroups, midiInstrumentGroups } from './instrumentGroups.js';
+import { drumInstrumentGroups, midiInstrumentGroups, labelForInstrument } from './instrumentGroups.js';
 import { DEFAULT_NOTE_HEIGHT, MIN_PIANO_OCTAVE, MAX_PIANO_OCTAVE } from './editConstants.js';
 import { EditAudioPlayerMixin } from './editAudioPlayer.js';
 import { EditRollMixin } from './editRoll.js';
@@ -131,10 +131,14 @@ export class EditMode {
    */
   _setSnippetInstrument(snippet, instrumentId) {
     if (!snippet || !instrumentId) return false;
+    // No-op only when the snippet's recorded block already matches the
+    // pick. A legacy snippet may have `instrumentId` set but no
+    // `patchRecorded` / `kitRecorded` block — in that case we want to
+    // write the block on the first pick, not skip it.
+    const midiRecordedMatches = snippet.patchRecorded?.instrumentId === instrumentId;
+    const drumRecordedMatches = snippet.kitRecorded?.instrumentId === instrumentId;
     if (snippet.instrumentId === instrumentId
-      && (snippet.patchRecorded?.instrumentId === instrumentId
-        || snippet.kitRecorded?.instrumentId === instrumentId
-        || (!snippet.patchRecorded && !snippet.kitRecorded))) {
+      && (midiRecordedMatches || drumRecordedMatches)) {
       return false;
     }
     snippet.instrumentId = instrumentId;

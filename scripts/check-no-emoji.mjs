@@ -7,8 +7,9 @@
  *
  * The regex flags:
  *   - pictographic emoji (U+1F000..U+1FAFF, U+1F1E6..U+1F1FF)
- *   - common symbol blocks (U+2600..U+27BF) — covers arrows (◀▶▼▲),
- *     cross/close (✕), pencils (✏), checkmarks, geometric shapes
+ *   - symbol blocks (U+2500..U+27BF) — covers Geometric Shapes
+ *     (U+25A0..U+25FF, including triangular arrows ◀▶▼▲), Dingbats
+ *     (U+2700..U+27BF, including cross/close ✕, pencils ✏, checkmarks)
  *   - variation selectors (U+FE0F) that pair with emoji
  *   - ad-hoc Unicode used as icon: ‹ (U+2039), › (U+203A), ⌨ (U+2328)
  *
@@ -22,7 +23,7 @@ const ROOT = 'src';
 const SKIP_DIRS = new Set(['node_modules', 'dist', '.git']);
 const EXTS = new Set(['.js', '.mjs', '.ts', '.css', '.html']);
 
-const EMOJI = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{1F1E6}-\u{1F1FF}‹›⌨]/u;
+const EMOJI = /[\u{1F000}-\u{1FAFF}\u{2500}-\u{27BF}\u{FE0F}\u{1F1E6}-\u{1F1FF}‹›⌨]/u;
 
 const bad = [];
 

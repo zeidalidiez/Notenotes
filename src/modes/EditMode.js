@@ -257,8 +257,8 @@ export class EditMode {
               </select>
             </label>
             <div class="edit-browser__view" role="tablist" aria-label="View style">
-              <button class="edit-browser__view-btn${prefs.view === 'list' ? ' is-active' : ''}" data-view="list" type="button" role="tab" aria-selected="${prefs.view === 'list'}" title="List view">≡</button>
-              <button class="edit-browser__view-btn${prefs.view === 'grid' ? ' is-active' : ''}" data-view="grid" type="button" role="tab" aria-selected="${prefs.view === 'grid'}" title="Grid view">▦</button>
+              <button class="edit-browser__view-btn${prefs.view === 'list' ? ' is-active' : ''}" data-view="list" type="button" role="tab" aria-selected="${prefs.view === 'list'}" title="List view">${icon('list', { size: 16 })}</button>
+              <button class="edit-browser__view-btn${prefs.view === 'grid' ? ' is-active' : ''}" data-view="grid" type="button" role="tab" aria-selected="${prefs.view === 'grid'}" title="Grid view">${icon('layoutGrid', { size: 16 })}</button>
             </div>
             <div class="edit-browser__spacer"></div>
             <button class="btn btn--ghost edit-toolbar__btn" id="edit-new-midi" type="button">New MIDI Clip</button>

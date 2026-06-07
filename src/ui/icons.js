@@ -33,9 +33,23 @@ const ICONS = {
   chevronUp:    '<path d="m18 15-6-6-6 6"/>',
   chevronLeft:  '<path d="m15 18-6-6 6-6"/>',
   chevronRight: '<path d="m9 18 6-6-6-6"/>',
+  list:        '<line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/>',
+  layoutGrid:  '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
   // Lucide has no metronome; a small custom mark stands in.
   metronome: '<path d="M12 3 6 21h12L12 3z"/><line x1="12" y1="9" x2="16" y2="5"/>',
 };
+
+/**
+ * Escape a value for safe interpolation into an HTML attribute. The
+ * substitution set is the minimum that prevents attribute-context
+ * injection from a future caller that derives the value from external
+ * data (e.g. a snippet id or a configurable label).
+ */
+function escAttr(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;');
+}
 
 /**
  * Render a Lucide icon as an inline SVG string.
@@ -45,13 +59,22 @@ const ICONS = {
  * @param {number} [options.size=18] - width/height in CSS pixels.
  * @param {string} [options.className] - extra class for the <svg> element.
  * @param {string} [options.id] - id for the <svg> element.
- * @returns {string} inline SVG markup, or "" if `name` is unknown.
+ * @returns {string} inline SVG markup, or "" if `name` is unknown
+ *   (with a `console.warn` so the typo surfaces during development).
  */
 export function icon(name, { size = 18, className = '', id = '' } = {}) {
   const body = ICONS[name];
-  if (!body) return '';
-  const idAttr = id ? ` id="${id}"` : '';
-  const cls = className ? ` class="${className}"` : '';
+  if (!body) {
+    // Surface the failure to the developer instead of returning a silent
+    // empty string. The empty-string fallback still keeps the caller
+    // from crashing; the warning makes typos / future renames visible.
+    if (typeof console !== 'undefined') {
+      console.warn(`[icons] Unknown icon name: ${String(name)}`);
+    }
+    return '';
+  }
+  const idAttr = id ? ` id="${escAttr(id)}"` : '';
+  const cls = className ? ` class="${escAttr(className)}"` : '';
   return `<svg${idAttr} width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"${cls}`
        + ` stroke="currentColor" stroke-width="2" stroke-linecap="round"`
        + ` stroke-linejoin="round" aria-hidden="true">${body}</svg>`;

@@ -3,6 +3,7 @@
  * EditMode.prototype via Object.assign. Method bodies are unchanged.
  */
 
+import { TransportState } from '../engine/Transport.js';
 import { midiToNoteName } from '../engine/MusicTheory.js';
 import { pulseTicksForMeter } from '../engine/Meter.js';
 import { inspectDisplayDurationTicks } from '../engine/SnippetTiming.js';
@@ -12,6 +13,7 @@ import { TICK_WIDTH, DEFAULT_NOTE_HEIGHT, DRUM_TYPES } from './editConstants.js'
 export const EditRollMixin = {
   _renderEditor() {
     this._panes = [];
+    this._stopPlayheadAnimation();
     const isDrum = this._snippet.type === 'drum';
     if (isDrum && this._splitMode) {
       this._splitMode = false;
@@ -53,6 +55,7 @@ export const EditRollMixin = {
     }
 
     this._bindEvents(toolbar);
+    this._startPlayheadAnimation();
   },
 
   _buildToolbarHTML(noteCount, isDrum) {
@@ -208,6 +211,15 @@ export const EditRollMixin = {
 
     const gridEl = this._renderGridForRange(pitchMin, pitchMax, paneId);
     gridContainer.appendChild(gridEl);
+
+    // Append a per-pane playhead to the grid (not the container) so it
+    // scrolls with the wider grid and is naturally clipped by the
+    // container's `overflow: auto`. The element is always present; the
+    // rAF loop toggles its visibility based on transport state.
+    const playhead = this._createPlayheadEl();
+    playhead.dataset.pane = paneId;
+    gridEl.appendChild(playhead);
+
     gridWrapper.appendChild(gridContainer);
 
     paneEl.appendChild(gridWrapper);
@@ -217,7 +229,7 @@ export const EditRollMixin = {
     });
 
     const result = {
-      el: paneEl, paneId, pitchMin, pitchMax, pitchRange, keysEl, gridContainer, gridEl,
+      el: paneEl, paneId, pitchMin, pitchMax, pitchRange, keysEl, gridContainer, gridEl, playhead,
     };
 
     if (!isDrum) {
@@ -599,5 +611,78 @@ export const EditRollMixin = {
     return label
       .toLowerCase()
       .replace(/\b\w/g, char => char.toUpperCase());
+  },
+
+  /**
+   * Build a vertical playhead element for one piano-roll pane. The element
+   * is always present; visibility is controlled by the rAF loop based on
+   * transport state.
+   */
+  _createPlayheadEl() {
+    const el = document.createElement('div');
+    el.className = 'piano-roll__playhead';
+    el.dataset.role = 'playhead';
+    el.style.left = '0px';
+    el.style.display = 'none';
+    return el;
+  },
+
+  /**
+   * Pure helper exposed for tests. Maps a transport tick to a playhead
+   * `left` (in CSS pixels), wrapping at the snippet's `durationTicks` so
+   * the playhead loops with the inspect playback. Falls back to `0` when
+   * duration is zero (empty clip) so we never produce `NaN` or a divide
+   * error.
+   */
+  _playheadLeftForTick(tick, durationTicks) {
+    if (!Number.isFinite(tick) || tick < 0) return 0;
+    const duration = Number.isFinite(durationTicks) && durationTicks > 0 ? durationTicks : 0;
+    const local = duration > 0 ? tick % duration : tick;
+    return local * TICK_WIDTH;
+  },
+
+  /**
+   * Start an rAF loop that animates every pane's playhead based on
+   * `transport.currentTick`. Mirrors the lifecycle of `CanvasMode`'s
+   * playhead — the loop is started in `_renderEditor` and cancelled in
+   * `_stopPlayheadAnimation` (called from `loadSnippet` and `_rebuildAll`).
+   */
+  _startPlayheadAnimation() {
+    this._stopPlayheadAnimation();
+    const panes = Array.isArray(this._panes) ? this._panes : [];
+    if (!panes.length) return;
+    const transport = this.transport;
+    if (!transport) return;
+    const snippetDuration = Number(this._snippet?.durationTicks) || 0;
+
+    const tick = () => {
+      const playheads = panes.map(p => p.playhead).filter(Boolean);
+      if (!playheads.length) {
+        // Panes were torn down (e.g. via _rebuildAll) — stop the loop.
+        this._playheadAnim = null;
+        return;
+      }
+      const currentState = transport.state;
+      const shouldShow = currentState !== TransportState.STOPPED;
+      if (!shouldShow) {
+        for (const el of playheads) el.style.display = 'none';
+      } else {
+        const left = this._playheadLeftForTick(transport.currentTick, snippetDuration);
+        for (const el of playheads) {
+          el.style.display = 'block';
+          el.style.left = `${left}px`;
+        }
+      }
+      this._playheadAnim = requestAnimationFrame(tick);
+    };
+
+    this._playheadAnim = requestAnimationFrame(tick);
+  },
+
+  _stopPlayheadAnimation() {
+    if (this._playheadAnim) {
+      cancelAnimationFrame(this._playheadAnim);
+      this._playheadAnim = null;
+    }
   },
 };

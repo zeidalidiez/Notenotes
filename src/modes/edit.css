@@ -1071,3 +1071,33 @@
     flex: 1 1 100%;
   }
 }
+
+/* --- Inspect Playhead ---
+   One element per piano-roll pane (split view = two synced playheads).
+   Visual language matches the Canvas playhead: a thin accent line
+   with a glow and a triangle marker on top, sliding left as the
+   transport advances. The element is always in the DOM; visibility is
+   toggled by the rAF loop. */
+.piano-roll__playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent-light);
+  box-shadow: 0 0 6px var(--accent-glow-strong);
+  z-index: 5;
+  pointer-events: none;
+  transition: left 50ms linear;
+  will-change: left;
+}
+
+.piano-roll__playhead::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -4px;
+  width: 10px;
+  height: 8px;
+  background: var(--accent-light);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}

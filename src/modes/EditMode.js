@@ -70,6 +70,9 @@ export class EditMode {
     // Stop any current inspect playback before swapping snippets, so audio
     // doesn't bleed across clips and the transport doesn't keep ticking.
     this._stopInspectPlayback();
+    // Cancel the playhead rAF before wiping the DOM so the loop does not
+    // continue to fire against detached elements.
+    this._stopPlayheadAnimation?.();
     this._snippet = snippet;
     this._clipId = clipId;
     this._selectedNoteIdx = null;

@@ -772,6 +772,23 @@ Architecture and rules:
   `toggleAudioPlayback()`, `pauseAudioPlayback()`, and `stopAudioPlayback()`
   for `main.js` to call from `_handlePlayToggle` and the close/mode-change
   flows.
+- **Inspect playhead.** A thin vertical line, matching the Canvas
+  playhead's visual language, sweeps over each piano-roll pane while
+  Inspect is playing. `EditRollMixin._createPlayheadEl` builds one
+  element per pane (split view = two synced playheads), appended to
+  the grid (not the container) so it scrolls with the wider grid and
+  is naturally clipped by the container's `overflow: auto`. The rAF
+  loop in `_startPlayheadAnimation` reads `transport.currentTick`,
+  mods by the snippet's `durationTicks` (so the playhead loops with
+  the inspect playback), and updates each playhead's `left` in CSS
+  pixels via `_playheadLeftForTick(tick, durationTicks) * TICK_WIDTH`.
+  The element stays in the DOM; the loop toggles `display` based on
+  `transport.state === STOPPED`. Lifecycle: started at the end of
+  `_renderEditor` and stopped in `EditMode.loadSnippet` before the
+  DOM wipe (so a stale loop never iterates over detached nodes) and
+  at the top of `_renderEditor` itself (so a re-render in the same
+  instance restarts cleanly). Audio clips don't get a playhead — the
+  native `<audio controls>` element already shows playback progress.
 
 ## Accessibility Profiles
 

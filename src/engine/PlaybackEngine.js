@@ -63,6 +63,14 @@ export class PlaybackEngine {
     this._inspectSynth = null;
     /** Dedicated inspect kit (lazy-created). */
     this._inspectKit = null;
+    /** Instrument id used to build the current `_inspectSynth`. Compared
+     *  on every `setInspectSource` so the synth is reloaded with the
+     *  snippet's new patch when the user picks a different one in the
+     *  Inspect toolbar. */
+    this._inspectSynthInstrumentId = null;
+    /** Kit id used to build the current `_inspectKit`. Same idea as
+     *  `_inspectSynthInstrumentId`, but for drum snippets. */
+    this._inspectKitInstrumentId = null;
 
     this._initialized = false;
     this._lastProcessedTick = -1;
@@ -257,26 +265,66 @@ export class PlaybackEngine {
   /**
    * Set the snippet the inspect-mode play button should audition. Pass
    * `null` to return to Canvas playback. Resets the scheduling cursor so
-   * a re-armed play always starts cleanly.
+   * a re-armed play always starts cleanly. When the snippet's resolved
+   * instrument differs from the cached inspect synth/kit, the engine
+   * drops them so the next `_getInspectSynth` / `_getInspectKit` builds
+   * a fresh instance with the new patch/kit loaded.
    * @param {object|null} snippet
    */
   setInspectSource(snippet) {
     const next = snippet || null;
     if (this._inspectSource === next) return;
+
     this._allInspectNotesOff();
     this._inspectSource = next;
     this._lastProcessedTick = -1;
     this._lastInspectLocalTick = null;
+
+    if (!next) {
+      // Returning to Canvas playback — release the cached synth/kit so
+      // the next inspect source starts from a clean slate.
+      this._inspectSynth = null;
+      this._inspectKit = null;
+      this._inspectSynthInstrumentId = null;
+      this._inspectKitInstrumentId = null;
+      return;
+    }
+
+    // If the snippet's instrument changed, drop the cached synth/kit so
+    // the next `_getInspectSynth` / `_getInspectKit` rebuilds them with
+    // the new preset. We don't rebuild eagerly here because no audio is
+    // playing yet (the play button hasn't been pressed) — building on
+    // demand keeps idle state cheap.
+    const midiId = next.type === 'midi'
+      ? (next.patchRecorded?.instrumentId || next.instrumentId || next.patchId || 'modern_keys')
+      : null;
+    const kitId = next.type === 'drum'
+      ? (next.kitRecorded?.instrumentId || next.instrumentId || next.kitId || 'classic')
+      : null;
+    if (midiId && this._inspectSynthInstrumentId && this._inspectSynthInstrumentId !== midiId) {
+      this._inspectSynth = null;
+    }
+    if (kitId && this._inspectKitInstrumentId && this._inspectKitInstrumentId !== kitId) {
+      this._inspectKit = null;
+    }
   }
 
   _getInspectSynth() {
     if (!this._inspectSynth) {
       const synth = new WebAudioSynth();
       synth.init();
-      const preset = PRESETS.modern_keys || PRESETS.chip_lead;
+      // Prefer the snippet's recorded instrument; fall back to a sensible
+      // default so an unrecorded/blank snippet still has something to
+      // audition with.
+      const instrumentId = this._inspectSource?.patchRecorded?.instrumentId
+        || this._inspectSource?.instrumentId
+        || this._inspectSource?.patchId
+        || 'modern_keys';
+      const preset = PRESETS[instrumentId] || PRESETS.modern_keys || PRESETS.chip_lead;
       if (preset) synth.loadPatch(preset);
       synth.setSoundTraits(this.project?.settings?.soundTraits);
       this._inspectSynth = synth;
+      this._inspectSynthInstrumentId = instrumentId;
     }
     return this._inspectSynth;
   }
@@ -285,9 +333,15 @@ export class PlaybackEngine {
     if (!this._inspectKit) {
       const kit = new SketchKit();
       kit.init();
-      kit.loadKit('classic');
+      const instrumentId = this._inspectSource?.kitRecorded?.instrumentId
+        || this._inspectSource?.instrumentId
+        || this._inspectSource?.kitId
+        || 'classic';
+      // SketchKit.loadKit() understands built-in kit ids and `custom:` ids.
+      try { kit.loadKit(instrumentId); } catch { kit.loadKit('classic'); }
       kit.setSoundTraits(this.project?.settings?.soundTraits);
       this._inspectKit = kit;
+      this._inspectKitInstrumentId = instrumentId;
     }
     return this._inspectKit;
   }

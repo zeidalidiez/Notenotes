@@ -8,7 +8,10 @@
 import './edit.css';
 import { pulseCountForMeter, ticksPerBarForMeter } from '../engine/Meter.js';
 import { showToast } from '../ui/Toast.js';
+import { ChoicePicker } from '../ui/ChoicePicker.js';
 import { renderSnippetPreviewSVG } from '../ui/snippetPreview.js';
+import { PRESETS } from '../instruments/WebAudioSynth.js';
+import { drumInstrumentGroups, midiInstrumentGroups } from './instrumentGroups.js';
 import { DEFAULT_NOTE_HEIGHT, MIN_PIANO_OCTAVE, MAX_PIANO_OCTAVE } from './editConstants.js';
 import { EditAudioPlayerMixin } from './editAudioPlayer.js';
 import { EditRollMixin } from './editRoll.js';
@@ -29,6 +32,11 @@ export class EditMode {
     /** Fired whenever the loaded snippet changes. `main.js` uses this to
      * update the `PlaybackEngine`'s inspect source (or clear it). */
     this.onInspectSnippetChanged = null;
+    /** Fired when the user picks a different patch/kit in the Inspect
+     * toolbar for the open snippet. `main.js` uses this to re-arm the
+     * PlaybackEngine's inspect synth/kit so the change is immediately
+     * audible. */
+    this.onInspectPatchChanged = null;
     /** Set by `main.js` — same data shape `SnippetTray.setSnippetUsageProvider` expects. */
     this._snippetUsageProvider = null;
 
@@ -101,6 +109,90 @@ export class EditMode {
   _stopInspectPlayback() {
     this.stopAudioPlayback?.();
     try { this.transport?.stop?.(); } catch { /* ignore */ }
+  }
+
+  /**
+   * Pure helper exposed for tests. Writes the chosen instrument id onto
+   * the snippet in the same shape `_stampRecordedPatch` (Create mode) and
+   * `_applyRecordedInstrumentToTrack` (Canvas) already understand. Returns
+   * `true` if the snippet was actually updated, `false` if the value was
+   * missing or unchanged (no-op so the caller can avoid re-rendering).
+   *
+   * Side effects:
+   *   - sets `snippet.instrumentId`
+   *   - for MIDI: writes `snippet.patchRecorded = { instrumentId,
+   *     patchSnapshot: deep-clone of PRESETS[instrumentId] || null,
+   *     capturedAt }` so the WAV export pipeline can replay the
+   *     recorded sound even if the user later changes the project
+   *     defaults
+   *   - for drum: writes `snippet.kitRecorded = { instrumentId,
+   *     capturedAt }` (no snapshot — drum kits are not deep-cloned)
+   *   - bumps `snippet.schemaVersion` to at least 2
+   */
+  _setSnippetInstrument(snippet, instrumentId) {
+    if (!snippet || !instrumentId) return false;
+    if (snippet.instrumentId === instrumentId
+      && (snippet.patchRecorded?.instrumentId === instrumentId
+        || snippet.kitRecorded?.instrumentId === instrumentId
+        || (!snippet.patchRecorded && !snippet.kitRecorded))) {
+      return false;
+    }
+    snippet.instrumentId = instrumentId;
+    if (snippet.type === 'midi') {
+      const preset = PRESETS[instrumentId];
+      snippet.patchRecorded = {
+        instrumentId,
+        patchSnapshot: preset ? JSON.parse(JSON.stringify(preset)) : null,
+        capturedAt: Date.now(),
+      };
+    } else if (snippet.type === 'drum') {
+      snippet.kitRecorded = {
+        instrumentId,
+        capturedAt: Date.now(),
+      };
+    }
+    snippet.schemaVersion = Math.max(snippet.schemaVersion || 1, 2);
+    return true;
+  }
+
+  /**
+   * Open the Patch / Kit picker for the open snippet. Wired from the
+   * `#edit-patch-btn` click handler in `editEvents.js`. After the user
+   * picks a value, writes the snippet state, persists, re-renders the
+   * editor so the toolbar button label updates, dispatches
+   * `project-snippets-changed` so the SnippetTray + Canvas refresh, and
+   * fires `onInspectPatchChanged` so `main.js` can re-arm the
+   * PlaybackEngine's inspect synth/kit.
+   */
+  _openPatchPicker() {
+    if (!this._snippet || this._snippet.type === 'audio') return;
+    const isDrum = this._snippet.type === 'drum';
+    const groups = isDrum ? drumInstrumentGroups(this.project) : midiInstrumentGroups(this.project);
+    const currentId = this._currentSnippetInstrumentId?.(isDrum) || null;
+    const anchor = this.el?.querySelector('#edit-patch-btn');
+    if (!anchor) return;
+    const picker = new ChoicePicker({
+      title: isDrum ? 'Choose drum kit' : 'Choose patch',
+      groups,
+      selectedValue: currentId || '',
+      searchPlaceholder: isDrum ? 'Search kits...' : 'Search patches...',
+      onSelect: (value) => {
+        if (!this._snippet) return;
+        const changed = this._setSnippetInstrument(this._snippet, value);
+        if (!changed) return;
+        this.store?.scheduleAutoSave(this.project);
+        // Re-render so the toolbar label updates and any inspect-playback
+        // state (cached notes, etc.) refreshes.
+        this._stopInspectPlayback();
+        this.loadSnippet(this._snippet, this._clipId);
+        window.dispatchEvent(new CustomEvent('project-snippets-changed', {
+          detail: { snippetId: this._snippet.id, action: 'updated' },
+        }));
+        this.onInspectPatchChanged?.(this._snippet);
+        showToast(`${isDrum ? 'Kit' : 'Patch'}: ${labelForInstrument(value, this.project)}`);
+      },
+    });
+    picker.open(anchor);
   }
 
   refreshSnippetList() {

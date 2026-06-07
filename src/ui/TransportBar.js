@@ -11,6 +11,7 @@ import { normalizeProgressionContext, parseDegreeToken } from '../engine/Progres
 import { suggestNextChords } from '../engine/ChordSuggestions.js';
 import { TapTempo } from '../engine/TapTempo.js';
 import { ChoicePicker } from './ChoicePicker.js';
+import { icon } from './icons.js';
 import { progressionButtonLabel } from './progressionPicker.js';
 
 export class TransportBar {
@@ -62,15 +63,13 @@ export class TransportBar {
     this.el.innerHTML = `
       <div class="transport-bar__section">
         <button class="btn btn--icon" id="btn-stop" title="Stop" aria-label="Stop">
-          <svg width="18" height="18" viewBox="0 0 18 18"><rect x="3" y="3" width="12" height="12" rx="2" fill="currentColor"/></svg>
+          ${icon('stop')}
         </button>
         <button class="btn btn--icon" id="btn-play" title="Play / Pause" aria-label="Play or Pause">
-          <svg width="18" height="18" viewBox="0 0 18 18" id="play-icon">
-            <polygon points="4,2 16,9 4,16" fill="currentColor"/>
-          </svg>
+          ${icon('play', { id: 'play-icon' })}
         </button>
         <button class="btn btn--icon btn--record" id="btn-record" title="Record" aria-label="Record">
-          <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="currentColor"/></svg>
+          ${icon('record', { size: 16 })}
         </button>
         <button class="btn btn--ghost btn--arm-record" id="btn-arm-record" type="button" title="Arm recording. Recording starts on the first note or drum hit." aria-label="Arm recording">Arm</button>
       </div>
@@ -93,7 +92,7 @@ export class TransportBar {
         </select>
         <button class="choice-picker-button transport-bar__scale-picker" id="project-scale-picker" type="button" aria-label="Project scale" aria-haspopup="dialog">
           <span class="choice-picker-button__label" id="project-scale-label">${this._scaleLabel(this._projectKey.scale)}</span>
-          <span class="choice-picker-button__chevron" aria-hidden="true">▼</span>
+          <span class="choice-picker-button__chevron" aria-hidden="true">${icon('chevronDown', { size: 14 })}</span>
         </button>
         <button class="transport-bar__suggest" id="chord-suggest-button" type="button" aria-label="Suggest next chord" aria-haspopup="dialog" title="Gentle next-chord suggestions for this key">Suggest</button>
         <span class="transport-bar__project-key-label">Meter</span>
@@ -123,26 +122,21 @@ export class TransportBar {
 
         <div class="metronome-toggle" id="metronome-toggle">
           <button class="btn btn--icon btn--ghost" id="btn-metronome" title="Metronome" aria-label="Toggle metronome">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 2L6 22h12L12 2z"/>
-              <line x1="12" y1="8" x2="16" y2="4"/>
-            </svg>
+            ${icon('metronome', { size: 20 })}
             <span class="transport-bar__menu-label">Metronome</span>
           </button>
         </div>
         <button class="btn btn--icon btn--ghost" id="btn-keys" title="Keyboard shortcuts" aria-label="Show keyboard shortcuts">
-          <span class="transport-bar__menu-icon">⌨</span>
+          ${icon('keyboard', { size: 18 })}
           <span class="transport-bar__menu-label">Keyboard Controls</span>
         </button>
         <button class="btn btn--ghost backup-status is-unknown" id="btn-backup-status" title="Open backup status" aria-label="Open backup status">
+          ${icon('database', { size: 18 })}
           <span class="transport-bar__menu-icon" id="backup-status-label">Backup</span>
           <span class="transport-bar__menu-label">Backup Status</span>
         </button>
         <button class="btn btn--icon btn--ghost" id="btn-settings" title="Settings" aria-label="Open settings">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-          </svg>
+          ${icon('settings', { size: 20 })}
           <span class="transport-bar__menu-label">Settings</span>
         </button>
       </div>
@@ -362,7 +356,7 @@ export class TransportBar {
       <div class="suggest-popover" role="dialog" aria-modal="true" aria-label="Next chord suggestions">
         <div class="suggest-popover__header">
           <span class="suggest-popover__title">Where to next?</span>
-          <button class="suggest-popover__close" id="suggest-close" type="button" aria-label="Close">✕</button>
+          <button class="suggest-popover__close" id="suggest-close" type="button" aria-label="Close">${icon('x', { size: 16 })}</button>
         </div>
         <p class="suggest-popover__intro">${intro}</p>
         <div class="suggest-popover__list">
@@ -646,16 +640,7 @@ export class TransportBar {
   _updatePlayButton(state) {
     const btn = this.el.querySelector('#btn-play');
     const isPlaying = state === TransportState.PLAYING || state === TransportState.RECORDING;
-    if (isPlaying) {
-      btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 18 18">
-        <rect x="3" y="2" width="4" height="14" rx="1" fill="currentColor"/>
-        <rect x="11" y="2" width="4" height="14" rx="1" fill="currentColor"/>
-      </svg>`;
-    } else {
-      btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 18 18">
-        <polygon points="4,2 16,9 4,16" fill="currentColor"/>
-      </svg>`;
-    }
+    btn.innerHTML = isPlaying ? icon('pause') : icon('play');
   }
 
   _updateRecordButton(state) {

@@ -338,6 +338,7 @@ Notenotes stands on the shoulders of generous people who share their work freely
 - **[abcjs](https://paulrosen.github.io/abcjs/)** - ABC notation rendering for the sheet music export.
 - **[idb](https://github.com/jakearchibald/idb)** - the friendliest possible wrapper around IndexedDB.
 - **[vite-plugin-pwa](https://vite-pwa-org.netlify.app/)** - making Notenotes installable and offline-ready with one config block.
+- **[Lucide](https://lucide.dev)** - functional icons (transport, settings, metronome, close, chevrons, etc.) sourced from Lucide under the ISC License. See [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
 
 If you spot anything in this repo that's missing a credit it deserves, please [open an issue](https://github.com/zeidalidiez/Notenotes/issues/new) - we'll fix it fast.
 

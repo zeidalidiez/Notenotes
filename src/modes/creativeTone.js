@@ -5,6 +5,7 @@
 
 import { SOUND_TRAITS, normalizeSoundTraits } from '../instruments/WebAudioSynth.js';
 import { ChoicePicker } from '../ui/ChoicePicker.js';
+import { icon } from '../ui/icons.js';
 import { showToast } from '../ui/Toast.js';
 
 export const CreativeToneMixin = {
@@ -174,7 +175,7 @@ export const CreativeToneMixin = {
         <div class="tone-preset__row tone-preset__row--manage">
           <button class="choice-picker-button tone-preset__picker" id="tone-preset-picker" type="button" aria-label="Tone preset" aria-haspopup="dialog">
             <span class="choice-picker-button__label" id="tone-preset-label">Preset...</span>
-            <span class="choice-picker-button__chevron" aria-hidden="true">▼</span>
+            <span class="choice-picker-button__chevron" aria-hidden="true">${icon('chevronDown', { size: 14 })}</span>
           </button>
           <button class="btn btn--ghost" id="tone-preset-apply" type="button">Apply</button>
           <button class="btn btn--ghost" id="tone-preset-delete" type="button">Delete</button>

@@ -1415,17 +1415,13 @@
 .sketchkit__pad--rim.is-active     { background: rgba(160,100,100,0.4); }
 .sketchkit__pad--shaker.is-active  { background: rgba(160,160,120,0.4); }
 
-.sketchkit__pad-icon {
-  font-size: 24px;
-  line-height: 1;
-}
-
 .sketchkit__pad-label {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
+  font-size: 12px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-secondary);
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  color: var(--text-primary);
 }
 
 /* === MIC RECORDER === */

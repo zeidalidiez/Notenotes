@@ -879,11 +879,15 @@ class App {
   }
 
   _getModeContent(mode) {
+    // Placeholder markup that the actual mode renderers (CreativeMode,
+    // CanvasMode, EditMode) overwrite during init. Kept as a fallback
+    // so the view still has content if a mode renderer fails to mount,
+    // and as a typing scaffold for future modes. The user never sees
+    // these placeholders in normal operation.
     switch (mode) {
       case Modes.CREATIVE:
         return `
           <div class="empty-state" id="creative-content">
-            <div class="empty-state__icon">🎹</div>
             <h1 class="empty-state__title">Creative Mode</h1>
             <p class="empty-state__desc">Your jam space. Play instruments, loop ideas, and capture snippets on the fly.</p>
             <p class="empty-state__desc" style="color: var(--accent-dim); font-size: var(--font-size-sm);">
@@ -894,7 +898,6 @@ class App {
       case Modes.CANVAS:
         return `
           <div class="empty-state" id="canvas-content">
-            <div class="empty-state__icon">🎼</div>
             <h1 class="empty-state__title">Canvas Mode</h1>
             <p class="empty-state__desc">Arrange your snippets into a full track. Drag, drop, and paint your ideas across the timeline.</p>
             <p class="empty-state__desc" style="color: var(--accent-dim); font-size: var(--font-size-sm);">
@@ -905,7 +908,6 @@ class App {
       case Modes.PIANOROLL:
         return `
           <div class="empty-state" id="pianoroll-content">
-            <div class="empty-state__icon">✏️</div>
             <h1 class="empty-state__title">Live Edit</h1>
             <p class="empty-state__desc">Zoom into any clip to edit notes, adjust timing, and fine-tune your sketch.</p>
             <p class="empty-state__desc" style="color: var(--accent-dim); font-size: var(--font-size-sm);">

@@ -10,6 +10,7 @@ import { pulseCountForMeter, ticksPerBarForMeter } from '../engine/Meter.js';
 import { showToast } from '../ui/Toast.js';
 import { ChoicePicker } from '../ui/ChoicePicker.js';
 import { renderSnippetPreviewSVG } from '../ui/snippetPreview.js';
+import { icon } from '../ui/icons.js';
 import { PRESETS } from '../instruments/WebAudioSynth.js';
 import { drumInstrumentGroups, midiInstrumentGroups, labelForInstrument } from './instrumentGroups.js';
 import { DEFAULT_NOTE_HEIGHT, MIN_PIANO_OCTAVE, MAX_PIANO_OCTAVE } from './editConstants.js';
@@ -234,7 +235,6 @@ export class EditMode {
       <div class="edit-browser edit-browser--${prefs.view}">
         <div class="edit-browser__header">
           <div class="edit-browser__title">
-            <span class="edit-browser__icon">✏️</span>
             <h2 class="edit-browser__heading">Inspect</h2>
             <span class="edit-browser__count" id="edit-browser-count">${snippets.length}</span>
           </div>
@@ -342,7 +342,7 @@ export class EditMode {
           <div class="edit-browser__item-meta">${autoMeta}${barsMeta} · ${created}</div>
         </div>
         <div class="edit-browser__item-actions">
-          <button class="edit-browser__action-btn edit-browser__delete-btn" data-delete="${this._escapeAttr(s.id)}" type="button" aria-label="Delete ${this._escapeAttr(displayName)}" title="Delete">✕</button>
+          <button class="edit-browser__action-btn edit-browser__delete-btn" data-delete="${this._escapeAttr(s.id)}" type="button" aria-label="Delete ${this._escapeAttr(displayName)}" title="Delete">${icon('x', { size: 14 })}</button>
         </div>
       </div>
     `;

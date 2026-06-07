@@ -13,6 +13,7 @@
 
 import { getScaleNotes, NOTE_CORRECTION_MODES, normalizeMusicalContext, normalizeNoteCorrectionMode, SCALES } from '../engine/MusicTheory.js';
 import { normalizeSoundTraits } from './WebAudioSynth.js';
+import { icon } from '../ui/icons.js';
 import {
   CONTROLLER_NOTE_MODIFIERS,
   controllerModifierLabel,
@@ -351,7 +352,7 @@ export class ControllerMode {
         <small>${slot.label}</small>
         <button class="choice-picker-button ctrlmode__modifier-button" id="ct-mod-${slot.key}" type="button" aria-label="${slot.label} modifier" aria-haspopup="dialog" data-modifier-slot="${slot.key}">
           <span class="choice-picker-button__label">${this._escapeHtml(controllerModifierLabel(value))}</span>
-          <span class="choice-picker-button__chevron" aria-hidden="true">▼</span>
+          <span class="choice-picker-button__chevron" aria-hidden="true">${icon('chevronDown', { size: 14 })}</span>
         </button>
       </label>
     `;
@@ -385,7 +386,7 @@ export class ControllerMode {
             aria-label="Project progression changes" aria-haspopup="dialog"
             title="Future chord-tone glow will follow this progression">
             <span class="choice-picker-button__label" id="ct-sound-changes-label">${this._escapeHtml(progressionButtonLabel(progression))}</span>
-            <span class="choice-picker-button__chevron" aria-hidden="true">▼</span>
+            <span class="choice-picker-button__chevron" aria-hidden="true">${icon('chevronDown', { size: 14 })}</span>
           </button>
         </label>
         <label class="ctrlmode__sound-row">

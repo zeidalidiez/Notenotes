@@ -21,6 +21,7 @@
 import { CIRCLE_OF_FIFTHS, degreeForMidi, getScaleNotes, midiToNoteName, normalizeDegreeHighlighting, normalizeMusicalContext, noteNameToMidi, SCALES, NOTE_NAMES } from '../engine/MusicTheory.js';
 import { scaleChordRecipes } from '../engine/ScaleChords.js';
 import { activeProgressionResolution, normalizeProgressionGlow } from '../engine/Progressions.js';
+import { icon } from '../ui/icons.js';
 import { normalizePadLayout, normalizePadMode, recommendedPadColumns } from '../engine/PadLayout.js';
 import { velocityFromPointer, HEIGHT_VELOCITY_ZONES } from '../engine/HeightVelocity.js';
 import { showToast } from '../ui/Toast.js';
@@ -195,9 +196,9 @@ export class ScaleBoard {
           </select>
         </div>
         ${this.padMode !== 'step' ? `<div class="scaleboard__octave">
-          <button class="btn btn--icon btn--ghost scaleboard__oct-btn" id="sb-oct-down" aria-label="Octave down">▼</button>
+          <button class="btn btn--icon btn--ghost scaleboard__oct-btn" id="sb-oct-down" aria-label="Octave down">${icon('chevronDown', { size: 18 })}</button>
           <span class="scaleboard__oct-display" id="sb-oct-display">Oct ${this.octave}</span>
-          <button class="btn btn--icon btn--ghost scaleboard__oct-btn" id="sb-oct-up" aria-label="Octave up">▲</button>
+          <button class="btn btn--icon btn--ghost scaleboard__oct-btn" id="sb-oct-up" aria-label="Octave up">${icon('chevronUp', { size: 18 })}</button>
         </div>` : '<div class="scaleboard__octave scaleboard__octave--hidden" aria-hidden="true"></div>'}
         ${this._canUseExtensions() ? `
         <div class="scaleboard__control-group">

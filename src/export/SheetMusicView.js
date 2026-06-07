@@ -64,8 +64,7 @@ export class SheetMusicView {
     }
     return snippets.map((s) => {
       const count = (s.notes?.length || 0) + (s.hits?.length || 0);
-      const icon = s.type === 'drum' ? '🥁 ' : '';
-      return `<option value="${s.id}">${icon}${s.name || 'Snippet'} (${count} events)</option>`;
+      return `<option value="${s.id}">${s.name || 'Snippet'} (${count} events)</option>`;
     }).join('');
   }
 

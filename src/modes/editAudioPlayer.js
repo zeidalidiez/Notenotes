@@ -36,7 +36,7 @@ export const EditAudioPlayerMixin = {
     const name = this._escapeAttr(this._snippet.name || 'Audio');
     return `
       <div class="edit-toolbar__group">
-        <button class="btn btn--ghost edit-toolbar__btn" id="edit-close-btn" type="button" title="Back to snippet library" aria-label="Back to snippet library">‹ Library</button>
+        <button class="btn btn--ghost edit-toolbar__btn" id="edit-close-btn" type="button" title="Back to snippet library" aria-label="Back to snippet library">Library</button>
       </div>
       <div class="edit-toolbar__group">
         <input type="text" class="edit-toolbar__name-input" id="edit-snippet-name" value="${name}" placeholder="Audio clip name" title="Edit audio clip name" />

@@ -39,9 +39,9 @@ export class ModeTabs {
     this.el.setAttribute('role', 'tablist');
 
     const tabs = [
-      { mode: Modes.CREATIVE, icon: '🎹', label: 'Create' },
-      { mode: Modes.CANVAS, icon: '🎼', label: 'Canvas' },
-      { mode: Modes.PIANOROLL, icon: '✏️', label: 'Inspect' }
+      { mode: Modes.CREATIVE, label: 'Create' },
+      { mode: Modes.CANVAS, label: 'Canvas' },
+      { mode: Modes.PIANOROLL, label: 'Inspect' }
     ];
 
     for (const tab of tabs) {
@@ -51,10 +51,7 @@ export class ModeTabs {
       btn.setAttribute('aria-selected', tab.mode === this.activeMode);
       btn.setAttribute('data-mode', tab.mode);
       btn.id = `tab-${tab.mode}`;
-      btn.innerHTML = `
-        <span class="mode-tabs__icon">${tab.icon}</span>
-        <span>${tab.label}</span>
-      `;
+      btn.innerHTML = `<span class="mode-tabs__label">${tab.label}</span>`;
       btn.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         this.setActive(tab.mode);

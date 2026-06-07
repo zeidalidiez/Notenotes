@@ -172,6 +172,14 @@ class App {
       const nextSource = snippet && snippet.type !== 'audio' ? snippet : null;
       this.playbackEngine?.setInspectSource(nextSource);
     };
+    // EditMode → PlaybackEngine: re-arm the inspect synth/kit when the
+    // user picks a different patch in the Inspect toolbar. setInspectSource
+    // handles the "instrument changed?" branch internally and drops the
+    // cached synth/kit so the next press of Play already uses the new
+    // patch.
+    this.editMode.onInspectPatchChanged = (snippet) => {
+      this.playbackEngine?.setInspectSource(snippet);
+    };
 
     // Wire snippet selection: SnippetTray → EditMode.
     //

@@ -7,6 +7,7 @@ import { TransportState } from '../engine/Transport.js';
 import { midiToNoteName } from '../engine/MusicTheory.js';
 import { pulseTicksForMeter } from '../engine/Meter.js';
 import { inspectDisplayDurationTicks } from '../engine/SnippetTiming.js';
+import { labelForInstrument } from './instrumentGroups.js';
 import { renderToneBadges, toneBadgeItemsFromSources } from '../ui/ToneBadges.js';
 import { TICK_WIDTH, DEFAULT_NOTE_HEIGHT, DRUM_TYPES } from './editConstants.js';
 
@@ -97,6 +98,7 @@ export const EditRollMixin = {
         <span class="edit-toolbar__value">${noteCount} ${isDrum ? 'hits' : 'notes'}</span>
         ${toneBadges}
       </div>
+      ${this._renderPatchGroup(isDrum)}
       <div class="edit-toolbar__group">
         <button class="btn btn--ghost edit-toolbar__btn" id="edit-new-midi-toolbar" type="button">New MIDI</button>
         <button class="btn btn--ghost edit-toolbar__btn" id="edit-new-drum-toolbar" type="button">New Drum</button>
@@ -611,6 +613,40 @@ export const EditRollMixin = {
     return label
       .toLowerCase()
       .replace(/\b\w/g, char => char.toUpperCase());
+  },
+
+  /**
+   * Render the "Patch" / "Kit" group on the Inspect toolbar. The button
+   * shows the snippet's currently recorded instrument (or "Default" if
+   * none is set yet) and opens a `ChoicePicker` on click. Audio snippets
+   * have no patch, so the group is omitted for them — the audio toolbar
+   * has its own simpler build in `editAudioPlayer.js`.
+   */
+  _renderPatchGroup(isDrum) {
+    const label = isDrum ? 'Kit' : 'Patch';
+    const currentId = this._currentSnippetInstrumentId(isDrum);
+    const currentLabel = labelForInstrument(currentId, this.project);
+    return `
+      <div class="edit-toolbar__group">
+        <span class="edit-toolbar__label">${label}</span>
+        <button class="btn btn--ghost edit-toolbar__btn" id="edit-patch-btn" type="button"
+          title="${isDrum ? 'Change the drum kit this snippet plays with' : 'Change the synth patch this snippet plays with'}"
+          aria-haspopup="dialog" aria-label="Change ${label.toLowerCase()}">${this._escapeHtml(currentLabel)}</button>
+      </div>
+    `;
+  },
+
+  /**
+   * Resolve the currently recorded instrument for the open snippet, using
+   * the same fallback chain Canvas's `_recordedInstrumentForSnippet` uses.
+   * Exposed so `_renderPatchGroup` and `_openPatchPicker` agree on the
+   * "current value" without each re-deriving it.
+   */
+  _currentSnippetInstrumentId(isDrum) {
+    const s = this._snippet;
+    if (!s) return null;
+    if (isDrum) return s.kitRecorded?.instrumentId || s.instrumentId || s.kitId || null;
+    return s.patchRecorded?.instrumentId || s.instrumentId || s.patchId || null;
   },
 
   /**

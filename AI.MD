@@ -357,8 +357,19 @@ Snippet sketch:
   hits: [
     { type, startTick, velocity, soundTraits }
   ],
-  patchRecorded,
-  kitRecorded,
+  instrumentId,        // synth/kit id written by the Inspect Patch picker
+                        // and by Create-mode recording. Read by the
+                        // PlaybackEngine's inspect synth/kit and by
+                        // Canvas's `_recordedInstrumentForSnippet` when
+                        // dropping a snippet on a track.
+  patchRecorded,       // { instrumentId, patchSnapshot, capturedAt } —
+                        // MIDI only. patchSnapshot is a deep clone of
+                        // PRESETS[instrumentId] at capture time so the
+                        // recorded sound is preserved even if the live
+                        // preset is later edited. Written by
+                        // `_stampRecordedPatch` (Create) and
+                        // `_setSnippetInstrument` (Inspect picker).
+  kitRecorded,         // { instrumentId, capturedAt } — drum only.
   audioAssetId,
   audioUrl,
   audioMimeType,
@@ -789,6 +800,31 @@ Architecture and rules:
   at the top of `_renderEditor` itself (so a re-render in the same
   instance restarts cleanly). Audio clips don't get a playhead — the
   native `<audio controls>` element already shows playback progress.
+- **Patch picker.** The Inspect toolbar has a "Patch" group (MIDI) or
+  "Kit" group (drum) between the snippet-name group and the
+  New MIDI/Drum buttons. The label shows the snippet's currently
+  recorded instrument (resolved via the same fallback chain Canvas
+  uses: `patchRecorded?.instrumentId || instrumentId || patchId` for
+  MIDI, `kitRecorded?.instrumentId || instrumentId || kitId` for
+  drum). Clicking opens the same `ChoicePicker` Canvas uses for track
+  instruments, sourcing the groups from `src/modes/instrumentGroups.js`
+  (the single source of truth shared with `CanvasTracksMixin`).
+  Audio snippets have no patch — the group is omitted from the audio
+  toolbar. `EditMode._setSnippetInstrument(snippet, instrumentId)`
+  writes `snippet.instrumentId` and a fresh `patchRecorded` /
+  `kitRecorded` block, bumps `schemaVersion` to at least 2, persists
+  via `scheduleAutoSave`, re-renders the editor, and fires
+  `onInspectPatchChanged`. `main.js` wires the callback to
+  `playbackEngine.setInspectSource(snippet)`, which drops the cached
+  inspect synth/kit when the snippet's instrument changed — so the
+  next press of Play already uses the new patch. The Canvas drop
+  path is unchanged: the existing `_recordedInstrumentForSnippet`
+  reads from `patchRecorded?.instrumentId || instrumentId`, so the
+  snippet's new default flows through to the track the next time the
+  user drops the snippet on a Canvas MIDI/drum track. The track's
+  own instrument, once set, is the user's "override" — re-dropping
+  the snippet does not re-apply the snippet's default unless the
+  track was using a different instrument.
 
 ## Accessibility Profiles
 

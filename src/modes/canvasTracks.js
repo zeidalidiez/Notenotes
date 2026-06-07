@@ -10,6 +10,7 @@ import { CLIP_TIME_SCALE_PRESETS, clipVisualDurationBars, normalizeClipTimeScale
 import { normalizeTrackPan } from '../engine/StereoWidth.js';
 import { showToast } from '../ui/Toast.js';
 import { ChoicePicker } from '../ui/ChoicePicker.js';
+import { midiInstrumentGroups, drumInstrumentGroups } from './instrumentGroups.js';
 
 export const CanvasTracksMixin = {
   _customPatchInstruments() {
@@ -27,62 +28,11 @@ export const CanvasTracksMixin = {
   },
 
   _midiInstrumentGroups() {
-    const builtIns = Object.values(TRACK_INSTRUMENTS).filter(inst => inst.type === 'synth');
-    const itemForBuiltIn = inst => {
-      const patch = PRESETS[inst.preset] || PRESETS[inst.id] || {};
-      return {
-        value: inst.id,
-        label: inst.name,
-        kicker: (patch.family || 'chip') === 'modern' ? 'Modern synth track' : 'Chip synth track',
-        description: this._instrumentDescription(patch),
-        tags: [patch.family, patch.oscillator?.type, patch.filter?.type, inst.name].filter(Boolean),
-      };
-    };
-    const chip = builtIns.filter(inst => (PRESETS[inst.preset]?.family || 'chip') === 'chip').map(itemForBuiltIn);
-    const modern = builtIns.filter(inst => PRESETS[inst.preset]?.family === 'modern').map(itemForBuiltIn);
-    const groups = [
-      { id: 'chip', label: 'Chip presets', items: chip },
-      { id: 'modern', label: 'Modern presets', items: modern },
-    ];
-    const custom = this._customPatchInstruments().map(instrument => ({
-      value: `custom:${instrument.id}`,
-      label: instrument.name || 'Untitled instrument',
-      kicker: 'Custom sample patch',
-      description: instrument.playbackMode === 'oneShot' ? 'One-shot sample instrument' : 'Gated sample instrument',
-      tags: ['custom', 'sample', instrument.name],
-    }));
-    if (custom.length) groups.push({ id: 'custom', label: 'Custom instruments', items: custom });
-    return groups;
+    return midiInstrumentGroups(this.project);
   },
 
   _drumInstrumentGroups() {
-    const builtIns = Object.entries(DRUM_KITS).map(([id, kit]) => ({
-      value: id,
-      label: kit.name,
-      kicker: 'Drum kit',
-      description: `${Object.keys(kit.sounds || {}).length} synthesized sounds`,
-      tags: ['drum', 'kit', kit.name],
-    }));
-    const groups = [{ id: 'drum', label: 'Drum kits', items: builtIns }];
-    const custom = this._customKitInstruments().map(instrument => ({
-      value: `custom:${instrument.id}`,
-      label: instrument.name || 'Untitled kit',
-      kicker: 'Custom kit',
-      description: 'Custom drum instrument',
-      tags: ['custom', 'kit', instrument.name],
-    }));
-    if (custom.length) groups.push({ id: 'custom', label: 'Custom instruments', items: custom });
-    return groups;
-  },
-
-  _instrumentDescription(patch = {}) {
-    const bits = [];
-    if (patch.oscillator?.type) bits.push(patch.oscillator.type);
-    if (patch.unison?.voices) bits.push(`${patch.unison.voices}-voice unison`);
-    if (patch.filterEnv) bits.push('filter motion');
-    if (patch.vibrato) bits.push('vibrato');
-    if (patch.drive) bits.push('drive');
-    return bits.join(' - ') || 'Synth patch';
+    return drumInstrumentGroups(this.project);
   },
 
   _trackInstrumentGroups(track) {

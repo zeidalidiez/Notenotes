@@ -23,6 +23,11 @@ export const EditEventsMixin = {
       this.loadSnippet(null);
     });
 
+    toolbar.querySelector('#edit-patch-btn')?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this._openPatchPicker();
+    });
+
     toolbar.querySelector('#edit-velocity-range')?.addEventListener('input', (e) => {
       const event = this._selectedEditableEvent();
       if (!event) return;

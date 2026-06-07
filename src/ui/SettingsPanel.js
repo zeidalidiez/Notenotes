@@ -6,6 +6,7 @@
 
 import { SheetMusicView } from '../export/SheetMusicView.js';
 import { CHORD_TYPES, ARP_PATTERNS, ARP_RATES } from '../engine/ArpeggioManager.js';
+import { icon } from './icons.js';
 import { APP_VERSION } from '../version.js';
 import { pulseCountForMeter } from '../engine/Meter.js';
 import { showToast } from './Toast.js';
@@ -43,7 +44,7 @@ export class SettingsPanel {
       <div class="settings-panel__drawer" id="settings-drawer">
         <div class="settings-panel__header">
           <h2 class="settings-panel__title">Settings</h2>
-          <button class="btn btn--icon btn--ghost settings-panel__close" id="settings-close" aria-label="Close settings">✕</button>
+          <button class="btn btn--icon btn--ghost settings-panel__close" id="settings-close" aria-label="Close settings">${icon('x', { size: 16 })}</button>
         </div>
         <div class="settings-panel__tabs">
           <button class="settings-panel__tab is-active" data-section="settings">Settings</button>

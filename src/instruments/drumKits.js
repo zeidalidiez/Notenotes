@@ -71,16 +71,16 @@ export const DRUM_KITS = {
 };
 
 export const SOUNDS = [
-  { id: 'kick',    icon: '💥', label: 'KICK' },
-  { id: 'snare',   icon: '🥁', label: 'SNARE' },
-  { id: 'clap',    icon: '👏', label: 'CLAP' },
-  { id: 'hihat',   icon: '🔔', label: 'HI-HAT' },
-  { id: 'cymbal',  icon: '✨', label: 'CYMBAL' },
-  { id: 'tomlo',   icon: '🪘', label: 'TOM LO' },
-  { id: 'tommid',  icon: '🪘', label: 'TOM MID' },
-  { id: 'tomhi',   icon: '🪘', label: 'TOM HI' },
-  { id: 'rim',     icon: '🥢', label: 'RIM' },
-  { id: 'shaker',  icon: '🪇', label: 'SHAKER' },
+  { id: 'kick',    label: 'KICK' },
+  { id: 'snare',   label: 'SNARE' },
+  { id: 'clap',    label: 'CLAP' },
+  { id: 'hihat',   label: 'HI-HAT' },
+  { id: 'cymbal',  label: 'CYMBAL' },
+  { id: 'tomlo',   label: 'TOM LO' },
+  { id: 'tommid',  label: 'TOM MID' },
+  { id: 'tomhi',   label: 'TOM HI' },
+  { id: 'rim',     label: 'RIM' },
+  { id: 'shaker',  label: 'SHAKER' },
 ];
 
 export const GM_DRUM_NOTES = {

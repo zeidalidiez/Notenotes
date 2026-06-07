@@ -5,6 +5,7 @@
 
 import { clipTimeScaleBadgeItem, clipVisualDurationBars } from '../engine/ClipTimeScale.js';
 import { normalizeTrackPan } from '../engine/StereoWidth.js';
+import { icon } from '../ui/icons.js';
 import { showToast } from '../ui/Toast.js';
 import { renderToneBadges, toneBadgeItemsForClip } from '../ui/ToneBadges.js';
 import { peaksFromArrayBuffer } from '../utils/audioPeaks.js';
@@ -38,7 +39,7 @@ export const CanvasRenderMixin = {
         <div class="canvas-toolbar__divider"></div>
         <button class="choice-picker-button canvas-toolbar__select" id="canvas-tone-preset" type="button" aria-label="Tone preset for selected clip" aria-haspopup="dialog" disabled data-selected-tone-preset="">
           <span class="choice-picker-button__label" id="canvas-tone-preset-label">Tone preset...</span>
-          <span class="choice-picker-button__chevron" aria-hidden="true">▼</span>
+          <span class="choice-picker-button__chevron" aria-hidden="true">${icon('chevronDown', { size: 14 })}</span>
         </button>
         <button class="btn btn--ghost canvas-toolbar__btn" id="canvas-tone-apply" title="Select a MIDI or drum clip first" disabled>Apply to Clip</button>
         <div class="canvas-toolbar__divider"></div>
@@ -182,7 +183,7 @@ export const CanvasRenderMixin = {
           <span class="canvas-lane__name" data-track-id="${track.id}" title="Double-click to rename">${track.name}</span>
           <span class="canvas-lane__type">${trackTypeLabel}</span>
           <input class="canvas-lane__color" type="color" value="${trackColor}" data-track-color="${track.id}" title="Track color" aria-label="Track color" />
-          <button class="canvas-lane__remove-btn" data-remove-track="${track.id}" title="Remove track" aria-label="Remove track">✕</button>
+          <button class="canvas-lane__remove-btn" data-remove-track="${track.id}" title="Remove track" aria-label="Remove track">${icon('x', { size: 14 })}</button>
         </div>
         ${instSelect}
         <div class="canvas-lane__controls">

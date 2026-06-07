@@ -6,6 +6,7 @@
 import { correctMidiToScale, degreeForMidi, normalizeDegreeHighlighting, normalizeMusicalContext } from '../engine/MusicTheory.js';
 import { activeProgressionResolution, normalizeProgressionGlow } from '../engine/Progressions.js';
 import { dwellSettings, tremorAllows } from '../ui/AccessibilityProfiles.js';
+import { icon } from '../ui/icons.js';
 import { velocityFromPointer } from '../engine/HeightVelocity.js';
 
 export class MicroPiano {
@@ -85,9 +86,9 @@ export class MicroPiano {
 
     this.el.innerHTML = `
       <div class="micropiano__controls">
-        <button class="btn btn--icon btn--ghost" id="mp-oct-down" aria-label="Octave down">▼</button>
+        <button class="btn btn--icon btn--ghost" id="mp-oct-down" aria-label="Octave down">${icon('chevronDown', { size: 18 })}</button>
         <span class="micropiano__oct-display" id="mp-oct-display">${this._octaveDisplay()}</span>
-        <button class="btn btn--icon btn--ghost" id="mp-oct-up" aria-label="Octave up">▲</button>
+        <button class="btn btn--icon btn--ghost" id="mp-oct-up" aria-label="Octave up">${icon('chevronUp', { size: 18 })}</button>
       </div>
       <div class="micropiano__boards" id="mp-boards">
         ${this._renderAllKeyboards()}

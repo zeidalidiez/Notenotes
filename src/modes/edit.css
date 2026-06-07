@@ -703,11 +703,6 @@
   gap: var(--space-sm);
 }
 
-.edit-browser__icon {
-  font-size: 24px;
-  opacity: 0.7;
-}
-
 .edit-browser__heading {
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);

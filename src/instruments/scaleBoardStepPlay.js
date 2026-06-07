@@ -7,6 +7,7 @@
  */
 
 import { getScaleNotes, midiToNoteName, SCALES } from '../engine/MusicTheory.js';
+import { icon } from '../ui/icons.js';
 import { showToast } from '../ui/Toast.js';
 
 export const STEP_PLAY_DEFAULT_OCTAVE = 4;
@@ -297,9 +298,9 @@ export const ScaleBoardStepPlayMixin = {
           <p>Tap notes from the current scale to add them. Saved steps keep their exact pitch even if key, scale, or Pads octave changes later.</p>
         </div>
         <div class="step-editor__palette">
-          <button class="btn btn--icon btn--ghost" id="step-editor-oct-down" type="button" aria-label="Lower note row">◀</button>
+          <button class="btn btn--icon btn--ghost" id="step-editor-oct-down" type="button" aria-label="Lower note row">${icon('chevronLeft', { size: 18 })}</button>
           <div class="step-editor__notes" id="step-editor-notes">${this._renderStepEditorNotes()}</div>
-          <button class="btn btn--icon btn--ghost" id="step-editor-oct-up" type="button" aria-label="Higher note row">▶</button>
+          <button class="btn btn--icon btn--ghost" id="step-editor-oct-up" type="button" aria-label="Higher note row">${icon('chevronRight', { size: 18 })}</button>
         </div>
         <div class="step-editor__sequence" id="step-editor-sequence">${this._renderStepEditorSequence()}</div>
         <div class="step-editor__actions">

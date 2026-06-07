@@ -6,6 +6,7 @@
 import { AudioEngine } from '../engine/AudioEngine.js';
 import { ticksPerBarForMeter } from '../engine/Meter.js';
 import { renderToneBadges, toneBadgeItemsForSnippet } from './ToneBadges.js';
+import { icon } from './icons.js';
 import { renderSnippetPreviewSVG } from './snippetPreview.js';
 
 export class SnippetTray {
@@ -138,7 +139,7 @@ export class SnippetTray {
             ${toneBadges}
           </div>
           <div class="snippet-tray__item-actions">
-            <button class="snippet-tray__action-btn snippet-tray__delete-btn" data-delete="${s.id}" aria-label="Delete snippet" title="Delete">✕</button>
+            <button class="snippet-tray__action-btn snippet-tray__delete-btn" data-delete="${s.id}" aria-label="Delete snippet" title="Delete">${icon('x', { size: 14 })}</button>
           </div>
         </div>
       `;

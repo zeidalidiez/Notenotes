@@ -38,6 +38,7 @@ import { CreativeControllerMixin } from './creativeController.js';
 import { CreativeStageOverlayMixin } from './creativeStageOverlay.js';
 import { CreativeAiSeedMixin } from './creativeAiSeed.js';
 import { CreativeToneMixin } from './creativeTone.js';
+import { icon } from '../ui/icons.js';
 
 export class CreativeMode {
   constructor(engine, transport, quantizer, store, project, modManager) {
@@ -442,17 +443,17 @@ export class CreativeMode {
     switcher.className = 'instrument-switcher';
     switcher.id = 'instrument-switcher';
     const tabs = [
-      { id: INSTRUMENTS.SCALEBOARD, icon: '🎹', label: 'Pads' },
-      { id: INSTRUMENTS.CONTROLLER, icon: '⚗', label: 'Labs' },
-      { id: INSTRUMENTS.PIANO, icon: '🎵', label: 'Piano' },
-      { id: INSTRUMENTS.KIT, icon: '🥁', label: 'Kit' },
-      { id: INSTRUMENTS.MIC, icon: '🎤', label: 'Audio In' },
+      { id: INSTRUMENTS.SCALEBOARD, label: 'Pads' },
+      { id: INSTRUMENTS.CONTROLLER, label: 'Labs' },
+      { id: INSTRUMENTS.PIANO, label: 'Piano' },
+      { id: INSTRUMENTS.KIT, label: 'Kit' },
+      { id: INSTRUMENTS.MIC, label: 'Audio In' },
     ];
     tabs.forEach(t => {
       const btn = document.createElement('button');
       btn.className = `instrument-switcher__tab${t.id === this.activeInstrument ? ' is-active' : ''}`;
       btn.dataset.instrument = t.id;
-      btn.innerHTML = `<span>${t.icon}</span><span>${t.label}</span>`;
+      btn.innerHTML = `<span>${t.label}</span>`;
       this._bindToolbarTap(btn, () => {
         this._switchInstrument(t.id);
       });
@@ -468,7 +469,7 @@ export class CreativeMode {
       <span class="patch-selector__label" id="patch-selector-label">Patch</span>
       <button class="choice-picker-button patch-selector__picker" id="patch-picker-button" type="button" aria-label="Synth patch" aria-haspopup="dialog">
         <span class="choice-picker-button__label" id="patch-picker-label">${this._patchDisplayName(this._activePatchId)}</span>
-        <span class="choice-picker-button__chevron" aria-hidden="true">▼</span>
+        <span class="choice-picker-button__chevron" aria-hidden="true">${icon('chevronDown', { size: 14 })}</span>
       </button>
       <button class="tone-button" id="create-instrument-button" type="button">${this._activePatchId.startsWith('custom:') ? 'Edit Instrument' : 'Create Instrument'}</button>
       <button class="tone-button" id="delete-instrument-button" type="button">Delete</button>

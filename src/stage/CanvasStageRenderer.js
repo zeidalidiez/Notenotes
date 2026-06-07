@@ -1,5 +1,6 @@
 import './stage.css';
 import { StageDrawViewsMixin } from './stageDrawViews.js';
+import { icon } from '../ui/icons.js';
 import { clamp, rgba, normalizeEvent } from './stageDrawUtils.js';
 import { STAGE_CANVAS_TRACK_LIMIT, STAGE_LIVE_LANE_LIMIT } from './StageModel.js';
 import { stageBlur, stageRenderQuality, stageTrailMs } from './StageRenderQuality.js';
@@ -111,7 +112,7 @@ export class CanvasStageRenderer {
     return `
       <label class="stage-overlay__view">
         <span>View</span>
-        <button class="stage-overlay__view-nav" type="button" data-stage-view-prev aria-label="Previous Stage view">‹</button>
+        <button class="stage-overlay__view-nav" type="button" data-stage-view-prev aria-label="Previous Stage view">${icon('chevronLeft', { size: 18 })}</button>
         <select id="stage-view-select" aria-label="Stage view">
           ${options.map(view => `
             <option value="${this._escapeAttr(view.id)}" ${view.id === this.viewId ? 'selected' : ''}>
@@ -119,7 +120,7 @@ export class CanvasStageRenderer {
             </option>
           `).join('')}
         </select>
-        <button class="stage-overlay__view-nav" type="button" data-stage-view-next aria-label="Next Stage view">›</button>
+        <button class="stage-overlay__view-nav" type="button" data-stage-view-next aria-label="Next Stage view">${icon('chevronRight', { size: 18 })}</button>
       </label>
     `;
   }

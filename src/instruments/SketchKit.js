@@ -9,6 +9,7 @@ import { SOUND_TRAITS, normalizeSoundTraits } from './WebAudioSynth.js';
 import { showToast } from '../ui/Toast.js';
 import { ChoicePicker } from '../ui/ChoicePicker.js';
 import { dwellSettings, tremorAllows } from '../ui/AccessibilityProfiles.js';
+import { icon } from '../ui/icons.js';
 import { performanceKeyLabel } from '../ui/PerformanceKeys.js';
 import { createDrumNoiseState, shapedDrumNoiseSample } from '../engine/DrumSynthesis.js';
 import { drumHumanize } from '../engine/Humanize.js';
@@ -145,7 +146,6 @@ export class SketchKit {
         <button class="sketchkit__pad ${padClass}" data-pad="${s.id}" data-index="${i}"
                 aria-label="${s.label}${keyLabel ? `, keyboard ${keyLabel}` : ''}">
           ${keyLabel ? `<span class="sketchkit__key-label" aria-hidden="true">${keyLabel}</span>` : ''}
-          <span class="sketchkit__pad-icon">${s.icon}</span>
           <span class="sketchkit__pad-label">${s.label}</span>
         </button>
       `;
@@ -581,7 +581,7 @@ export class SketchKit {
         <div class="tone-preset__row tone-preset__row--manage">
           <button class="choice-picker-button tone-preset__picker" id="sk-tone-preset-picker" type="button" aria-label="Tone preset" aria-haspopup="dialog">
             <span class="choice-picker-button__label" id="sk-tone-preset-label">Preset...</span>
-            <span class="choice-picker-button__chevron" aria-hidden="true">▼</span>
+            <span class="choice-picker-button__chevron" aria-hidden="true">${icon('chevronDown', { size: 14 })}</span>
           </button>
           <button class="btn btn--ghost" id="sk-tone-preset-apply" type="button">Apply</button>
           <button class="btn btn--ghost" id="sk-tone-preset-delete" type="button">Delete</button>

@@ -84,6 +84,8 @@ Plug in any USB or Bluetooth controller. The Controller Lab (under **Labs** in t
 
 ### Share a snippet - send a hook in a link
 
+![Sharing a snippet - click Share, send the link, it lands in their library](docs/media/how-to-share.gif)
+
 Found something worth passing on? Every MIDI or drum snippet in the Snippets tray (and the Inspect library) has a small **Share** button next to delete.
 
 1. **Click Share.** The link is copied to your clipboard (if the browser blocks the clipboard, the link pops up so you can copy it by hand).

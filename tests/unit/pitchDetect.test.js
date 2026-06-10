@@ -36,13 +36,29 @@ test('hz/midi conversions round-trip at A4 and octaves', () => {
   assert.equal(hzToMidi(0), null);
 });
 
-test('detectPitchHz identifies clean tones across the range', () => {
-  for (const midi of [48, 55, 60, 69, 72, 84]) {
-    const p = detectPitchHz(tone(midi, 0.1).subarray(0, 2048), SR);
+test('detectPitchHz identifies clean tones across the range (incl. low C2)', () => {
+  // Includes midi 36 (~C2, near the minHz boundary) and 40 to guard the
+  // descend-then-first-peak picker against the minLag false-peak and the
+  // maxLag boundary case.
+  for (const midi of [36, 40, 48, 55, 60, 64, 67, 69, 72, 84]) {
+    // A longer frame gives the low notes enough periods to lock onto.
+    const p = detectPitchHz(tone(midi, 0.12).subarray(0, 4096), SR);
     assert.ok(p, `expected a pitch for midi ${midi}`);
     assert.equal(Math.round(hzToMidi(p.hz)), midi, `midi ${midi} detected as ${hzToMidi(p.hz)}`);
     assert.ok(p.clarity > 0.9);
   }
+});
+
+test('detectPitchHz finds a tone sitting right at the minHz boundary', () => {
+  // 80 Hz with minHz=80 puts the period exactly at maxLag - the case that used
+  // to fall off the end of the scan and return null.
+  const hz = 80;
+  const n = Math.floor(0.12 * SR);
+  const a = new Float32Array(n);
+  for (let i = 0; i < n; i++) a[i] = 0.6 * Math.sin((2 * Math.PI * hz * i) / SR);
+  const p = detectPitchHz(a.subarray(0, 4096), SR, { minHz: 80 });
+  assert.ok(p, 'expected a boundary tone to be detected');
+  assert.ok(Math.abs(p.hz - 80) < 3, `detected ${p.hz}, expected ~80`);
 });
 
 test('detectPitchHz returns null for silence and low-level noise', () => {

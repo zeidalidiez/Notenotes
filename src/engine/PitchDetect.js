@@ -58,11 +58,9 @@ export function detectPitchHz(samples, sampleRate, options = {}) {
   const minLag = Math.max(1, Math.floor(sampleRate / maxHz));
   if (maxLag <= minLag) return null;
 
-  // Normalized autocorrelation across the candidate lag range.
-  let bestLag = -1;
-  let bestCorr = 0;
-  let prevCorr = 0;
-  let rising = false;
+  // Normalized autocorrelation across the candidate lag range. 1.0 == perfectly
+  // periodic at that lag.
+  const norms = new Array(maxLag + 1).fill(0);
   for (let lag = minLag; lag <= maxLag; lag++) {
     let corr = 0;
     let energy = 0;
@@ -70,20 +68,24 @@ export function detectPitchHz(samples, sampleRate, options = {}) {
       corr += samples[i] * samples[i + lag];
       energy += samples[i] * samples[i] + samples[i + lag] * samples[i + lag];
     }
-    const norm = energy > 0 ? (2 * corr) / energy : 0; // 1.0 == perfectly periodic
-
-    // Take the first strong peak after the correlation starts rising, which
-    // avoids latching onto the zero-lag shoulder or a higher octave.
-    if (norm > prevCorr) {
-      rising = true;
-    } else if (rising && prevCorr > bestCorr) {
-      bestCorr = prevCorr;
-      bestLag = lag - 1;
-      if (bestCorr >= minClarity) break;
-    }
-    prevCorr = norm;
+    norms[lag] = energy > 0 ? (2 * corr) / energy : 0;
   }
 
+  // Autocorrelation is high near lag 0 and slides down to a trough around the
+  // half-period before rising to a peak at the true period. Descend past that
+  // initial shoulder first, otherwise minLag (a short lag / high frequency) is
+  // mistaken for the peak and low notes are dropped.
+  let lag = minLag;
+  while (lag < maxLag && norms[lag] > norms[lag + 1]) lag++;
+
+  // Then climb to the FIRST local maximum. That first peak is the fundamental
+  // period; a plain global max would prefer the equally-strong 2x/3x-period
+  // peaks of a sustained tone and report an octave too low. Stopping at maxLag
+  // also keeps tones near minHz (~C2) from being lost at the boundary.
+  while (lag < maxLag && norms[lag] <= norms[lag + 1]) lag++;
+
+  const bestLag = lag;
+  const bestCorr = norms[lag];
   if (bestLag < 1 || bestCorr < minClarity) return null;
 
   // Parabolic interpolation around the peak lag for sub-sample precision.
@@ -197,10 +199,10 @@ export function transcribeSamplesToNotes(samples, sampleRate, opts = {}) {
   }
   flush(smoothed.length);
 
-  const voiced = notes.filter(n => n.pitch !== null);
-  const lastEnd = voiced.length ? voiced[voiced.length - 1].startTick + voiced[voiced.length - 1].durationTick : 0;
+  // `flush` only emits notes with a non-null pitch, so no filtering is needed.
+  const lastEnd = notes.length ? notes[notes.length - 1].startTick + notes[notes.length - 1].durationTick : 0;
   const durationTicks = Math.max(ppq, Math.ceil((lastEnd || ppq) / ppq) * ppq);
-  return { notes: voiced, durationTicks };
+  return { notes, durationTicks };
 }
 
 function clampNumber(v, lo, hi, fallback) {

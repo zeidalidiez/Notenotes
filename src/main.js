@@ -607,6 +607,15 @@ class App {
       showToast('Audio is not ready yet - tap to enable sound first');
       return;
     }
+    // Re-entrancy guard: the button fires on pointerdown and decode can take a
+    // while, so a double-tap must not produce two MIDI clips from one recording.
+    this._transcribing ||= new Set();
+    if (this._transcribing.has(snippet.id)) return;
+    this._transcribing.add(snippet.id);
+
+    // Capture the project we started from; if it is swapped/closed during the
+    // awaits below we must not append to a different (or null) project.
+    const project = this.project;
     showToast('Listening for the melody...');
     try {
       const blob = await this.store.getAudioAssetBlob(snippet.audioAssetId);
@@ -620,6 +629,7 @@ class App {
         showToast('Could not find a clear pitch to transcribe');
         return;
       }
+      if (!this.project || this.project !== project) return; // project changed mid-decode
       const midiSnippet = {
         id: crypto.randomUUID(),
         createdAt: Date.now(),
@@ -642,6 +652,8 @@ class App {
     } catch (err) {
       console.warn('[MicToMidi] transcription failed:', err);
       showToast('Could not transcribe that recording');
+    } finally {
+      this._transcribing.delete(snippet.id);
     }
   }
 

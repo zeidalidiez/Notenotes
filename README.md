@@ -350,6 +350,14 @@ Notenotes stands on the shoulders of generous people who share their work freely
 - **[vite-plugin-pwa](https://vite-pwa-org.netlify.app/)** - making Notenotes installable and offline-ready with one config block.
 - **[Lucide](https://lucide.dev)** - functional icons (transport, settings, metronome, close, chevrons, etc.) sourced from Lucide under the ISC License. See [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
 
+### Code review
+
+<a href="https://www.greptile.com/">
+  <img src="readme_images/greptile-wordmark.svg" alt="Greptile" width="280">
+</a>
+
+A huge thank you to **[Greptile](https://www.greptile.com/)** for the consistently thoughtful and thorough code reviews. Its reviews have caught real problems, challenged shaky assumptions, and helped make Notenotes sturdier without losing sight of what the app is trying to become.
+
 If you spot anything in this repo that's missing a credit it deserves, please [open an issue](https://github.com/zeidalidiez/Notenotes/issues/new) - we'll fix it fast.
 
 ### Audio asset rule

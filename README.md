@@ -82,6 +82,16 @@ While a clip is open in Inspect, the toolbar has a **Patch** group (MIDI) or **K
 
 Plug in any USB or Bluetooth controller. The Controller Lab (under **Labs** in the instrument rail) holds the four shoulder/trigger modifier slots, current bindings, fallback notes, and saved binding presets. D-pad and face buttons map to the scale by default, or you can teach buttons to trigger exact notes and drum sounds. Learned buttons are global in Create, so a Kick button can still fire while you are looking at Piano, and a C4 button can still fire while you are looking at Kit. Analog sticks bend pitch and add modulation. Shoulders and triggers are held musical modifiers: make the next button a Triad, 7th, Sus2, Power chord, 9th, 11th, 13th, or octave jump without turning effects on and off mid-take. Pass the controller to a friend who's never touched a keyboard - watch what happens.
 
+### Share a snippet - send a hook in a link
+
+Found something worth passing on? Every MIDI or drum snippet in the Snippets tray (and the Inspect library) has a small **Share** button next to delete.
+
+1. **Click Share.** The link is copied to your clipboard (if the browser blocks the clipboard, the link pops up so you can copy it by hand).
+2. **Send it** however you like - chat, email, a note to yourself.
+3. **They open it.** The snippet drops straight into their library. If they already use Notenotes it adds to what they have; if they have never opened it, the link gets them started with your hook.
+
+The whole snippet rides inside the link itself, so there is no upload, no account, and no server - it stays as local-first as the rest of the app. Audio snippets are the one exception: a recording is too big to fit in a link, so only the lightweight MIDI and drum snippets get a Share button.
+
 ---
 
 ## What it is right now

@@ -19,6 +19,12 @@ const escAttr = (s) => escHtml(s).replace(/"/g, '&quot;');
 
 export const EditLyricsMixin = {
   _renderLyricsLane() {
+    // Drop references to the previous lane so a detached ribbon node can be
+    // garbage-collected (loadSnippet wipes the DOM) and the highlight loop has
+    // nothing to touch until the new lane is built.
+    this._lyricsRibbonEl = null;
+    this._lyricsCache = null;
+    this._lyricsActiveIdx = -1;
     // Lyrics belong to pitched/drum snippets in the roll editor, not the audio
     // player view.
     if (!this._snippet || this._snippet.type === 'audio') return;

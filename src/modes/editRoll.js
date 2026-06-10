@@ -717,7 +717,11 @@ export const EditRollMixin = {
           el.style.display = 'block';
           el.style.left = `${left}px`;
         }
-        this._updateLyricHighlight?.(transport.currentTick);
+        // Wrap into the snippet the same way the playhead does, or the lyric
+        // highlight goes dark on the second loop once currentTick passes the
+        // snippet duration.
+        const localTick = snippetDuration > 0 ? transport.currentTick % snippetDuration : transport.currentTick;
+        this._updateLyricHighlight?.(localTick);
       }
       this._playheadAnim = requestAnimationFrame(tick);
     };

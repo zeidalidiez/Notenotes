@@ -498,6 +498,27 @@ Backups may embed audio as `audioDataUrl` for portability. On import, embedded
 audio data should be migrated back into `audioAssets`. Do not introduce new
 features that put durable audio bytes directly in `project.snippets`.
 
+## Snippet Share Links (Invite a Friend)
+
+`src/utils/SnippetShare.js` encodes a MIDI/drum snippet into a URL-safe code and
+back. It is pure and dependency-free (its own base64url over UTF-8, no
+btoa/Buffer), so it behaves identically in the browser and in tests.
+
+- `encodeSnippetShare(snippet)` returns a code or null. Only `midi`/`drum`
+  snippets with content are shareable; audio is refused (sample data does not
+  belong in a URL). Notes/hits are capped at `MAX_SHARE_EVENTS` and values are
+  clamped on the way in.
+- `decodeSnippetShare(code)` is strict: wrong version, malformed base64, or
+  out-of-range entries are dropped; a code with no usable notes/hits returns
+  null. It does NOT assign `id`/`createdAt` - the importer does.
+- `shareUrlForSnippet(snippet, baseUrl)` / `sharedSnippetFromSearch(search)` are
+  the URL helpers; the param is `?s=`.
+- `SnippetTray` shows a Share button per non-audio snippet (`onSnippetShare`).
+  `main.js._shareSnippet()` copies the link; `_importSharedSnippetFromUrl()`
+  runs once after project load, merges any `?s=` snippet, then strips the param
+  via `history.replaceState` so a reload does not re-import. This is additive:
+  it never overwrites existing snippets and is gated on a user opening a link.
+
 ## Autosave, Backups, And Folder Backup
 
 Use:

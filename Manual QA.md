@@ -1288,3 +1288,24 @@ Expected:
 - Live playback, WAV export, MIDI export, and Canvas Stage all use the scaled timing.
 - Audio clips use tape-style speed: half-time is lower/slower, double-time is higher/faster.
 - `Alt+drag` no longer resizes Canvas clips.
+
+## 13. Snippet Share Links (Invite a Friend)
+
+### 13.1 Share And Import A Snippet
+
+Steps:
+
+1. Record or seed at least one MIDI or drum snippet so it appears in the Snippets tray / Inspect library.
+2. Click the snippet's **Share** button (the share icon next to delete).
+3. Confirm the toast says the link was copied; paste the link somewhere to inspect it (it should contain `?s=`).
+4. Open the link in a different browser or a private/incognito window.
+5. After the page loads and audio is unlocked, look at the Inspect library and the Snippets tray.
+6. Reload the recipient page once.
+
+Expected:
+
+- Audio snippets do not show a Share button; MIDI and drum snippets do.
+- Opening the link adds the shared snippet to the recipient's library with the same notes/hits, name, and tempo, and a fresh id (it does not clobber existing snippets).
+- A toast confirms the shared snippet was added.
+- After import, the `?s=` parameter is removed from the address bar, and reloading does not add a second copy.
+- If clipboard access is blocked, the app still surfaces the link (prompt) instead of failing silently.

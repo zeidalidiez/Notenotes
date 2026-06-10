@@ -193,7 +193,7 @@ These are the ideas that drive the project. Some are coded, some are sketches, s
 ### Sharing
 - [ ] **MP3 export** once there is a reliable browser encoder path.
 - [ ] **Visual export** Stage GIF/Video capture with audio and export.
-- [ ] **Invite a friend** Send a link with a snippet to someone, if they have saved data it adds the snippet to their data, if they don't it starts them with the snippet. 
+- [x] **Invite a friend** Every MIDI/drum snippet has a **Share** button that copies a link. Open the link and the snippet merges into your library (or starts you off with it if you have no saved data). The note data rides inside the link itself, so there is no server and nothing to upload - audio snippets are not shareable this way. 
 
 
 

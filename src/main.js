@@ -16,6 +16,7 @@ import { UndoManager } from './data/UndoManager.js';
 import { TransportBar } from './ui/TransportBar.js';
 import { ModeTabs, Modes } from './ui/ModeTabs.js';
 import { showToast } from './ui/Toast.js';
+import { shareUrlForSnippet, sharedSnippetFromSearch } from './utils/SnippetShare.js';
 import { CreativeMode } from './modes/CreativeMode.js';
 import { CanvasMode } from './modes/CanvasMode.js';
 import { EditMode } from './modes/EditMode.js';
@@ -199,6 +200,9 @@ class App {
       showToast(snippet.type === 'audio' ? 'Audio preview' : 'Editing snippet');
     });
 
+    // Wire snippet sharing: SnippetTray → copy a shareable link
+    this.creativeMode.snippetTray.onSnippetShare((snippet) => this._shareSnippet(snippet));
+
     // Wire snippet deletion: SnippetTray → Project
     this.creativeMode.snippetTray.onSnippetDeleted((id) => {
       if (this.project && this.project.snippets) {
@@ -217,6 +221,11 @@ class App {
         this.creativeMode.snippetTray.addSnippet(snippet);
       });
     }
+
+    // "Invite a friend": if the page was opened with a shared snippet in the
+    // URL, merge it into the library and clean the URL so a reload does not
+    // re-add it.
+    this._importSharedSnippetFromUrl();
 
     // Share the same per-snippet usage provider that the SnippetTray uses, so
     // the new Inspect browser's usage badge and "Most used" sort see the same
@@ -598,6 +607,52 @@ class App {
     this.store?.scheduleAutoSave(this.project);
     window.dispatchEvent(new CustomEvent('project-progression-changed', { detail: { ...next } }));
     showToast(`Changes: ${progressionLabel(next)}`);
+  }
+
+  async _shareSnippet(snippet) {
+    const base = (typeof location !== 'undefined') ? `${location.origin}${location.pathname}` : '';
+    const url = shareUrlForSnippet(snippet, base);
+    if (!url) {
+      showToast('This snippet cannot be shared as a link');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('Share link copied to clipboard');
+    } catch {
+      // Clipboard can be blocked (no permission / insecure context). Fall back
+      // to a prompt so the link is still recoverable.
+      try { window.prompt('Copy this share link:', url); } catch { /* headless */ }
+      showToast('Share link ready');
+    }
+  }
+
+  _importSharedSnippetFromUrl() {
+    if (typeof location === 'undefined') return;
+    const decoded = sharedSnippetFromSearch(location.search);
+    if (!decoded || !this.project) return;
+
+    const snippet = {
+      ...decoded,
+      id: crypto.randomUUID(),
+      createdAt: Date.now(),
+    };
+    delete snippet.fromShare;
+    this.project.snippets ||= [];
+    this.project.snippets.push(snippet);
+    this.creativeMode?.snippetTray?.addSnippet(snippet);
+    this.editMode?.refreshSnippetList?.();
+    window.dispatchEvent(new CustomEvent('project-snippets-changed', { detail: { snippetId: snippet.id, action: 'added' } }));
+    this.store?.scheduleAutoSave(this.project);
+
+    // Strip the share param so a reload does not re-import the snippet.
+    try {
+      const url = new URL(location.href);
+      url.searchParams.delete('s');
+      window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+    } catch { /* non-browser */ }
+
+    requestAnimationFrame(() => showToast(`Added shared snippet: ${snippet.name}`));
   }
 
   _followProgressionToBar(bar) {

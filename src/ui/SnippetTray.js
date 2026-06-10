@@ -15,6 +15,7 @@ export class SnippetTray {
     /** @type {Array} */
     this.snippets = [];
     this._onSnippetSelected = null;
+    this._onSnippetShare = null;
     this._snippetUsageProvider = null;
     this._collapsed = typeof window !== 'undefined'
       ? window.matchMedia?.('(max-width: 700px)')?.matches ?? false
@@ -30,6 +31,12 @@ export class SnippetTray {
    * Set callback for when a snippet is deleted from the tray.
    */
   onSnippetDeleted(fn) { this._onSnippetDeleted = fn; }
+
+  /**
+   * Set callback for when a snippet's "Share link" action is used. The host
+   * builds the URL and copies it. Audio snippets are not offered a share button.
+   */
+  onSnippetShare(fn) { this._onSnippetShare = fn; }
 
   setSnippetUsageProvider(fn) {
     this._snippetUsageProvider = fn;
@@ -139,6 +146,7 @@ export class SnippetTray {
             ${toneBadges}
           </div>
           <div class="snippet-tray__item-actions">
+            ${s.type === 'audio' ? '' : `<button class="snippet-tray__action-btn snippet-tray__share-btn" data-share="${s.id}" aria-label="Copy share link" title="Copy a link that shares this snippet">${icon('share', { size: 14 })}</button>`}
             <button class="snippet-tray__action-btn snippet-tray__delete-btn" data-delete="${s.id}" aria-label="Delete snippet" title="Delete">${icon('x', { size: 14 })}</button>
           </div>
         </div>
@@ -151,6 +159,16 @@ export class SnippetTray {
         e.preventDefault();
         e.stopPropagation();
         this.removeSnippet(btn.dataset.delete);
+      });
+    });
+
+    // Bind share buttons
+    list.querySelectorAll('.snippet-tray__share-btn').forEach(btn => {
+      btn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const snippet = this.snippets.find(s => s.id === btn.dataset.share);
+        if (snippet && this._onSnippetShare) this._onSnippetShare(snippet);
       });
     });
 

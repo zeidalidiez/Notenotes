@@ -8,7 +8,10 @@
  * toolbar, and the word currently sounding highlights during playback.
  */
 
-import { normalizeLyrics, lyricsFromText, lyricsToText, activeLyricIndex } from '../engine/Lyrics.js';
+// `activeLyricIndex` is intentionally NOT imported: the per-frame highlight
+// scans the already-normalized `_lyricsCache` directly (below) to avoid
+// re-normalizing the lyrics array on every animation frame.
+import { normalizeLyrics, lyricsFromText, lyricsToText } from '../engine/Lyrics.js';
 
 const escHtml = (s) => String(s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

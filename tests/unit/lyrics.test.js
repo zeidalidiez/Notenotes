@@ -33,6 +33,15 @@ test('lyricsFromText spaces words evenly when there are more words than notes', 
   assert.equal(ly[0].startTick, 0);
   assert.equal(ly[0].durationTick, 200);
   assert.equal(ly[7].startTick, 1400);
+  // The last word ends exactly at the snippet boundary (no rounding overshoot).
+  assert.equal(ly[7].startTick + ly[7].durationTick, 1600);
+});
+
+test('even-spacing anchors the last word to the snippet end despite rounding', () => {
+  // 3 words over 1000 ticks: step ~333.33; the last word must run to 1000.
+  const ly = lyricsFromText('one two three', { durationTicks: 1000, notes: [{ startTick: 0 }] });
+  assert.equal(ly.length, 3);
+  assert.equal(ly[2].startTick + ly[2].durationTick, 1000);
 });
 
 test('activeLyricIndex finds the word sounding at a tick', () => {

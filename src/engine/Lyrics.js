@@ -72,12 +72,16 @@ export function lyricsFromText(text, snippet) {
     });
   }
 
+  // Even spacing: derive each word's length from the next word's start (and the
+  // last word from the snippet end) so the lyrics span exactly [0, duration]
+  // with no rounding drift past the boundary - same approach as the aligned path.
   const step = duration / words.length;
-  return words.map((word, i) => ({
-    text: word,
-    startTick: Math.round(i * step),
-    durationTick: Math.max(1, Math.round(step)),
-  }));
+  const starts = words.map((_, i) => Math.round(i * step));
+  return words.map((word, i) => {
+    const startTick = starts[i];
+    const nextStart = (i + 1 < words.length) ? starts[i + 1] : duration;
+    return { text: word, startTick, durationTick: Math.max(1, nextStart - startTick) };
+  });
 }
 
 /** Index of the lyric word active at `tick`, or -1. */

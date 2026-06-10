@@ -190,7 +190,7 @@ These are the ideas that drive the project. Some are coded, some are sketches, s
 
 ###  Sound and color
 
-- [ ] **Expanded lyrics mode** - The current method is great, but we should be able to attach lyrics to each snippet and store this data in the data model somehow, this will help power stage presentations that include lyrics such as karaoke etc.
+- [ ] **Expanded lyrics mode** - Attach lyrics to each individual MIDI note in a snippet (not just the snippet as a whole), enabling precise per-note lyric timing for stage presentations and karaoke-style display.
 - [ ] **Color-strip notation** as an alternative to the piano roll.
 
 ### Safety nets for those who need them

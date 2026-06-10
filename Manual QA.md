@@ -1330,3 +1330,25 @@ Expected:
 - The original audio snippet is unchanged.
 - A silent or unpitched recording reports "Could not find a clear pitch" instead of creating an empty clip.
 - Polyphonic input transcribes only a single line (documented limitation), not every voice.
+
+## 15. Synesthesia (Clips Glow As They Play)
+
+### 15.1 Canvas clips glow their note color
+
+Steps:
+
+1. In Create, set the key to C Major and capture (or seed) a couple of MIDI snippets with different dominant notes.
+2. Go to Canvas and drop the snippets onto a MIDI track at different bars.
+3. Click the **Colors** toggle in the Canvas toolbar.
+4. Press Play and watch the clips as the playhead crosses each one.
+5. Turn the **Colors** toggle off and play again.
+6. Open Layout (in Create) and switch the degree-color palette, then return to Canvas.
+
+Expected:
+
+- With Colors on, each MIDI clip glows a color while the playhead is inside it, and stops glowing once the playhead leaves.
+- Different clips glow different colors based on their dominant scale degree; the colors match the pads/piano degree colors.
+- Drum and audio clips do not glow (no pitched content).
+- With Colors off, no clip glows.
+- Changing the degree-color palette changes the glow colors to match (after the Canvas re-renders).
+- The toggle state survives reload.

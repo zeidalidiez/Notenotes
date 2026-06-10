@@ -449,6 +449,17 @@
   border-color: rgba(255,255,255,0.2);
 }
 
+/* Synesthesia: the clip glows its note color while the playhead is inside it. */
+.canvas-clip--glowing {
+  box-shadow: 0 0 16px 3px var(--glow-color, var(--accent)), 0 0 4px var(--glow-color, var(--accent));
+  border-color: var(--glow-color, var(--accent));
+  z-index: 6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canvas-clip { transition: none; }
+}
+
 .canvas-mode.is-time-tool-active .canvas-clip {
   cursor: pointer;
   outline: 1px dashed rgba(255,255,255,0.25);

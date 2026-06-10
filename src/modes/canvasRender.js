@@ -5,6 +5,8 @@
 
 import { clipTimeScaleBadgeItem, clipVisualDurationBars } from '../engine/ClipTimeScale.js';
 import { normalizeTrackPan } from '../engine/StereoWidth.js';
+import { snippetColor } from '../engine/Synesthesia.js';
+import { normalizeDegreeHighlighting } from '../engine/MusicTheory.js';
 import { icon } from '../ui/icons.js';
 import { showToast } from '../ui/Toast.js';
 import { renderToneBadges, toneBadgeItemsForClip } from '../ui/ToneBadges.js';
@@ -35,6 +37,7 @@ export const CanvasRenderMixin = {
         <div class="canvas-toolbar__divider"></div>
         <button class="btn btn--ghost canvas-toolbar__btn" id="canvas-trim-btn" title="Trim empty space from all snippets">Trim</button>
         <button class="btn btn--ghost canvas-loop-toggle" id="canvas-loop-toggle" type="button" aria-pressed="${this._canvasLoopEnabled() ? 'true' : 'false'}" title="Loop Canvas from the start to the latest clip">Loop</button>
+        <button class="btn btn--ghost canvas-toolbar__btn canvas-synesthesia-toggle" id="canvas-synesthesia-toggle" type="button" aria-pressed="${this._synesthesiaEnabled() ? 'true' : 'false'}" title="Synesthesia: clips glow their note color as they play">Colors</button>
         <button class="btn btn--ghost canvas-toolbar__btn canvas-time-tool" id="canvas-time-tool" type="button" aria-pressed="false" title="Pick a clip to set half-time or double-time">Time</button>
         <div class="canvas-toolbar__divider"></div>
         <button class="choice-picker-button canvas-toolbar__select" id="canvas-tone-preset" type="button" aria-label="Tone preset for selected clip" aria-haspopup="dialog" disabled data-selected-tone-preset="">
@@ -245,6 +248,22 @@ export const CanvasRenderMixin = {
     el.style.left = `${x}px`;
     el.style.width = `${w}px`;
     el.style.background = color;
+
+    // Synesthesia: tag the clip with its bar span and a note-derived color so
+    // the playhead loop can glow it (see _updateSynesthesiaGlow).
+    el.dataset.startBar = String(clip.startBar || 0);
+    el.dataset.endBar = String((clip.startBar || 0) + (clip.durationBars || 1));
+    if (this._synesthesiaEnabled?.()) {
+      const glow = snippetColor(
+        clip.snippet,
+        this.project?.musicalContext,
+        normalizeDegreeHighlighting(this.project?.settings?.degreeHighlighting).colors,
+      );
+      if (glow) {
+        el.dataset.glowColor = glow;
+        el.style.setProperty('--glow-color', glow);
+      }
+    }
 
     const noteCount = (clip.snippet?.notes?.length || 0) + (clip.snippet?.hits?.length || 0);
     const snippetName = clip.snippet?.name || `${noteCount} notes`;

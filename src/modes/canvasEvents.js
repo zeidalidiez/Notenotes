@@ -26,6 +26,10 @@ export const CanvasEventsMixin = {
       this._setCanvasLoopEnabled(!this._canvasLoopEnabled());
     });
 
+    this.el.querySelector('#canvas-synesthesia-toggle')?.addEventListener('click', () => {
+      this._setSynesthesiaEnabled(!this._synesthesiaEnabled());
+    });
+
     this.el.querySelector('#canvas-time-tool')?.addEventListener('click', () => {
       this._setTimeToolActive(!this._timeToolActive);
     });

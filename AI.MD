@@ -1380,6 +1380,25 @@ Canvas stores clips on tracks with absolute tick positions. Meter changes should
 preserve musical/time placement intentionally; do not casually reinterpret clip
 positions by a different bar length.
 
+### Synesthesia (clips glow as they play)
+
+`src/engine/Synesthesia.js` is pure: `snippetColor(snippet, context, colors)`
+returns the hex color of the snippet's dominant scale degree (the pitch class
+with the most total sounding time), using the same `degreeForMidi` mapping and
+degree-color palette (`normalizeDegreeHighlighting().colors`) as pads/piano.
+Returns null for drum/audio (nothing pitched).
+
+- Toggle: `project.settings.synesthesia` (off by default), driven by the Canvas
+  toolbar `Colors` button (`_setSynesthesiaEnabled` / `_syncSynesthesiaButton`,
+  mirroring the Loop toggle). Toggling re-renders tracks so clips pick up/drop
+  their `--glow-color`.
+- Rendering: when enabled, `_createClipElement` tags each clip with
+  `data-glow-color` (+ a `--glow-color` CSS var) and always sets
+  `data-start-bar`/`data-end-bar`.
+- The glow itself: `_updateSynesthesiaGlow()` runs each animation frame from the
+  playhead loop and toggles `.canvas-clip--glowing` on clips the playhead is
+  currently inside. It is visual only - no audio/recording/export impact.
+
 Audio clips are time-based but represented on the tick timeline for Canvas
 placement. Audio clips use `audioPeaks` when available so visual previews show
 actual sound activity rather than placeholder lines.

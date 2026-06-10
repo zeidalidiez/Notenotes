@@ -190,7 +190,7 @@ These are the ideas that drive the project. Some are coded, some are sketches, s
 
 ###  Sound and color
 
-- [ ] **Synesthesia mode** - clips on the Canvas glow their note color as they play.
+- [x] **Synesthesia mode** - a **Colors** toggle on the Canvas toolbar makes each clip glow its note color as the playhead crosses it. The color comes from the clip's dominant scale degree in the same degree-color palette the pads and piano use, so the whole app reads in one color language.
 - [ ] **Color-strip notation** as an alternative to the piano roll.
 
 ### Safety nets for those who need them

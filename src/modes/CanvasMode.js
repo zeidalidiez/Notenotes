@@ -156,6 +156,48 @@ export class CanvasMode {
       : 'Loop Canvas from the start to the latest clip';
   }
 
+  // --- Synesthesia: clips glow their note color as they play ---
+
+  _synesthesiaEnabled() {
+    return !!this.project?.settings?.synesthesia;
+  }
+
+  _setSynesthesiaEnabled(enabled) {
+    if (!this.project) return;
+    this.project.settings ||= {};
+    this.project.settings.synesthesia = !!enabled;
+    this._renderTracks();            // re-render so clips pick up / drop their glow color
+    this._syncSynesthesiaButton();
+    this.store?.scheduleAutoSave(this.project);
+    showToast(enabled ? 'Synesthesia on - clips glow as they play' : 'Synesthesia off');
+  }
+
+  _syncSynesthesiaButton() {
+    const btn = this.el?.querySelector('#canvas-synesthesia-toggle');
+    if (!btn) return;
+    const enabled = this._synesthesiaEnabled();
+    btn.classList.toggle('is-active', enabled);
+    btn.setAttribute('aria-pressed', String(enabled));
+  }
+
+  /** Per-frame: glow the clips the playhead is currently inside. */
+  _updateSynesthesiaGlow() {
+    if (!this.el) return;
+    const clips = this.el.querySelectorAll('.canvas-clip[data-glow-color]');
+    if (!clips.length) return;
+    const playing = this.transport.state !== TransportState.STOPPED;
+    if (!this._synesthesiaEnabled() || !playing) {
+      clips.forEach(el => el.classList.remove('canvas-clip--glowing'));
+      return;
+    }
+    const barPosition = this.transport.currentTick / this.transport.ticksPerBar;
+    clips.forEach(el => {
+      const start = parseFloat(el.dataset.startBar);
+      const end = parseFloat(el.dataset.endBar);
+      el.classList.toggle('canvas-clip--glowing', barPosition >= start && barPosition < end);
+    });
+  }
+
   /** Ensure the project has at least 2 default tracks */
   _ensureDefaultTracks() {
     if (!this.project) return;
@@ -252,6 +294,7 @@ export class CanvasMode {
     const animate = () => {
       this._animFrame = requestAnimationFrame(animate);
       this._updatePlayheadPosition();
+      this._updateSynesthesiaGlow();
     };
     animate();
   }

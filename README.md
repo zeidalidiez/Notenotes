@@ -185,7 +185,7 @@ These are the ideas that drive the project. Some are coded, some are sketches, s
 - [ ] **Webcam/Wiimote motion controls** - Movement to modulate, other potential uses.
 - [ ] **Touch + accelerometer** - on mobile, tilt for modulation, tap velocity for dynamics.
 - [ ] **Foot pedals & accessibility switches** - every input becomes an instrument.
-- [ ] **Lyrics support** - write words next to the snippets they fit, visible in the inspector allowing you to show when each word comes in and how long it lasts. Attach lyrics to the snippets. 
+- [x] **Lyrics support** - a **Lyrics** line in Inspect lets you type words for a clip; they snap onto your notes (or space out evenly when there are more words than notes) and show as a timing ribbon. The word that is sounding lights up as the clip plays. Lyrics are attached to the snippet and saved with it.
 
 
 ###  Sound and color

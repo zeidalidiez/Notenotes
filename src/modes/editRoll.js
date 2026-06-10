@@ -55,6 +55,7 @@ export const EditRollMixin = {
       this._panes = [pane];
     }
 
+    this._renderLyricsLane();
     this._bindEvents(toolbar);
     this._startPlayheadAnimation();
   },
@@ -708,6 +709,7 @@ export const EditRollMixin = {
       const shouldShow = currentState !== TransportState.STOPPED;
       if (!shouldShow) {
         for (const el of playheads) el.style.display = 'none';
+        this._updateLyricHighlight?.(-1);
       } else {
         const snippetDuration = Number(this._snippet?.durationTicks) || 0;
         const left = this._playheadLeftForTick(transport.currentTick, snippetDuration);
@@ -715,6 +717,7 @@ export const EditRollMixin = {
           el.style.display = 'block';
           el.style.left = `${left}px`;
         }
+        this._updateLyricHighlight?.(transport.currentTick);
       }
       this._playheadAnim = requestAnimationFrame(tick);
     };

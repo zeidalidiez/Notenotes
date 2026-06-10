@@ -19,6 +19,7 @@ import { EditRollMixin } from './editRoll.js';
 import { EditNotesMixin } from './editNotes.js';
 import { EditRhythmFitMixin } from './editRhythmFit.js';
 import { EditEventsMixin } from './editEvents.js';
+import { EditLyricsMixin } from './editLyrics.js';
 
 export class EditMode {
   constructor(transport, undoManager, store, project) {
@@ -710,4 +711,5 @@ Object.assign(
   EditNotesMixin,
   EditRhythmFitMixin,
   EditEventsMixin,
+  EditLyricsMixin,
 );

@@ -1413,6 +1413,24 @@ Inspect edits MIDI, drum, and audio snippets. MIDI and drum Inspect share the
 toolbar/ruler design language. Disabled mode-inappropriate actions should look
 disabled or explain themselves with a toast; do not make controls silently fail.
 
+### Lyrics
+
+`src/engine/Lyrics.js` is the pure layer: lyrics live on `snippet.lyrics` as
+`[{ text, startTick, durationTick }]`. `lyricsFromText(text, snippet)`
+distributes a typed line across the snippet's note onsets (one word per onset;
+the last word runs to the end), falling back to even spacing when there are more
+words than notes. `normalizeLyrics()` sanitizes (strips `< > "` and control
+chars - lyrics are user text, keep them markup-free), clamps timing, and sorts.
+`activeLyricIndex(lyrics, tick)` is the playback-highlight lookup.
+
+The `EditLyricsMixin` (`editLyrics.js`, composed onto EditMode) renders a lyrics
+lane under the roll toolbar (`_renderLyricsLane` is called from
+`editRoll._renderEditor`): a text input plus a proportional word ribbon. Typing
+re-derives `snippet.lyrics` and autosaves. The roll's playhead rAF loop calls
+`_updateLyricHighlight(tick)` to light the sounding word (and clears it when
+stopped). Lyrics are skipped for audio snippets. This is context only - it never
+changes notes, playback, or export.
+
 Drum hits draw as blocks in the grid. Split view is for MIDI and should be
 disabled clearly for drums.
 

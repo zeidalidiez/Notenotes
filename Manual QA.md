@@ -1352,3 +1352,24 @@ Expected:
 - With Colors off, no clip glows.
 - Changing the degree-color palette changes the glow colors to match (after the Canvas re-renders).
 - The toggle state survives reload.
+
+## 16. Lyrics (Inspector)
+
+### 16.1 Type lyrics and watch them follow playback
+
+Steps:
+
+1. Capture or seed a short MIDI snippet with a few notes and open it in Inspect.
+2. In the **Lyrics** line under the toolbar, type a phrase with about as many words as notes, then press Enter.
+3. Look at the word ribbon below the input.
+4. Press Play and watch the words as the clip plays.
+5. Type a longer phrase (more words than notes) and press Enter.
+6. Reload the project and reopen the clip.
+
+Expected:
+
+- Words snap onto successive notes; each word's ribbon chip is sized by how long it lasts.
+- With more words than notes, the words space out evenly across the clip instead of piling up.
+- During playback the word currently sounding is highlighted, and the highlight moves in time; it clears when playback stops.
+- Lyrics persist with the snippet across reload, and `< > "` characters never render as markup.
+- Audio snippets do not show a Lyrics line.

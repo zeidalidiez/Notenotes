@@ -100,6 +100,12 @@
   border-color: var(--accent-dim);
 }
 
+.canvas-synesthesia-toggle.is-active {
+  color: var(--accent-light);
+  background: var(--accent-glow);
+  border-color: var(--accent-dim);
+}
+
 .canvas-toolbar__spacer { flex: 1; }
 
 @media (max-width: 640px) {
@@ -449,8 +455,11 @@
   border-color: rgba(255,255,255,0.2);
 }
 
-/* Synesthesia: the clip glows its note color while the playhead is inside it. */
-.canvas-clip--glowing {
+/* Synesthesia: the clip glows its note color while the playhead is inside it.
+ * The `.is-selected` combo selector keeps the glow winning over the selected-
+ * clip box-shadow (equal base specificity) when a clip is both. */
+.canvas-clip--glowing,
+.canvas-clip.is-selected.canvas-clip--glowing {
   box-shadow: 0 0 16px 3px var(--glow-color, var(--accent)), 0 0 4px var(--glow-color, var(--accent));
   border-color: var(--glow-color, var(--accent));
   z-index: 6;

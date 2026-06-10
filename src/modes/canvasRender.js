@@ -95,6 +95,7 @@ export const CanvasRenderMixin = {
     this._bindEvents();
     this._startPlayheadAnimation();
     this._syncCanvasLoopRegion();
+    this._syncSynesthesiaButton();
 
     return this.el;
   },

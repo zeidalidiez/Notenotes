@@ -40,7 +40,21 @@ test('round-trips a MIDI snippet through encode/decode', () => {
   assert.equal(decoded.notes[1].pitch, 64);
   // Importer assigns id/createdAt; decode must not.
   assert.equal(decoded.id, undefined);
-  assert.equal(decoded.fromShare, true);
+  assert.equal(decoded.createdAt, undefined);
+});
+
+test('strips HTML/control characters from the shared name (no markup in a link)', () => {
+  const malicious = '<img src=x onerror=alert(1)>Hook"<script>';
+  // Through the normal encoder...
+  const a = decodeSnippetShare(encodeSnippetShare(midiSnippet({ name: malicious })));
+  assert.ok(!/[<>"]/.test(a.name), `name still had markup chars: ${a.name}`);
+  assert.equal(a.name, 'img src=x onerror=alert(1)Hookscript');
+  // ...and through a hand-crafted payload that bypasses the encoder.
+  const b = decodeSnippetShare(encodeForTest({
+    v: 1, t: 'midi', nm: '<b>x</b>', d: 480, b: 120,
+    N: [[60, 0, 480, 80]], H: [],
+  }));
+  assert.ok(!/[<>"]/.test(b.name));
 });
 
 test('round-trips a drum snippet by hit type', () => {

@@ -637,7 +637,6 @@ class App {
       id: crypto.randomUUID(),
       createdAt: Date.now(),
     };
-    delete snippet.fromShare;
     this.project.snippets ||= [];
     this.project.snippets.push(snippet);
     this.creativeMode?.snippetTray?.addSnippet(snippet);

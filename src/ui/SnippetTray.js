@@ -140,7 +140,7 @@ export class SnippetTray {
           </div>
           <div class="snippet-tray__item-info">
             <span class="snippet-tray__item-icon snippet-tray__item-icon--${s.type || 'midi'}">${typeIcon}</span>
-            <span class="snippet-tray__item-meta">${displayName}</span>
+            <span class="snippet-tray__item-meta">${this._escapeHtml(displayName)}</span>
             ${aiBadge}
             ${badge}
             ${toneBadges}

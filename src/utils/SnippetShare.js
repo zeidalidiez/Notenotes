@@ -74,7 +74,17 @@ const int = (v) => (Number.isFinite(Number(v)) ? Math.round(Number(v)) : null);
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 function cleanName(name) {
-  return (typeof name === 'string' ? name : '').replace(/\s+/g, ' ').trim().slice(0, MAX_SHARE_NAME);
+  // A shared name is attacker-controlled, and several places in the app render
+  // snippet names into innerHTML. Strip HTML/attribute-breaking characters and
+  // control chars at the boundary so a crafted link can never carry markup,
+  // independent of any one renderer remembering to escape. (Output escaping is
+  // still applied at the render sites; this is defense-in-depth.)
+  return (typeof name === 'string' ? name : '')
+    .replace(/[<>"]/g, '')
+    .replace(/[\u0000-\u001f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, MAX_SHARE_NAME);
 }
 
 /**
@@ -166,7 +176,6 @@ export function decodeSnippetShare(code) {
     hits,
     durationTicks,
     bpm: clamp(int(payload.b) ?? 120, 40, 240),
-    fromShare: true,
   };
 }
 

@@ -16,6 +16,7 @@ export class SnippetTray {
     this.snippets = [];
     this._onSnippetSelected = null;
     this._onSnippetShare = null;
+    this._onSnippetTranscribe = null;
     this._snippetUsageProvider = null;
     this._collapsed = typeof window !== 'undefined'
       ? window.matchMedia?.('(max-width: 700px)')?.matches ?? false
@@ -37,6 +38,12 @@ export class SnippetTray {
    * builds the URL and copies it. Audio snippets are not offered a share button.
    */
   onSnippetShare(fn) { this._onSnippetShare = fn; }
+
+  /**
+   * Set callback for the audio-snippet "To MIDI" action. The host decodes the
+   * recording and transcribes it into a new MIDI snippet.
+   */
+  onSnippetTranscribe(fn) { this._onSnippetTranscribe = fn; }
 
   setSnippetUsageProvider(fn) {
     this._snippetUsageProvider = fn;
@@ -146,12 +153,23 @@ export class SnippetTray {
             ${toneBadges}
           </div>
           <div class="snippet-tray__item-actions">
+            ${s.type === 'audio' && s.audioAssetId ? `<button class="snippet-tray__action-btn snippet-tray__tomidi-btn" data-tomidi="${s.id}" aria-label="Transcribe to MIDI" title="Transcribe this recording to an editable MIDI clip">${icon('audioLines', { size: 14 })}</button>` : ''}
             ${s.type === 'audio' ? '' : `<button class="snippet-tray__action-btn snippet-tray__share-btn" data-share="${s.id}" aria-label="Copy share link" title="Copy a link that shares this snippet">${icon('share', { size: 14 })}</button>`}
             <button class="snippet-tray__action-btn snippet-tray__delete-btn" data-delete="${s.id}" aria-label="Delete snippet" title="Delete">${icon('x', { size: 14 })}</button>
           </div>
         </div>
       `;
     }).join('');
+
+    // Bind transcribe ("To MIDI") buttons on audio snippets
+    list.querySelectorAll('.snippet-tray__tomidi-btn').forEach(btn => {
+      btn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const snippet = this.snippets.find(s => s.id === btn.dataset.tomidi);
+        if (snippet && this._onSnippetTranscribe) this._onSnippetTranscribe(snippet);
+      });
+    });
 
     // Bind delete buttons
     list.querySelectorAll('.snippet-tray__delete-btn').forEach(btn => {

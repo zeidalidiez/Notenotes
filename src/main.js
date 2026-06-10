@@ -17,6 +17,7 @@ import { TransportBar } from './ui/TransportBar.js';
 import { ModeTabs, Modes } from './ui/ModeTabs.js';
 import { showToast } from './ui/Toast.js';
 import { shareUrlForSnippet, sharedSnippetFromSearch } from './utils/SnippetShare.js';
+import { transcribeSamplesToNotes } from './engine/PitchDetect.js';
 import { CreativeMode } from './modes/CreativeMode.js';
 import { CanvasMode } from './modes/CanvasMode.js';
 import { EditMode } from './modes/EditMode.js';
@@ -202,6 +203,9 @@ class App {
 
     // Wire snippet sharing: SnippetTray → copy a shareable link
     this.creativeMode.snippetTray.onSnippetShare((snippet) => this._shareSnippet(snippet));
+
+    // Wire "To MIDI": transcribe a recorded audio snippet into a MIDI snippet
+    this.creativeMode.snippetTray.onSnippetTranscribe((snippet) => this._transcribeAudioSnippet(snippet));
 
     // Wire snippet deletion: SnippetTray → Project
     this.creativeMode.snippetTray.onSnippetDeleted((id) => {
@@ -594,6 +598,51 @@ class App {
       detail: { timeSignature: { ...this.project.timeSignature }, meter: { ...this.project.meter } },
     }));
     showToast(`Meter: ${next.id}`);
+  }
+
+  async _transcribeAudioSnippet(snippet) {
+    if (!snippet || snippet.type !== 'audio' || !snippet.audioAssetId) return;
+    const ctx = this.engine?.ctx;
+    if (!ctx || !this.store?.getAudioAssetBlob) {
+      showToast('Audio is not ready yet - tap to enable sound first');
+      return;
+    }
+    showToast('Listening for the melody...');
+    try {
+      const blob = await this.store.getAudioAssetBlob(snippet.audioAssetId);
+      if (!blob) { showToast('That recording is unavailable'); return; }
+      const buffer = await ctx.decodeAudioData((await blob.arrayBuffer()).slice(0));
+      const samples = buffer.getChannelData(0);
+      const { notes, durationTicks } = transcribeSamplesToNotes(samples, buffer.sampleRate, {
+        bpm: this.transport.bpm,
+      });
+      if (!notes.length) {
+        showToast('Could not find a clear pitch to transcribe');
+        return;
+      }
+      const midiSnippet = {
+        id: crypto.randomUUID(),
+        createdAt: Date.now(),
+        type: 'midi',
+        name: `${snippet.name || 'Recording'} (MIDI)`,
+        notes,
+        hits: [],
+        durationTicks,
+        bpm: this.transport.bpm,
+        meter: { ...this.transport.meter },
+        timeSignature: { ...this.transport.timeSignature },
+      };
+      this.project.snippets ||= [];
+      this.project.snippets.push(midiSnippet);
+      this.creativeMode?.snippetTray?.addSnippet(midiSnippet);
+      this.editMode?.refreshSnippetList?.();
+      window.dispatchEvent(new CustomEvent('project-snippets-changed', { detail: { snippetId: midiSnippet.id, action: 'added' } }));
+      this.store?.scheduleAutoSave(this.project);
+      showToast(`Transcribed ${notes.length} notes - open it in Inspect to tidy up`);
+    } catch (err) {
+      console.warn('[MicToMidi] transcription failed:', err);
+      showToast('Could not transcribe that recording');
+    }
   }
 
   _setProjectProgression(progression) {

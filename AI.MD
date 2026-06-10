@@ -535,6 +535,27 @@ may lose the folder handle permission after reload; the UI must surface a grant
 action instead of pretending auto-save is still protected. Manual JSON backup
 remains the universal fallback.
 
+## Mic-to-MIDI (Pitch Detection)
+
+`src/engine/PitchDetect.js` is a pure, dependency-free transcriber: it operates
+on a Float32 mono PCM buffer + sample rate (no Web Audio / DOM), so the whole
+path is deterministic and unit-tested with synthesized tones.
+
+- `detectPitchHz(samples, sampleRate, opts)` does normalized autocorrelation
+  (ACF2+-style, parabolic-interpolated peak) gated by a clarity threshold and a
+  minimum RMS, so silence/noise read as unvoiced (null). `hzToMidi`/`midiToHz`
+  are the conversions.
+- `transcribeSamplesToNotes(samples, sampleRate, { bpm, ppq, ... })` frames the
+  signal, median-smooths the per-frame MIDI track (kills octave/edge jitter),
+  segments contiguous same-pitch runs into notes, and converts frame timing to
+  ticks against the tempo. It is monophonic and hint-quality by design.
+- Wiring: `SnippetTray` shows a "To MIDI" button on audio snippets
+  (`onSnippetTranscribe`). `main.js._transcribeAudioSnippet()` fetches the asset
+  blob (`store.getAudioAssetBlob`), `decodeAudioData`s it, transcribes channel 0
+  at the project bpm, and adds a new MIDI snippet. Existing audio/recording is
+  reused - this adds no new capture path - and it never mutates the source
+  recording.
+
 ## Audio Engine And Export Parity
 
 Live playback and WAV export are separate engines that must stay musically

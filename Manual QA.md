@@ -1309,3 +1309,24 @@ Expected:
 - A toast confirms the shared snippet was added.
 - After import, the `?s=` parameter is removed from the address bar, and reloading does not add a second copy.
 - If clipboard access is blocked, the app still surfaces the link (prompt) instead of failing silently.
+
+## 14. Mic-to-MIDI (Transcribe a Recording)
+
+### 14.1 Transcribe an Audio In recording to MIDI
+
+Steps:
+
+1. Open Audio In and record a short, clear single-line melody (hum or whistle a few distinct notes).
+2. Stop. Confirm the audio snippet appears in the Snippets tray / Inspect library.
+3. On that audio snippet, click the **To MIDI** button (the waveform icon next to delete).
+4. Wait for the toast, then open the new MIDI snippet in Inspect.
+5. Try a noisy/silent recording and a chord (polyphonic) recording for comparison.
+
+Expected:
+
+- The To MIDI button only shows on audio snippets that have stored audio.
+- After a moment a new MIDI snippet named "<recording> (MIDI)" is added, and a toast reports how many notes were found.
+- The transcribed notes roughly follow the pitches you sang, in time order; you can edit them in Inspect like any MIDI clip.
+- The original audio snippet is unchanged.
+- A silent or unpitched recording reports "Could not find a clear pitch" instead of creating an empty clip.
+- Polyphonic input transcribes only a single line (documented limitation), not every voice.

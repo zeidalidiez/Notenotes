@@ -180,7 +180,7 @@ npm run preview    # serve the production build locally
 These are the ideas that drive the project. Some are coded, some are sketches, some are wild - **all of them are conversations open for contribution.** If something here sparks you, [open an issue](https://github.com/zeidalidiez/Notenotes/issues/new) or [a discussion](https://github.com/zeidalidiez/Notenotes/discussions). Help wanted.
 
 ### More ways to create
-- [ ] **Mic-to-midi** - Sound into the mic, the app transcribes it as MIDI you can edit.
+- [x] **Mic-to-midi** - Record a melody through Audio In (hum, whistle, sing), then hit **To MIDI** on the recording. The app tracks the pitch and drops an editable MIDI clip into your library - clean it up in Inspect. Single-line input works best; it is a starting point, not a note-perfect transcript.
 - [ ] **MIDI device support** - bring your own keyboard, pad controller, or wind instrument.
 - [ ] **Webcam/Wiimote motion controls** - Movement to modulate, other potential uses.
 - [ ] **Touch + accelerometer** - on mobile, tilt for modulation, tap velocity for dynamics.

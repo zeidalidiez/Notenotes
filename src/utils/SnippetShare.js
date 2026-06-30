@@ -18,6 +18,7 @@ export const SNIPPET_SHARE_PARAM = 's';
 export const SNIPPET_SHARE_VERSION = 1;
 export const MAX_SHARE_EVENTS = 512;   // notes + hits cap, keeps URLs sane
 export const MAX_SHARE_NAME = 60;
+export const MAX_SHARE_LYRIC_CHARS = 160;
 
 const PPQ = 480;
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
@@ -89,6 +90,10 @@ function cleanName(name) {
     .slice(0, MAX_SHARE_NAME);
 }
 
+function cleanShareLyric(value) {
+  return cleanNoteLyricText(value).slice(0, MAX_SHARE_LYRIC_CHARS);
+}
+
 /**
  * Encode a snippet into a URL-safe share code, or null when it cannot be
  * shared (audio, or no note/hit content).
@@ -106,7 +111,7 @@ export function encodeSnippetShare(snippet) {
       Math.max(1, int(n.durationTick) ?? PPQ),
       clamp(Math.round((Number(n.velocity) || 0.8) * 100), 1, 127),
     ];
-    const lyric = cleanNoteLyricText(n.lyric);
+    const lyric = cleanShareLyric(n.lyric);
     if (lyric) entry.push(lyric);
     return entry;
   });
@@ -158,7 +163,7 @@ export function decodeSnippetShare(code) {
       durationTick: Math.max(1, durationTick ?? PPQ),
       velocity: clamp((vel ?? 80) / 100, 0.01, 1),
     };
-    const lyric = cleanNoteLyricText(e[4]);
+    const lyric = cleanShareLyric(e[4]);
     if (lyric) note.lyric = lyric;
     notes.push(note);
   }

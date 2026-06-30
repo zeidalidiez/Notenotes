@@ -1463,7 +1463,10 @@ sanitization, `setNoteLyric`, note-derived karaoke blocks, drum exclusion, and
 legacy fallback precedence. `tests/unit/editLyricsMixin.test.js` covers
 selected-note lyric input state, committing/clearing `note.lyric`, undo/redo,
 and ignoring drum snippets. `tests/unit/snippetShare.test.js` covers preserving
-optional MIDI note lyrics in snippet share links.
+optional MIDI note lyrics in snippet share links. Shared note lyrics are capped
+by `MAX_SHARE_LYRIC_CHARS` in both encode and decode so a pasted multi-KB lyric
+cannot make `shareUrlForSnippet()` generate unreliable URLs; this cap applies
+only to share payloads, not the in-editor `note.lyric` value.
 
 Drum hits draw as blocks in the grid. Split view is for MIDI and should be
 disabled clearly for drums.

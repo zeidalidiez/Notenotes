@@ -8,6 +8,7 @@ import {
   sharedSnippetFromSearch,
   SNIPPET_SHARE_PARAM,
   MAX_SHARE_EVENTS,
+  MAX_SHARE_LYRIC_CHARS,
 } from '../../src/utils/SnippetShare.js';
 
 function midiSnippet(overrides = {}) {
@@ -54,6 +55,27 @@ test('round-trips MIDI note lyrics through encode/decode', () => {
   const decoded = decodeSnippetShare(code);
   assert.equal(decoded.notes[0].lyric, 'btake/b away');
   assert.equal(Object.hasOwn(decoded.notes[1], 'lyric'), false);
+});
+
+test('bounds MIDI note lyrics in share payloads', () => {
+  const longLyric = 'a'.repeat(MAX_SHARE_LYRIC_CHARS + 50);
+  const decodedFromEncoder = decodeSnippetShare(encodeSnippetShare(midiSnippet({
+    notes: [{ pitch: 60, startTick: 0, durationTick: 480, velocity: 0.8, lyric: longLyric }],
+  })));
+
+  assert.equal(decodedFromEncoder.notes[0].lyric.length, MAX_SHARE_LYRIC_CHARS);
+
+  const decodedFromPayload = decodeSnippetShare(encodeForTest({
+    v: 1,
+    t: 'midi',
+    nm: 'x',
+    d: 480,
+    b: 120,
+    N: [[60, 0, 480, 80, longLyric]],
+    H: [],
+  }));
+
+  assert.equal(decodedFromPayload.notes[0].lyric.length, MAX_SHARE_LYRIC_CHARS);
 });
 
 test('strips HTML/control characters from the shared name (no markup in a link)', () => {

@@ -1361,16 +1361,19 @@ Steps:
 
 1. Capture or seed a short MIDI snippet with a few notes and open it in Inspect.
 2. In the **Lyrics** line under the toolbar, type `take me away`, set Start to `480`, set Length to `480`, and click Add.
-3. Add a second phrase at a later Start value, then click its block in the ribbon and update its text or Length.
-4. Add two lyric blocks with the same text, Start, and Length. Select the second duplicate, update it, then delete it.
-5. Select a lyric block near the end of the snippet, use the snippet length controls to shrink the clip so lyrics clamp, then update or delete the selected lyric.
-6. Press Play and watch the lyric blocks as the clip plays.
-7. Select one lyric block, click Delete, then add a phrase containing `< > "` characters.
-8. Reload the project and reopen the clip.
+3. Confirm the Lyrics field clears, the button still says Add, and Start advances to the end of the new block.
+4. Type `bring me home`, set a later Start if needed, click Add again, and confirm both blocks remain in the ribbon.
+5. Click one block in the ribbon and update its text or Length.
+6. Add two lyric blocks with the same text, Start, and Length. Select the second duplicate, update it, then delete it.
+7. Select a lyric block near the end of the snippet, use the snippet length controls to shrink the clip so lyrics clamp, then update or delete the selected lyric.
+8. Press Play and watch the lyric blocks as the clip plays.
+9. Select one lyric block, click Delete, then add a phrase containing `< > "` characters.
+10. Reload the project and reopen the clip.
 
 Expected:
 
 - Lyric blocks appear at their explicit Start positions and their width follows Length.
+- Consecutive Add submissions create multiple lyric blocks instead of updating the block that was just added.
 - Selecting a block fills the Lyrics, Start, and Length fields; Update changes the same block instead of creating a duplicate.
 - Duplicate lyric blocks stay individually selectable; Update and Delete affect the selected block, not the first matching block.
 - Shrinking the snippet can clamp lyric timing, but the selected block remains the edit target afterward.

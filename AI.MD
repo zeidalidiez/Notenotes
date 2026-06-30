@@ -1416,20 +1416,37 @@ disabled or explain themselves with a toast; do not make controls silently fail.
 ### Lyrics
 
 `src/engine/Lyrics.js` is the pure layer: lyrics live on `snippet.lyrics` as
-`[{ text, startTick, durationTick }]`. `lyricsFromText(text, snippet)`
-distributes a typed line across the snippet's note onsets (one word per onset;
-the last word runs to the end), falling back to even spacing when there are more
-words than notes. `normalizeLyrics()` sanitizes (strips `< > "` and control
-chars - lyrics are user text, keep them markup-free), clamps timing, and sorts.
+`[{ text, startTick, durationTick }]`, where each entry is an independent
+snippet-level timeline block. Blocks can hold phrases, not only single words:
+`{ text: 'take me away', startTick: 480, durationTick: 480 }` means that phrase
+is active for the second beat of a 4/4 clip at 480 PPQ. Lyrics are deliberately
+not stored on MIDI note objects; notes can be moved, split, deleted, or chorded
+without destroying the text timing model that future Stage/karaoke views need.
+
+`normalizeLyricBlocks(value, snippet)` is the canonical sanitizer/repair helper.
+It strips `< > "` and control chars, preserves normal phrase spacing, drops empty
+text, clamps `startTick`/`durationTick` into the snippet duration when available,
+caps stored blocks, and sorts by `startTick`. `normalizeLyrics()` remains as a
+compatibility alias for PR 43-era callers. `createLyricBlock()`,
+`updateLyricBlock()`, and `removeLyricBlock()` are the mutation helpers the UI
+uses. `lyricsFromText(text, snippet)` still exists only as a quick import/back-
+compat path that distributes words across note onsets or evenly across the clip.
 `activeLyricIndex(lyrics, tick)` is the playback-highlight lookup.
 
 The `EditLyricsMixin` (`editLyrics.js`, composed onto EditMode) renders a lyrics
-lane under the roll toolbar (`_renderLyricsLane` is called from
-`editRoll._renderEditor`): a text input plus a proportional word ribbon. Typing
-re-derives `snippet.lyrics` and autosaves. The roll's playhead rAF loop calls
-`_updateLyricHighlight(tick)` to light the sounding word (and clears it when
-stopped). Lyrics are skipped for audio snippets. This is context only - it never
-changes notes, playback, or export.
+lane directly under the roll toolbar (`_renderLyricsLane` is called from
+`editRoll._renderEditor` before pane construction). The lane has one phrase
+input, explicit Start and Length tick fields, Add/Update/Clear/Delete actions,
+and a horizontal ribbon whose lyric blocks are absolutely positioned using
+`startTick * TICK_WIDTH` and `durationTick * TICK_WIDTH`. Selecting a block fills
+the form for editing. Lyric edits use their own undo/autosave commit path so
+adding text never asks `_updateSnippetDuration()` to resize the clip from note
+content; `_snapshotSnippetState()` and `_restoreSnippetState()` include `lyrics`
+so normal Inspect undo/redo preserves lyric edits alongside notes, hits, and
+modulation. The roll's playhead rAF loop calls `_updateLyricHighlight(tick)` to
+light the sounding lyric block (and clears it when stopped). Lyrics are skipped
+for audio snippets. This is context only - it never changes notes, playback, or
+export.
 
 Drum hits draw as blocks in the grid. Split view is for MIDI and should be
 disabled clearly for drums.

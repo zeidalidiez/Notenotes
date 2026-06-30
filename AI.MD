@@ -1443,8 +1443,9 @@ tick)` is the playback-highlight lookup.
 Unit coverage is split by layer. `tests/unit/lyrics.test.js` covers the pure
 engine helpers and edge cases such as duplicate block ids and timing clamps.
 `tests/unit/editLyricsMixin.test.js` covers the editor-facing behavior: updating
-or deleting the selected duplicate block by id, and preserving selection when
-`EditMode._setDuration()` clamps lyric timing.
+or deleting the selected duplicate block by id, preserving selection when
+`EditMode._setDuration()` clamps lyric timing, carrying lyric edits through
+undo/redo snapshots, and toggling the active block highlight by playback tick.
 
 The `EditLyricsMixin` (`editLyrics.js`, composed onto EditMode) renders a lyrics
 lane directly under the roll toolbar (`_renderLyricsLane` is called from

@@ -13,6 +13,19 @@ function makeField(value = '') {
   return { value: String(value), textContent: '', disabled: false };
 }
 
+function makeClassTrackedElement() {
+  return {
+    classes: new Set(),
+    classList: {
+      toggle(name, enabled) {
+        if (enabled) this.owner.classes.add(name);
+        else this.owner.classes.delete(name);
+      },
+      owner: null,
+    },
+  };
+}
+
 function makeHarness(snippet, formValues = {}) {
   const fields = new Map([
     ['#edit-lyrics-input', makeField(formValues.text ?? '')],
@@ -81,6 +94,10 @@ function wireHarness(harness) {
   return harness;
 }
 
+function lyricSummaries(snippet) {
+  return snippet.lyrics.map(({ text, startTick, durationTick }) => ({ text, startTick, durationTick }));
+}
+
 test('EditLyricsMixin update keeps selection on the chosen duplicate block', () => {
   const snippet = {
     id: 'lyrics-snippet',
@@ -105,14 +122,53 @@ test('EditLyricsMixin update keeps selection on the chosen duplicate block', () 
   assert.equal(harness.undoEntries.at(-1)?.description, 'Edit lyric');
   assert.equal(harness.saveCount, 1);
   assert.equal(harness.renderCount, 1);
-  assert.deepEqual(
-    snippet.lyrics.map(({ text, startTick, durationTick }) => ({ text, startTick, durationTick })),
-    [
-      { text: 'same', startTick: 0, durationTick: 120 },
-      { text: 'same', startTick: 0, durationTick: 120 },
-    ],
-  );
+  assert.deepEqual(lyricSummaries(snippet), [
+    { text: 'same', startTick: 0, durationTick: 120 },
+    { text: 'same', startTick: 0, durationTick: 120 },
+  ]);
   assert.equal(lyricBlockIndexById(snippet.lyrics, duplicateId, snippet), 1);
+});
+
+test('EditLyricsMixin undo and redo snapshots include lyric edits', () => {
+  const snippet = {
+    id: 'lyrics-snippet',
+    type: 'midi',
+    durationTicks: 960,
+    notes: [],
+    hits: [],
+    lyrics: ensureLyricBlockIds([
+      { text: 'first', startTick: 0, durationTick: 120 },
+      { text: 'second', startTick: 240, durationTick: 120 },
+    ], { durationTicks: 960 }),
+  };
+  const selectedId = snippet.lyrics[1].id;
+  const harness = wireHarness(makeHarness(snippet, {
+    text: 'changed',
+    startTick: 360,
+    durationTick: 240,
+  }));
+  harness._lyricsSelectedId = selectedId;
+
+  harness._saveLyricBlockFromForm();
+  const entry = harness.undoEntries.at(-1);
+
+  assert.equal(entry.description, 'Edit lyric');
+  assert.deepEqual(lyricSummaries(snippet), [
+    { text: 'first', startTick: 0, durationTick: 120 },
+    { text: 'changed', startTick: 360, durationTick: 240 },
+  ]);
+
+  entry.undo();
+  assert.deepEqual(lyricSummaries(snippet), [
+    { text: 'first', startTick: 0, durationTick: 120 },
+    { text: 'second', startTick: 240, durationTick: 120 },
+  ]);
+
+  entry.redo();
+  assert.deepEqual(lyricSummaries(snippet), [
+    { text: 'first', startTick: 0, durationTick: 120 },
+    { text: 'changed', startTick: 360, durationTick: 240 },
+  ]);
 });
 
 test('EditLyricsMixin delete removes only the selected duplicate block', () => {
@@ -165,4 +221,36 @@ test('EditMode duration clamp preserves selected lyric block id', () => {
   assert.equal(snippet.lyrics[selectedIdx].text, 'late');
   assert.equal(snippet.lyrics[selectedIdx].startTick, 900);
   assert.equal(snippet.lyrics[selectedIdx].durationTick, 60);
+});
+
+test('EditLyricsMixin highlight toggles the lyric block sounding at the tick', () => {
+  const snippet = {
+    id: 'lyrics-snippet',
+    type: 'midi',
+    durationTicks: 960,
+    lyrics: ensureLyricBlockIds([
+      { text: 'first', startTick: 0, durationTick: 120 },
+      { text: 'second', startTick: 240, durationTick: 120 },
+    ], { durationTicks: 960 }),
+  };
+  const first = makeClassTrackedElement();
+  const second = makeClassTrackedElement();
+  first.classList.owner = first;
+  second.classList.owner = second;
+  const harness = wireHarness(makeHarness(snippet));
+  harness._lyricsRibbonEl = { children: [first, second] };
+  harness._lyricsCache = snippet.lyrics;
+  harness._lyricsActiveIdx = -1;
+
+  harness._updateLyricHighlight(30);
+  assert.equal(first.classes.has('is-active'), true);
+  assert.equal(second.classes.has('is-active'), false);
+
+  harness._updateLyricHighlight(260);
+  assert.equal(first.classes.has('is-active'), false);
+  assert.equal(second.classes.has('is-active'), true);
+
+  harness._updateLyricHighlight(-1);
+  assert.equal(first.classes.has('is-active'), false);
+  assert.equal(second.classes.has('is-active'), false);
 });

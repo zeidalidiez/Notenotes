@@ -185,12 +185,12 @@ These are the ideas that drive the project. Some are coded, some are sketches, s
 - [ ] **Webcam/Wiimote motion controls** - Movement to modulate, other potential uses.
 - [ ] **Touch + accelerometer** - on mobile, tilt for modulation, tap velocity for dynamics.
 - [ ] **Foot pedals & accessibility switches** - every input becomes an instrument.
-- [x] **Lyrics support** - a **Lyrics** line in Inspect lets you put words on the same timeline as the notes. Add a phrase, set its start and length in ticks, and it shows up as a block that lights up while the clip plays. After Add, the line is ready for the next phrase, so you can build a run of lyric blocks across the snippet instead of replacing the first one. Lyrics stay attached to the snippet, but they are not glued to individual notes, which leaves room for karaoke-style Stage views later. Repeating the same phrase is fine; editing one block keeps hold of that block instead of guessing by text.
+- [x] **Lyrics support** - select a MIDI note in Inspect, type the words that belong to it, and the lyric rides with that note. Move the note and the lyric moves; stretch the note and the lyric lasts longer. No tick math, no separate lyrics lane, and no splitting a perfectly good phrase into tiny word bits just because the app can.
 
 
 ###  Sound and color
 
-- [x] **Expanded lyrics mode** - Lyrics are now editable timeline blocks on the snippet itself, so a phrase can cover one note, half a bar, or a tiny pickup without pretending the text belongs to one MIDI note forever. Add one, write the next, add again: the editor keeps repeated phrases separate, because sometimes the hook really does say the same thing twice.
+- [x] **Expanded lyrics mode** - Lyrics now attach to the notes that sing them. A note can carry a short syllable or a whole phrase, the roll only shows a compact marker/preview, and the future karaoke view can read note timing directly instead of making people author a second timing system.
 - [ ] **Color-strip notation** as an alternative to the piano roll.
 
 ### Safety nets for those who need them

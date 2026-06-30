@@ -143,6 +143,7 @@ export const EditRhythmFitMixin = {
     this._snippet.modulation = this._cloneForUndo(state.modulation || []);
     this._snippet.durationTicks = state.durationTicks;
     this._selectedNoteIdx = null;
+    this._selectedEventKind = null;
     this._rebuildAll();
   },
 
@@ -154,6 +155,7 @@ export const EditRhythmFitMixin = {
     else this._snippet.notes = result.events;
     this._snippet.durationTicks = result.durationTicks;
     this._selectedNoteIdx = null;
+    this._selectedEventKind = null;
     this._rebuildAll();
     return result;
   },

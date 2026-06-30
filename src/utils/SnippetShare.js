@@ -1,10 +1,12 @@
+import { cleanNoteLyricText } from '../engine/Lyrics.js';
+
 /**
  * SnippetShare - encode a MIDI/drum snippet into a URL-safe code and back.
  *
  * "Invite a friend": a snippet becomes a link. Opening the link merges the
  * snippet into the recipient's library (or starts them off with it). Only
- * note/hit data travels - audio snippets are not shareable this way because
- * their sample data does not belong in a URL.
+ * note/hit data travels - including optional MIDI note lyrics. Audio snippets
+ * are not shareable this way because their sample data does not belong in a URL.
  *
  * The encode/decode is pure and dependency-free (no btoa/Buffer), so it runs
  * the same in the browser and in tests. Decode is strict: anything malformed,
@@ -97,12 +99,17 @@ export function encodeSnippetShare(snippet) {
   const hits = Array.isArray(snippet.hits) ? snippet.hits : [];
   if (!notes.length && !hits.length) return null;
 
-  const N = notes.slice(0, MAX_SHARE_EVENTS).map(n => [
-    clamp(int(n.pitch) ?? 60, 0, 127),
-    Math.max(0, int(n.startTick) ?? 0),
-    Math.max(1, int(n.durationTick) ?? PPQ),
-    clamp(Math.round((Number(n.velocity) || 0.8) * 100), 1, 127),
-  ]);
+  const N = notes.slice(0, MAX_SHARE_EVENTS).map(n => {
+    const entry = [
+      clamp(int(n.pitch) ?? 60, 0, 127),
+      Math.max(0, int(n.startTick) ?? 0),
+      Math.max(1, int(n.durationTick) ?? PPQ),
+      clamp(Math.round((Number(n.velocity) || 0.8) * 100), 1, 127),
+    ];
+    const lyric = cleanNoteLyricText(n.lyric);
+    if (lyric) entry.push(lyric);
+    return entry;
+  });
   const H = hits.slice(0, MAX_SHARE_EVENTS).map(h => [
     String(h.type || 'kick').slice(0, 16),
     Math.max(0, int(h.startTick) ?? 0),
@@ -145,12 +152,15 @@ export function decodeSnippetShare(code) {
     if (!Array.isArray(e)) continue;
     const pitch = int(e[0]); const startTick = int(e[1]); const durationTick = int(e[2]); const vel = int(e[3]);
     if (pitch === null || pitch < 0 || pitch > 127) continue;
-    notes.push({
+    const note = {
       pitch,
       startTick: Math.max(0, startTick ?? 0),
       durationTick: Math.max(1, durationTick ?? PPQ),
       velocity: clamp((vel ?? 80) / 100, 0.01, 1),
-    });
+    };
+    const lyric = cleanNoteLyricText(e[4]);
+    if (lyric) note.lyric = lyric;
+    notes.push(note);
   }
   const hits = [];
   for (const e of rawH) {

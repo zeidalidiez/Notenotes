@@ -7,6 +7,7 @@ import { TransportState } from '../engine/Transport.js';
 import { midiToNoteName } from '../engine/MusicTheory.js';
 import { pulseTicksForMeter } from '../engine/Meter.js';
 import { inspectDisplayDurationTicks } from '../engine/SnippetTiming.js';
+import { cleanNoteLyricText } from '../engine/Lyrics.js';
 import { labelForInstrument } from './instrumentGroups.js';
 import { renderToneBadges, toneBadgeItemsFromSources } from '../ui/ToneBadges.js';
 import { TICK_WIDTH, DEFAULT_NOTE_HEIGHT, DRUM_TYPES } from './editConstants.js';
@@ -85,6 +86,17 @@ export const EditRollMixin = {
     const quantizeAllHTML = isDrum ? '' : `
       <button class="btn btn--ghost edit-toolbar__btn" id="edit-quantize-all-btn" title="Set every note duration to the selected grid">Quantize all</button>
     `;
+    const selectedNote = !isDrum ? this._selectedEditableEvent?.() : null;
+    const lyricHTML = isDrum ? '' : `
+      <div class="edit-toolbar__group edit-toolbar__group--lyric">
+        <span class="edit-toolbar__label">Lyric</span>
+        <input type="text" class="edit-toolbar__lyric-input" id="edit-note-lyric"
+          value="${this._escapeAttr(cleanNoteLyricText(selectedNote?.lyric))}"
+          placeholder="${selectedNote ? 'Lyric for selected note' : 'Select a MIDI note'}"
+          title="Lyric attached to the selected MIDI note"
+          aria-label="Selected note lyric" ${selectedNote ? '' : 'disabled'} />
+      </div>
+    `;
     const velocityValue = Math.round((this._selectedEditableEvent()?.velocity ?? 0.8) * 100);
     const toneBadges = this._renderToneBadges();
 
@@ -124,6 +136,7 @@ export const EditRollMixin = {
         <input class="edit-toolbar__velocity" id="edit-velocity-range" type="range" min="1" max="100" value="${velocityValue}" aria-label="Selected note velocity" ${this._selectedNoteIdx === null ? 'disabled' : ''} />
         <span class="edit-toolbar__velocity-value" id="edit-velocity-value">${this._selectedNoteIdx === null ? '--' : velocityValue}</span>
       </div>
+      ${lyricHTML}
       <button class="btn btn--ghost edit-toolbar__btn${this._splitMode ? ' is-active' : ''}" id="edit-split-btn" title="${isDrum ? 'Split view is for MIDI note ranges' : 'Split view'}" ${isDrum ? 'disabled' : ''}>Split</button>
       <button class="btn btn--ghost edit-toolbar__btn" id="edit-rhythm-fit-btn" title="Fit this snippet rhythm to clean bars">Fit Rhythm</button>
       ${quantizeAllHTML}
@@ -503,10 +516,12 @@ export const EditRollMixin = {
     const y = (pitchMax - 1 - note.pitch) * this._noteHeight;
     const velocity = this._normalizedVelocity(note.velocity);
     const velocityPct = this._velocityPercent(note.velocity);
+    const lyric = cleanNoteLyricText(note.lyric);
 
     const el = document.createElement('div');
     el.className = 'piano-roll__note piano-roll__note--midi';
     if (idx === this._selectedNoteIdx) el.classList.add('is-selected');
+    if (lyric) el.classList.add('has-lyric');
     el.dataset.noteIdx = idx;
     el.style.left = `${x}px`;
     el.style.top = `${y}px`;
@@ -515,10 +530,11 @@ export const EditRollMixin = {
     el.style.setProperty('--note-fill-alpha', 0.28 + velocity * 0.52);
     el.style.setProperty('--note-fill-alpha-soft', 0.18 + velocity * 0.32);
     el.style.setProperty('--note-border-alpha', 0.3 + velocity * 0.45);
-    el.title = `${midiToNoteName(note.pitch).display} - velocity ${velocityPct}%`;
+    el.title = `${midiToNoteName(note.pitch).display} - velocity ${velocityPct}%${lyric ? ` - lyric: ${lyric}` : ''}`;
     el.innerHTML = `
       <div class="piano-roll__note-velocity"></div>
       <span class="piano-roll__note-velocity-label">${velocityPct}</span>
+      ${lyric ? `<span class="piano-roll__note-lyric-marker" aria-hidden="true"></span><span class="piano-roll__note-lyric" title="${this._escapeAttr(lyric)}">${this._escapeHtml(lyric)}</span>` : ''}
       <div class="piano-roll__note-resize"></div>
     `;
 
@@ -526,12 +542,12 @@ export const EditRollMixin = {
       e.stopPropagation();
 
       if (e.ctrlKey || e.metaKey) {
-        this._selectNote(idx);
+        this._selectNote(idx, 'note');
         this._deleteSelectedNote();
         return;
       }
 
-      this._selectNote(idx);
+      this._selectNote(idx, 'note');
 
       if (e.altKey) {
         this._startNoteResize(e, note, idx, el);
@@ -543,6 +559,7 @@ export const EditRollMixin = {
     const resizeHandle = el.querySelector('.piano-roll__note-resize');
     resizeHandle.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
+      this._selectNote(idx, 'note');
       this._startNoteResize(e, note, idx, el);
     });
 
@@ -585,10 +602,11 @@ export const EditRollMixin = {
       e.stopPropagation();
       if (e.ctrlKey || e.metaKey) {
         this._selectedNoteIdx = idx;
+        this._selectedEventKind = 'hit';
         this._deleteSelectedHit();
         return;
       }
-      this._selectNote(idx);
+      this._selectNote(idx, 'hit');
       this._startHitDrag(e, hit, idx, el);
     });
 

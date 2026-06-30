@@ -43,6 +43,19 @@ test('round-trips a MIDI snippet through encode/decode', () => {
   assert.equal(decoded.createdAt, undefined);
 });
 
+test('round-trips MIDI note lyrics through encode/decode', () => {
+  const code = encodeSnippetShare(midiSnippet({
+    notes: [
+      { pitch: 60, startTick: 0, durationTick: 480, velocity: 0.8, lyric: '<b>take</b> "away"' },
+      { pitch: 64, startTick: 480, durationTick: 240, velocity: 0.5 },
+    ],
+  }));
+
+  const decoded = decodeSnippetShare(code);
+  assert.equal(decoded.notes[0].lyric, 'btake/b away');
+  assert.equal(Object.hasOwn(decoded.notes[1], 'lyric'), false);
+});
+
 test('strips HTML/control characters from the shared name (no markup in a link)', () => {
   const malicious = '<img src=x onerror=alert(1)>Hook"<script>';
   // Through the normal encoder...

@@ -39,6 +39,8 @@ export const EditEventsMixin = {
       this.store?.scheduleAutoSave(this.project);
     });
 
+    this._bindNoteLyricControl?.(toolbar);
+
     const nameInput = toolbar.querySelector('#edit-snippet-name');
     if (nameInput) {
       const saveName = () => {

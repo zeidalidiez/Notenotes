@@ -1415,59 +1415,55 @@ disabled or explain themselves with a toast; do not make controls silently fail.
 
 ### Lyrics
 
-`src/engine/Lyrics.js` is the pure layer: lyrics live on `snippet.lyrics` as
-`[{ id, text, startTick, durationTick }]`, where each entry is an independent
-snippet-level timeline block. Blocks can hold phrases, not only single words:
-`{ id: 'lyric_...', text: 'take me away', startTick: 480, durationTick: 480 }`
-means that phrase is active for the second beat of a 4/4 clip at 480 PPQ. The
-`id` is a stable editor identity anchor only; the timing model is still the
-tick range. Lyrics are deliberately not stored on MIDI note objects; notes can
-be moved, split, deleted, or chorded without destroying the text timing model
-that future Stage/karaoke views need.
+New lyrics are MIDI-note annotations. Store lyric text on the note object as
+`note.lyric`; do not create new editor flows that ask the user to type
+`startTick` or `durationTick` for lyrics. Timing comes from the selected note:
+moving the note changes lyric start, resizing the note changes lyric duration,
+and deleting the note deletes the lyric with it. Drum snippets and audio
+snippets do not expose lyric editing.
 
-`normalizeLyricBlocks(value, snippet)` is the canonical sanitizer/repair helper.
-It strips `< > "` and control chars, preserves normal phrase spacing, drops
-empty text, preserves a clean existing `id`, clamps `startTick`/`durationTick`
-into the snippet duration when available, caps stored blocks, and sorts by
-`startTick`. `ensureLyricBlockIds(value, snippet)` is the stateful migration
-helper that assigns unique `lyric_...` ids to stored blocks. Use it before
-editing or rendering selectable lyric blocks so duplicate phrases cannot steal
-selection after sorting or clamping. `normalizeLyrics()` remains as a
-compatibility alias for PR 43-era callers. `createLyricBlock()`,
-`updateLyricBlock()`, and `removeLyricBlock()` are the mutation helpers the UI
-uses, and `lyricBlockIndexById()` is the selection lookup. `lyricsFromText(text,
-snippet)` still exists only as a quick import/back-compat path that distributes
-words across note onsets or evenly across the clip. `activeLyricIndex(lyrics,
-tick)` is the playback-highlight lookup.
+`src/engine/Lyrics.js` is the pure layer. `cleanNoteLyricText(value)` strips
+control chars and `< > "` while preserving normal phrase spacing. `setNoteLyric`
+returns a copy of a note with sanitized `lyric`, or removes the field for empty
+text. `lyricBlocksFromNotes(snippet)` derives karaoke-readable blocks from MIDI
+notes as `{ text, startTick, durationTick, noteIndex }`, sorted by time and
+original note index. `lyricTimelineForSnippet(snippet)` returns note-attached
+lyrics first and falls back to legacy `snippet.lyrics[]` blocks only when a
+snippet has no note lyrics. The old block helpers (`normalizeLyricBlocks`,
+`ensureLyricBlockIds`, `createLyricBlock`, `updateLyricBlock`,
+`removeLyricBlock`, `lyricBlockIndexById`, `lyricsFromText`) remain for
+backward-compatible reads/tests, not as the primary authoring model.
 
-Unit coverage is split by layer. `tests/unit/lyrics.test.js` covers the pure
-engine helpers and edge cases such as duplicate block ids and timing clamps.
-`tests/unit/editLyricsMixin.test.js` covers the editor-facing behavior: updating
-or deleting the selected duplicate block by id, keeping Add ready so consecutive
-form submissions create multiple lyric blocks, preserving selection when
-`EditMode._setDuration()` clamps lyric timing, carrying lyric edits through
-undo/redo snapshots, and toggling the active block highlight by playback tick.
+The `EditLyricsMixin` (`src/modes/editLyrics.js`, composed onto `EditMode`) now
+owns the selected-note lyric input. `_renderLyricsLane()` intentionally renders
+no lane; it only refreshes a derived lyric cache for playback/future karaoke
+readers. `_bindNoteLyricControl(toolbar)` binds `#edit-note-lyric`, and
+`_syncNoteLyricControl()` enables the field only when a MIDI note is selected.
+`_commitSelectedNoteLyric()` sanitizes input, mutates the selected note's
+`lyric` field, commits through `_onEdit('Edit note lyric', beforeState)`, and
+therefore uses the normal Inspect undo/autosave path. Legacy `snippet.lyrics[]`
+is not modified by note lyric edits.
 
-The `EditLyricsMixin` (`editLyrics.js`, composed onto EditMode) renders a lyrics
-lane directly under the roll toolbar (`_renderLyricsLane` is called from
-`editRoll._renderEditor` before pane construction). The lane has one phrase
-input, explicit Start and Length tick fields, Add/Update/Clear/Delete actions,
-and a horizontal ribbon whose lyric blocks are absolutely positioned using
-`startTick * TICK_WIDTH` and `durationTick * TICK_WIDTH`. Selecting a block fills
-the form for editing. After adding a new block, the editor clears selection,
-clears the phrase input, and advances Start to the end of the just-added block
-while keeping Length, so pressing Add again creates a second timeline block
-instead of silently updating the first one. Selection is stored as
-`_lyricsSelectedId`, not an array index. That is important because normalization
-can sort/clamp blocks, and users can intentionally create two blocks with the
-same text/start/length. Lyric edits use their own undo/autosave commit path so
-adding text never asks `_updateSnippetDuration()` to resize the clip from note
-content; `_snapshotSnippetState()` and `_restoreSnippetState()` include `lyrics`
-so normal Inspect undo/redo preserves lyric edits alongside notes, hits, and
-modulation. The roll's playhead rAF loop calls `_updateLyricHighlight(tick)` to
-light the sounding lyric block (and clears it when stopped). Lyrics are skipped
-for audio snippets. This is context only - it never changes notes, playback, or
-export.
+`src/modes/editRoll.js` renders the compact `Lyric` toolbar input for MIDI
+snippets only. MIDI notes with lyric text get `has-lyric`, a small marker, a
+clipped one-line preview, and a title containing the full lyric. CSS in
+`src/modes/edit.css` keeps long lyrics inside the note rectangle with
+overflow/ellipsis; the roll must never expand note boxes or overlap neighboring
+notes to show full lyric text. The full editing surface is the selected-note
+input, not the roll preview.
+
+Selection now carries `_selectedEventKind` (`'note'` or `'hit'`) alongside
+`_selectedNoteIdx`. This matters because MIDI snippets can render drum hits in
+the roll; lyrics must stay disabled for a selected hit even if a note exists at
+the same array index. `_selectedEditableEvent()` uses the kind for velocity and
+delete behavior too, and load/restore/rhythm-fit paths clear both fields.
+
+Unit coverage is split by layer. `tests/unit/lyrics.test.js` covers note lyric
+sanitization, `setNoteLyric`, note-derived karaoke blocks, drum exclusion, and
+legacy fallback precedence. `tests/unit/editLyricsMixin.test.js` covers
+selected-note lyric input state, committing/clearing `note.lyric`, undo/redo,
+and ignoring drum snippets. `tests/unit/snippetShare.test.js` covers preserving
+optional MIDI note lyrics in snippet share links.
 
 Drum hits draw as blocks in the grid. Split view is for MIDI and should be
 disabled clearly for drums.

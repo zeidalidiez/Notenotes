@@ -47,6 +47,7 @@ export class EditMode {
     this._clipId = null;
 
     this._selectedNoteIdx = null;
+    this._selectedEventKind = null;
 
     this._gridSize = 480;
 
@@ -87,6 +88,7 @@ export class EditMode {
     this._snippet = snippet;
     this._clipId = clipId;
     this._selectedNoteIdx = null;
+    this._selectedEventKind = null;
     if (snippetChanged) {
       this._pitchRangeInitialized = false;
       this._lyricsSelectedId = '';
@@ -680,8 +682,14 @@ export class EditMode {
         this._lyricsSelectedId = '';
       }
     }
-    if (this._selectedNoteIdx !== null && this._selectedNoteIdx >= (this._snippet.notes?.length || 0) + (this._snippet.hits?.length || 0)) {
-      this._selectedNoteIdx = null;
+    if (this._selectedNoteIdx !== null) {
+      const selectedLength = this._selectedEventKind === 'hit'
+        ? (this._snippet.hits?.length || 0)
+        : (this._snippet.notes?.length || 0);
+      if (this._selectedNoteIdx >= selectedLength) {
+        this._selectedNoteIdx = null;
+        this._selectedEventKind = null;
+      }
     }
 
     const afterState = this._snapshotSnippetState();

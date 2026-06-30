@@ -4,9 +4,16 @@ import assert from 'node:assert/strict';
 import {
   cleanLyricText,
   normalizeLyrics,
+  normalizeLyricBlocks,
+  ensureLyricBlockIds,
+  createLyricBlock,
+  updateLyricBlock,
+  removeLyricBlock,
+  lyricBlockIndexById,
   lyricsFromText,
   activeLyricIndex,
   lyricsToText,
+  lyricPhrasesToText,
 } from '../../src/engine/Lyrics.js';
 
 const snippet = {
@@ -19,12 +26,93 @@ const snippet = {
   ],
 };
 
+const withoutIds = (blocks) => blocks.map(({ id, ...block }) => block);
+
 test('lyricsFromText lands words on successive note onsets', () => {
   const ly = lyricsFromText('twinkle little star now', snippet);
   assert.deepEqual(ly.map(l => l.text), ['twinkle', 'little', 'star', 'now']);
   assert.deepEqual(ly.map(l => l.startTick), [0, 480, 960, 1440]);
   // Each word lasts until the next onset; the last runs to the snippet end.
   assert.deepEqual(ly.map(l => l.durationTick), [480, 480, 480, 480]);
+});
+
+test('normalizeLyricBlocks preserves phrase text and clamps timing to snippet bounds', () => {
+  const ly = normalizeLyricBlocks([
+    { text: 'take me away', startTick: 120, durationTick: 240 },
+    { text: '<b>hold</b>"', startTick: 1200, durationTick: 480 },
+    { text: '   ', startTick: 0, durationTick: 100 },
+  ], { durationTicks: 960 });
+
+  assert.deepEqual(ly, [
+    { text: 'take me away', startTick: 120, durationTick: 240 },
+    { text: 'bhold/b', startTick: 959, durationTick: 1 },
+  ]);
+});
+
+test('create/update/remove lyric blocks edit explicit timeline ranges', () => {
+  const durationSnippet = { durationTicks: 960 };
+  const first = createLyricBlock({ text: 'take me away', startTick: 480, durationTick: 960 }, durationSnippet);
+  assert.match(first.id, /^lyric_/);
+  assert.deepEqual(withoutIds([first])[0], { text: 'take me away', startTick: 480, durationTick: 480 });
+
+  const updated = updateLyricBlock([first], 0, { text: 'bring me home', startTick: 240, durationTick: 240 }, durationSnippet);
+  assert.equal(updated[0].id, first.id);
+  assert.deepEqual(withoutIds(updated), [
+    { text: 'bring me home', startTick: 240, durationTick: 240 },
+  ]);
+
+  assert.deepEqual(removeLyricBlock(updated, 0, durationSnippet), []);
+});
+
+test('lyric block ids remain unique and survive sorting/clamping', () => {
+  const blocks = ensureLyricBlockIds([
+    { id: 'dupe', text: 'late', startTick: 900, durationTick: 300 },
+    { id: 'dupe', text: 'early', startTick: 0, durationTick: 120 },
+    { text: 'middle', startTick: 480, durationTick: 120 },
+  ], { durationTicks: 1200 });
+
+  assert.equal(new Set(blocks.map(block => block.id)).size, 3);
+  assert.equal(blocks[0].id, 'dupe');
+
+  const selectedId = blocks[2].id;
+  const clamped = ensureLyricBlockIds(blocks, { durationTicks: 960 });
+  const selectedIdx = lyricBlockIndexById(clamped, selectedId, { durationTicks: 960 });
+  assert.equal(clamped[selectedIdx].text, 'late');
+  assert.equal(clamped[selectedIdx].startTick, 900);
+  assert.equal(clamped[selectedIdx].durationTick, 60);
+});
+
+test('duplicate lyric blocks do not steal selection after update', () => {
+  const blocks = ensureLyricBlockIds([
+    { text: 'same', startTick: 0, durationTick: 120 },
+    { text: 'other', startTick: 240, durationTick: 120 },
+  ], { durationTicks: 960 });
+  const selectedId = blocks[1].id;
+
+  const updated = updateLyricBlock(blocks, 1, {
+    text: 'same',
+    startTick: 0,
+    durationTick: 120,
+  }, { durationTicks: 960 });
+
+  const selectedIdx = lyricBlockIndexById(updated, selectedId, { durationTicks: 960 });
+  assert.equal(selectedIdx, 1);
+  assert.equal(updated[selectedIdx].id, selectedId);
+  assert.deepEqual(withoutIds(updated), [
+    { text: 'same', startTick: 0, durationTick: 120 },
+    { text: 'same', startTick: 0, durationTick: 120 },
+  ]);
+});
+
+test('lyricPhrasesToText summarizes independent lyric blocks without splitting phrases', () => {
+  const ly = normalizeLyricBlocks([
+    { text: 'take me away', startTick: 480, durationTick: 240 },
+    { text: 'right now', startTick: 720, durationTick: 240 },
+  ], { durationTicks: 960 });
+
+  assert.equal(lyricPhrasesToText(ly), 'take me away / right now');
+  assert.equal(activeLyricIndex(ly, 500), 0);
+  assert.equal(activeLyricIndex(ly, 800), 1);
 });
 
 test('lyricsFromText spaces words evenly when there are more words than notes', () => {

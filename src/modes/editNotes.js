@@ -329,6 +329,7 @@ export const EditNotesMixin = {
       name: this._snippet.name,
       notes: this._cloneForUndo(this._snippet.notes || []),
       hits: this._cloneForUndo(this._snippet.hits || []),
+      lyrics: this._cloneForUndo(this._snippet.lyrics || []),
       modulation: this._cloneForUndo(this._snippet.modulation || []),
       durationTicks: this._snippet.durationTicks,
     };
@@ -339,6 +340,7 @@ export const EditNotesMixin = {
     this._snippet.name = state.name;
     this._snippet.notes = this._cloneForUndo(state.notes || []);
     this._snippet.hits = this._cloneForUndo(state.hits || []);
+    this._snippet.lyrics = this._cloneForUndo(state.lyrics || []);
     this._snippet.modulation = this._cloneForUndo(state.modulation || []);
     this._snippet.durationTicks = state.durationTicks;
     this._selectedNoteIdx = null;

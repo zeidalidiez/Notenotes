@@ -37,6 +37,7 @@ export const EditRollMixin = {
     const noteCount = (this._snippet.notes?.length || 0) + (this._snippet.hits?.length || 0);
     toolbar.innerHTML = this._buildToolbarHTML(noteCount, isDrum);
     this.el.appendChild(toolbar);
+    this._renderLyricsLane();
 
     if (this._splitMode) {
       const midPitch = Math.floor((this._pitchMin + this._pitchMax) / 2);
@@ -55,7 +56,6 @@ export const EditRollMixin = {
       this._panes = [pane];
     }
 
-    this._renderLyricsLane();
     this._bindEvents(toolbar);
     this._startPlayheadAnimation();
   },

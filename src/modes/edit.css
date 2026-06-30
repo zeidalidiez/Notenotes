@@ -1114,6 +1114,10 @@
   gap: var(--space-sm);
 }
 
+.edit-lyrics__row--editor {
+  flex-wrap: wrap;
+}
+
 .edit-lyrics__label {
   font-size: var(--font-size-xs);
   text-transform: uppercase;
@@ -1140,36 +1144,110 @@
   box-shadow: var(--shadow-glow);
 }
 
-.edit-lyrics__ribbon {
+.edit-lyrics__field {
   display: flex;
-  gap: 2px;
-  min-height: 22px;
-  align-items: stretch;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.edit-lyrics__number {
+  width: 78px;
+  min-height: 28px;
+  background: var(--surface-3);
+  border: var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  padding: 2px var(--space-xs);
+}
+
+.edit-lyrics__number:focus {
+  outline: none;
+  border-color: var(--accent-dim);
+  box-shadow: var(--shadow-glow);
+}
+
+.edit-lyrics__ribbon-scroll {
+  overflow-x: auto;
+  min-height: 32px;
+  border: var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+  -webkit-overflow-scrolling: touch;
+}
+
+.edit-lyrics__ribbon {
+  position: relative;
+  min-height: 30px;
 }
 
 .edit-lyrics__empty {
+  position: absolute;
+  top: 6px;
+  left: var(--space-sm);
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   font-style: italic;
 }
 
 .edit-lyric {
-  flex: 1;
+  position: absolute;
+  top: 3px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   min-width: 0;
   padding: 2px var(--space-xs);
   border-radius: var(--radius-sm);
+  border: 1px solid rgba(255,255,255,0.1);
   background: var(--surface-3);
   color: var(--text-secondary);
+  appearance: none;
+  font: inherit;
   font-size: var(--font-size-sm);
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: background 0.08s ease, color 0.08s ease;
+  cursor: pointer;
+  transition: background 0.08s ease, border-color 0.08s ease, color 0.08s ease;
+}
+
+.edit-lyric:hover,
+.edit-lyric:focus {
+  color: var(--text-primary);
+  border-color: rgba(255,255,255,0.24);
+}
+
+.edit-lyric.is-selected {
+  color: var(--text-primary);
+  border-color: var(--accent-dim);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
 }
 
 .edit-lyric.is-active {
   background: var(--accent-dim);
   color: var(--accent-bright);
   box-shadow: var(--shadow-glow);
+}
+
+@media (max-width: 720px) {
+  .edit-lyrics__input {
+    flex-basis: 100%;
+  }
+
+  .edit-lyrics__field {
+    flex: 1 1 120px;
+  }
+
+  .edit-lyrics__number {
+    width: 100%;
+  }
 }

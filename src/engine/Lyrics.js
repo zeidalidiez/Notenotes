@@ -1,18 +1,23 @@
 /**
- * Lyrics - words attached to a snippet, each with a tick position and length,
- * so the Inspector can show when a word comes in and how long it lasts.
+ * Lyrics - timed text blocks attached to a snippet, each with a tick position
+ * and length, so the Inspector and future Stage/karaoke views can show when
+ * a phrase comes in and how long it lasts.
  *
  * Pure and DOM-free. Lyrics are stored on `snippet.lyrics` as
- * `[{ text, startTick, durationTick }]`. Typing a line distributes the words
- * across the snippet's note onsets (so words land on notes), falling back to
- * even spacing across the snippet when there are more words than notes.
+ * `[{ id, text, startTick, durationTick }]`. Each entry is an independent
+ * timeline block; `lyricsFromText()` remains as a quick-import helper that
+ * distributes words across note onsets or evenly across the snippet. The `id`
+ * is a UI identity anchor only: lyric timing still comes from ticks.
  *
  * Text is sanitized at this boundary (no angle brackets / quotes / control
  * chars) so a lyric can never carry markup into a renderer.
  */
 
-const MAX_WORDS = 256;
+const MAX_BLOCKS = 256;
+const MAX_ID_LEN = 96;
 const MAX_WORD_LEN = 48;
+const MAX_PHRASE_LEN = 160;
+let lyricIdCounter = 0;
 
 export function cleanLyricText(value) {
   return (typeof value === 'string' ? value : '')
@@ -22,21 +27,106 @@ export function cleanLyricText(value) {
     .trim();
 }
 
+export function cleanLyricId(value) {
+  const text = typeof value === 'string' ? value.trim() : '';
+  if (!text) return '';
+  return text.replace(/[^\w:.-]/g, '').slice(0, MAX_ID_LEN);
+}
+
+function createLyricId() {
+  const random = globalThis.crypto?.randomUUID?.();
+  if (random) return `lyric_${random}`;
+  lyricIdCounter += 1;
+  return `lyric_${Date.now().toString(36)}_${lyricIdCounter.toString(36)}`;
+}
+
 const cleanWord = (value) => cleanLyricText(value).slice(0, MAX_WORD_LEN);
+const cleanPhrase = (value) => cleanLyricText(value).slice(0, MAX_PHRASE_LEN);
 const int = (v) => (Number.isFinite(Number(v)) ? Math.round(Number(v)) : null);
 
-/** Sanitize/repair a stored lyrics array. Drops invalid entries, sorts by time. */
-export function normalizeLyrics(value) {
+function snippetDuration(snippet) {
+  const duration = int(snippet?.durationTicks);
+  return duration && duration > 0 ? duration : null;
+}
+
+function normalizeTiming(entry, snippet) {
+  const cap = snippetDuration(snippet);
+  let startTick = Math.max(0, int(entry?.startTick) ?? 0);
+  let durationTick = Math.max(1, int(entry?.durationTick) ?? 1);
+
+  if (cap) {
+    startTick = Math.min(startTick, Math.max(0, cap - 1));
+    durationTick = Math.min(durationTick, Math.max(1, cap - startTick));
+  }
+
+  return { startTick, durationTick };
+}
+
+/**
+ * Sanitize/repair stored lyric blocks. Drops invalid entries, clamps timing to
+ * the snippet when a duration is available, and sorts by time.
+ */
+export function normalizeLyricBlocks(value, snippet = {}) {
   if (!Array.isArray(value)) return [];
   const out = [];
-  for (const entry of value.slice(0, MAX_WORDS)) {
-    const text = cleanWord(entry?.text);
+  for (const entry of value.slice(0, MAX_BLOCKS)) {
+    const text = cleanPhrase(entry?.text);
     if (!text) continue;
-    const startTick = Math.max(0, int(entry?.startTick) ?? 0);
-    const durationTick = Math.max(1, int(entry?.durationTick) ?? 1);
-    out.push({ text, startTick, durationTick });
+    const { startTick, durationTick } = normalizeTiming(entry, snippet);
+    const id = cleanLyricId(entry?.id);
+    out.push(id ? { id, text, startTick, durationTick } : { text, startTick, durationTick });
   }
   return out.sort((a, b) => a.startTick - b.startTick);
+}
+
+/**
+ * Normalize lyric blocks and ensure each one has a unique stable id.
+ * Call this before storing blocks that the editor needs to reselect later.
+ */
+export function ensureLyricBlockIds(value, snippet = {}) {
+  const used = new Set();
+  return normalizeLyricBlocks(value, snippet).map(block => {
+    let id = cleanLyricId(block.id);
+    while (!id || used.has(id)) id = createLyricId();
+    used.add(id);
+    return { ...block, id };
+  });
+}
+
+/** Backward-compatible name used by the original lyrics lane. */
+export function normalizeLyrics(value, snippet = {}) {
+  return normalizeLyricBlocks(value, snippet);
+}
+
+/** Build one explicit lyric timeline block. Returns null for empty text. */
+export function createLyricBlock(input = {}, snippet = {}) {
+  const id = cleanLyricId(input.id) || createLyricId();
+  return normalizeLyricBlocks([{ ...input, id }], snippet)[0] || null;
+}
+
+/** Update one lyric block by index and return a normalized, sorted array. */
+export function updateLyricBlock(lyrics, index, patch = {}, snippet = {}) {
+  const list = ensureLyricBlockIds(lyrics, snippet);
+  if (!Number.isInteger(index) || index < 0 || index >= list.length) return list;
+
+  const updated = createLyricBlock({ ...list[index], ...patch, id: list[index].id }, snippet);
+  if (updated) list[index] = updated;
+  else list.splice(index, 1);
+  return normalizeLyricBlocks(list, snippet);
+}
+
+/** Remove one lyric block by index and return a normalized array. */
+export function removeLyricBlock(lyrics, index, snippet = {}) {
+  const list = normalizeLyricBlocks(lyrics, snippet);
+  if (!Number.isInteger(index) || index < 0 || index >= list.length) return list;
+  list.splice(index, 1);
+  return normalizeLyricBlocks(list, snippet);
+}
+
+export function lyricBlockIndexById(lyrics, id, snippet = {}) {
+  const targetId = cleanLyricId(id);
+  if (!targetId) return -1;
+  return normalizeLyricBlocks(lyrics, snippet).findIndex(block => block.id === targetId);
 }
 
 /** The note/hit onset ticks of a snippet, unique and sorted ascending. */
@@ -58,7 +148,7 @@ function snippetOnsets(snippet) {
  * - otherwise: words are spaced evenly across the snippet duration.
  */
 export function lyricsFromText(text, snippet) {
-  const words = cleanLyricText(text).split(' ').map(cleanWord).filter(Boolean).slice(0, MAX_WORDS);
+  const words = cleanLyricText(text).split(' ').map(cleanWord).filter(Boolean).slice(0, MAX_BLOCKS);
   if (!words.length) return [];
 
   const duration = Math.max(1, int(snippet?.durationTicks) ?? 1);
@@ -68,7 +158,7 @@ export function lyricsFromText(text, snippet) {
     return words.map((word, i) => {
       const startTick = onsets[i];
       const nextStart = (i + 1 < words.length) ? onsets[i + 1] : duration;
-      return { text: word, startTick, durationTick: Math.max(1, nextStart - startTick) };
+      return createLyricBlock({ text: word, startTick, durationTick: Math.max(1, nextStart - startTick) }, snippet);
     });
   }
 
@@ -80,13 +170,13 @@ export function lyricsFromText(text, snippet) {
   return words.map((word, i) => {
     const startTick = starts[i];
     const nextStart = (i + 1 < words.length) ? starts[i + 1] : duration;
-    return { text: word, startTick, durationTick: Math.max(1, nextStart - startTick) };
+    return createLyricBlock({ text: word, startTick, durationTick: Math.max(1, nextStart - startTick) }, snippet);
   });
 }
 
 /** Index of the lyric word active at `tick`, or -1. */
 export function activeLyricIndex(lyrics, tick) {
-  const list = normalizeLyrics(lyrics);
+  const list = normalizeLyricBlocks(lyrics);
   const t = Number(tick);
   if (!Number.isFinite(t)) return -1;
   for (let i = 0; i < list.length; i++) {
@@ -96,7 +186,12 @@ export function activeLyricIndex(lyrics, tick) {
   return -1;
 }
 
+/** Human-readable phrase summary for independent lyric timeline blocks. */
+export function lyricPhrasesToText(lyrics) {
+  return normalizeLyricBlocks(lyrics).map(l => l.text).join(' / ');
+}
+
 /** Plain-text join of the words, for round-tripping into the input field. */
 export function lyricsToText(lyrics) {
-  return normalizeLyrics(lyrics).map(l => l.text).join(' ');
+  return normalizeLyricBlocks(lyrics).map(l => l.text).join(' ');
 }

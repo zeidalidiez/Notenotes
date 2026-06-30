@@ -1355,21 +1355,26 @@ Expected:
 
 ## 16. Lyrics (Inspector)
 
-### 16.1 Type lyrics and watch them follow playback
+### 16.1 Place lyric blocks and watch them follow playback
 
 Steps:
 
 1. Capture or seed a short MIDI snippet with a few notes and open it in Inspect.
-2. In the **Lyrics** line under the toolbar, type a phrase with about as many words as notes, then press Enter.
-3. Look at the word ribbon below the input.
-4. Press Play and watch the words as the clip plays.
-5. Type a longer phrase (more words than notes) and press Enter.
-6. Reload the project and reopen the clip.
+2. In the **Lyrics** line under the toolbar, type `take me away`, set Start to `480`, set Length to `480`, and click Add.
+3. Add a second phrase at a later Start value, then click its block in the ribbon and update its text or Length.
+4. Add two lyric blocks with the same text, Start, and Length. Select the second duplicate, update it, then delete it.
+5. Select a lyric block near the end of the snippet, use the snippet length controls to shrink the clip so lyrics clamp, then update or delete the selected lyric.
+6. Press Play and watch the lyric blocks as the clip plays.
+7. Select one lyric block, click Delete, then add a phrase containing `< > "` characters.
+8. Reload the project and reopen the clip.
 
 Expected:
 
-- Words snap onto successive notes; each word's ribbon chip is sized by how long it lasts.
-- With more words than notes, the words space out evenly across the clip instead of piling up.
-- During playback the word currently sounding is highlighted, and the highlight moves in time; it clears when playback stops.
+- Lyric blocks appear at their explicit Start positions and their width follows Length.
+- Selecting a block fills the Lyrics, Start, and Length fields; Update changes the same block instead of creating a duplicate.
+- Duplicate lyric blocks stay individually selectable; Update and Delete affect the selected block, not the first matching block.
+- Shrinking the snippet can clamp lyric timing, but the selected block remains the edit target afterward.
+- During playback the block currently sounding is highlighted, and the highlight moves in time; it clears when playback stops.
+- Delete removes only the selected lyric block.
 - Lyrics persist with the snippet across reload, and `< > "` characters never render as markup.
 - Audio snippets do not show a Lyrics line.

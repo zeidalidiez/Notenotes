@@ -5,9 +5,11 @@ import {
   cleanLyricText,
   normalizeLyrics,
   normalizeLyricBlocks,
+  ensureLyricBlockIds,
   createLyricBlock,
   updateLyricBlock,
   removeLyricBlock,
+  lyricBlockIndexById,
   lyricsFromText,
   activeLyricIndex,
   lyricsToText,
@@ -23,6 +25,8 @@ const snippet = {
     { pitch: 72, startTick: 1440, durationTick: 460 },
   ],
 };
+
+const withoutIds = (blocks) => blocks.map(({ id, ...block }) => block);
 
 test('lyricsFromText lands words on successive note onsets', () => {
   const ly = lyricsFromText('twinkle little star now', snippet);
@@ -48,14 +52,56 @@ test('normalizeLyricBlocks preserves phrase text and clamps timing to snippet bo
 test('create/update/remove lyric blocks edit explicit timeline ranges', () => {
   const durationSnippet = { durationTicks: 960 };
   const first = createLyricBlock({ text: 'take me away', startTick: 480, durationTick: 960 }, durationSnippet);
-  assert.deepEqual(first, { text: 'take me away', startTick: 480, durationTick: 480 });
+  assert.match(first.id, /^lyric_/);
+  assert.deepEqual(withoutIds([first])[0], { text: 'take me away', startTick: 480, durationTick: 480 });
 
   const updated = updateLyricBlock([first], 0, { text: 'bring me home', startTick: 240, durationTick: 240 }, durationSnippet);
-  assert.deepEqual(updated, [
+  assert.equal(updated[0].id, first.id);
+  assert.deepEqual(withoutIds(updated), [
     { text: 'bring me home', startTick: 240, durationTick: 240 },
   ]);
 
   assert.deepEqual(removeLyricBlock(updated, 0, durationSnippet), []);
+});
+
+test('lyric block ids remain unique and survive sorting/clamping', () => {
+  const blocks = ensureLyricBlockIds([
+    { id: 'dupe', text: 'late', startTick: 900, durationTick: 300 },
+    { id: 'dupe', text: 'early', startTick: 0, durationTick: 120 },
+    { text: 'middle', startTick: 480, durationTick: 120 },
+  ], { durationTicks: 1200 });
+
+  assert.equal(new Set(blocks.map(block => block.id)).size, 3);
+  assert.equal(blocks[0].id, 'dupe');
+
+  const selectedId = blocks[2].id;
+  const clamped = ensureLyricBlockIds(blocks, { durationTicks: 960 });
+  const selectedIdx = lyricBlockIndexById(clamped, selectedId, { durationTicks: 960 });
+  assert.equal(clamped[selectedIdx].text, 'late');
+  assert.equal(clamped[selectedIdx].startTick, 900);
+  assert.equal(clamped[selectedIdx].durationTick, 60);
+});
+
+test('duplicate lyric blocks do not steal selection after update', () => {
+  const blocks = ensureLyricBlockIds([
+    { text: 'same', startTick: 0, durationTick: 120 },
+    { text: 'other', startTick: 240, durationTick: 120 },
+  ], { durationTicks: 960 });
+  const selectedId = blocks[1].id;
+
+  const updated = updateLyricBlock(blocks, 1, {
+    text: 'same',
+    startTick: 0,
+    durationTick: 120,
+  }, { durationTicks: 960 });
+
+  const selectedIdx = lyricBlockIndexById(updated, selectedId, { durationTicks: 960 });
+  assert.equal(selectedIdx, 1);
+  assert.equal(updated[selectedIdx].id, selectedId);
+  assert.deepEqual(withoutIds(updated), [
+    { text: 'same', startTick: 0, durationTick: 120 },
+    { text: 'same', startTick: 0, durationTick: 120 },
+  ]);
 });
 
 test('lyricPhrasesToText summarizes independent lyric blocks without splitting phrases', () => {

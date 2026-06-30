@@ -7,7 +7,7 @@
 
 import './edit.css';
 import { pulseCountForMeter, ticksPerBarForMeter } from '../engine/Meter.js';
-import { normalizeLyricBlocks } from '../engine/Lyrics.js';
+import { ensureLyricBlockIds, lyricBlockIndexById } from '../engine/Lyrics.js';
 import { showToast } from '../ui/Toast.js';
 import { ChoicePicker } from '../ui/ChoicePicker.js';
 import { renderSnippetPreviewSVG } from '../ui/snippetPreview.js';
@@ -89,7 +89,7 @@ export class EditMode {
     this._selectedNoteIdx = null;
     if (snippetChanged) {
       this._pitchRangeInitialized = false;
-      this._lyricsSelectedIdx = -1;
+      this._lyricsSelectedId = '';
     }
 
     this.el.innerHTML = '';
@@ -675,7 +675,10 @@ export class EditMode {
       });
     }
     if (this._snippet.lyrics) {
-      this._snippet.lyrics = normalizeLyricBlocks(this._snippet.lyrics, this._snippet);
+      this._snippet.lyrics = ensureLyricBlockIds(this._snippet.lyrics, this._snippet);
+      if (this._lyricsSelectedId && lyricBlockIndexById(this._snippet.lyrics, this._lyricsSelectedId, this._snippet) === -1) {
+        this._lyricsSelectedId = '';
+      }
     }
     if (this._selectedNoteIdx !== null && this._selectedNoteIdx >= (this._snippet.notes?.length || 0) + (this._snippet.hits?.length || 0)) {
       this._selectedNoteIdx = null;

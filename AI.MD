@@ -1416,22 +1416,29 @@ disabled or explain themselves with a toast; do not make controls silently fail.
 ### Lyrics
 
 `src/engine/Lyrics.js` is the pure layer: lyrics live on `snippet.lyrics` as
-`[{ text, startTick, durationTick }]`, where each entry is an independent
+`[{ id, text, startTick, durationTick }]`, where each entry is an independent
 snippet-level timeline block. Blocks can hold phrases, not only single words:
-`{ text: 'take me away', startTick: 480, durationTick: 480 }` means that phrase
-is active for the second beat of a 4/4 clip at 480 PPQ. Lyrics are deliberately
-not stored on MIDI note objects; notes can be moved, split, deleted, or chorded
-without destroying the text timing model that future Stage/karaoke views need.
+`{ id: 'lyric_...', text: 'take me away', startTick: 480, durationTick: 480 }`
+means that phrase is active for the second beat of a 4/4 clip at 480 PPQ. The
+`id` is a stable editor identity anchor only; the timing model is still the
+tick range. Lyrics are deliberately not stored on MIDI note objects; notes can
+be moved, split, deleted, or chorded without destroying the text timing model
+that future Stage/karaoke views need.
 
 `normalizeLyricBlocks(value, snippet)` is the canonical sanitizer/repair helper.
-It strips `< > "` and control chars, preserves normal phrase spacing, drops empty
-text, clamps `startTick`/`durationTick` into the snippet duration when available,
-caps stored blocks, and sorts by `startTick`. `normalizeLyrics()` remains as a
+It strips `< > "` and control chars, preserves normal phrase spacing, drops
+empty text, preserves a clean existing `id`, clamps `startTick`/`durationTick`
+into the snippet duration when available, caps stored blocks, and sorts by
+`startTick`. `ensureLyricBlockIds(value, snippet)` is the stateful migration
+helper that assigns unique `lyric_...` ids to stored blocks. Use it before
+editing or rendering selectable lyric blocks so duplicate phrases cannot steal
+selection after sorting or clamping. `normalizeLyrics()` remains as a
 compatibility alias for PR 43-era callers. `createLyricBlock()`,
 `updateLyricBlock()`, and `removeLyricBlock()` are the mutation helpers the UI
-uses. `lyricsFromText(text, snippet)` still exists only as a quick import/back-
-compat path that distributes words across note onsets or evenly across the clip.
-`activeLyricIndex(lyrics, tick)` is the playback-highlight lookup.
+uses, and `lyricBlockIndexById()` is the selection lookup. `lyricsFromText(text,
+snippet)` still exists only as a quick import/back-compat path that distributes
+words across note onsets or evenly across the clip. `activeLyricIndex(lyrics,
+tick)` is the playback-highlight lookup.
 
 The `EditLyricsMixin` (`editLyrics.js`, composed onto EditMode) renders a lyrics
 lane directly under the roll toolbar (`_renderLyricsLane` is called from
@@ -1439,10 +1446,13 @@ lane directly under the roll toolbar (`_renderLyricsLane` is called from
 input, explicit Start and Length tick fields, Add/Update/Clear/Delete actions,
 and a horizontal ribbon whose lyric blocks are absolutely positioned using
 `startTick * TICK_WIDTH` and `durationTick * TICK_WIDTH`. Selecting a block fills
-the form for editing. Lyric edits use their own undo/autosave commit path so
-adding text never asks `_updateSnippetDuration()` to resize the clip from note
-content; `_snapshotSnippetState()` and `_restoreSnippetState()` include `lyrics`
-so normal Inspect undo/redo preserves lyric edits alongside notes, hits, and
+the form for editing. Selection is stored as `_lyricsSelectedId`, not an array
+index. That is important because normalization can sort/clamp blocks, and users
+can intentionally create two blocks with the same text/start/length. Lyric edits
+use their own undo/autosave commit path so adding text never asks
+`_updateSnippetDuration()` to resize the clip from note content;
+`_snapshotSnippetState()` and `_restoreSnippetState()` include `lyrics` so
+normal Inspect undo/redo preserves lyric edits alongside notes, hits, and
 modulation. The roll's playhead rAF loop calls `_updateLyricHighlight(tick)` to
 light the sounding lyric block (and clears it when stopped). Lyrics are skipped
 for audio snippets. This is context only - it never changes notes, playback, or

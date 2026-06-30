@@ -185,12 +185,12 @@ These are the ideas that drive the project. Some are coded, some are sketches, s
 - [ ] **Webcam/Wiimote motion controls** - Movement to modulate, other potential uses.
 - [ ] **Touch + accelerometer** - on mobile, tilt for modulation, tap velocity for dynamics.
 - [ ] **Foot pedals & accessibility switches** - every input becomes an instrument.
-- [x] **Lyrics support** - a **Lyrics** line in Inspect lets you put words on the same timeline as the notes. Add a phrase, set its start and length in ticks, and it shows up as a block that lights up while the clip plays. Lyrics stay attached to the snippet, but they are not glued to individual notes, which leaves room for karaoke-style Stage views later.
+- [x] **Lyrics support** - a **Lyrics** line in Inspect lets you put words on the same timeline as the notes. Add a phrase, set its start and length in ticks, and it shows up as a block that lights up while the clip plays. Lyrics stay attached to the snippet, but they are not glued to individual notes, which leaves room for karaoke-style Stage views later. Repeating the same phrase is fine; editing one block keeps hold of that block instead of guessing by text.
 
 
 ###  Sound and color
 
-- [x] **Expanded lyrics mode** - Lyrics are now editable timeline blocks on the snippet itself, so a phrase can cover one note, half a bar, or a tiny pickup without pretending the text belongs to one MIDI note forever.
+- [x] **Expanded lyrics mode** - Lyrics are now editable timeline blocks on the snippet itself, so a phrase can cover one note, half a bar, or a tiny pickup without pretending the text belongs to one MIDI note forever. The editor keeps repeated phrases separate, because sometimes the hook really does say the same thing twice.
 - [ ] **Color-strip notation** as an alternative to the piano roll.
 
 ### Safety nets for those who need them

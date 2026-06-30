@@ -4,17 +4,20 @@
  * a phrase comes in and how long it lasts.
  *
  * Pure and DOM-free. Lyrics are stored on `snippet.lyrics` as
- * `[{ text, startTick, durationTick }]`. Each entry is an independent timeline
- * block; `lyricsFromText()` remains as a quick-import helper that distributes
- * words across note onsets or evenly across the snippet.
+ * `[{ id, text, startTick, durationTick }]`. Each entry is an independent
+ * timeline block; `lyricsFromText()` remains as a quick-import helper that
+ * distributes words across note onsets or evenly across the snippet. The `id`
+ * is a UI identity anchor only: lyric timing still comes from ticks.
  *
  * Text is sanitized at this boundary (no angle brackets / quotes / control
  * chars) so a lyric can never carry markup into a renderer.
  */
 
 const MAX_BLOCKS = 256;
+const MAX_ID_LEN = 96;
 const MAX_WORD_LEN = 48;
 const MAX_PHRASE_LEN = 160;
+let lyricIdCounter = 0;
 
 export function cleanLyricText(value) {
   return (typeof value === 'string' ? value : '')
@@ -22,6 +25,19 @@ export function cleanLyricText(value) {
     .replace(/[<>"]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+export function cleanLyricId(value) {
+  const text = typeof value === 'string' ? value.trim() : '';
+  if (!text) return '';
+  return text.replace(/[^\w:.-]/g, '').slice(0, MAX_ID_LEN);
+}
+
+function createLyricId() {
+  const random = globalThis.crypto?.randomUUID?.();
+  if (random) return `lyric_${random}`;
+  lyricIdCounter += 1;
+  return `lyric_${Date.now().toString(36)}_${lyricIdCounter.toString(36)}`;
 }
 
 const cleanWord = (value) => cleanLyricText(value).slice(0, MAX_WORD_LEN);
@@ -57,9 +73,24 @@ export function normalizeLyricBlocks(value, snippet = {}) {
     const text = cleanPhrase(entry?.text);
     if (!text) continue;
     const { startTick, durationTick } = normalizeTiming(entry, snippet);
-    out.push({ text, startTick, durationTick });
+    const id = cleanLyricId(entry?.id);
+    out.push(id ? { id, text, startTick, durationTick } : { text, startTick, durationTick });
   }
   return out.sort((a, b) => a.startTick - b.startTick);
+}
+
+/**
+ * Normalize lyric blocks and ensure each one has a unique stable id.
+ * Call this before storing blocks that the editor needs to reselect later.
+ */
+export function ensureLyricBlockIds(value, snippet = {}) {
+  const used = new Set();
+  return normalizeLyricBlocks(value, snippet).map(block => {
+    let id = cleanLyricId(block.id);
+    while (!id || used.has(id)) id = createLyricId();
+    used.add(id);
+    return { ...block, id };
+  });
 }
 
 /** Backward-compatible name used by the original lyrics lane. */
@@ -69,15 +100,16 @@ export function normalizeLyrics(value, snippet = {}) {
 
 /** Build one explicit lyric timeline block. Returns null for empty text. */
 export function createLyricBlock(input = {}, snippet = {}) {
-  return normalizeLyricBlocks([input], snippet)[0] || null;
+  const id = cleanLyricId(input.id) || createLyricId();
+  return normalizeLyricBlocks([{ ...input, id }], snippet)[0] || null;
 }
 
 /** Update one lyric block by index and return a normalized, sorted array. */
 export function updateLyricBlock(lyrics, index, patch = {}, snippet = {}) {
-  const list = normalizeLyricBlocks(lyrics, snippet);
+  const list = ensureLyricBlockIds(lyrics, snippet);
   if (!Number.isInteger(index) || index < 0 || index >= list.length) return list;
 
-  const updated = createLyricBlock({ ...list[index], ...patch }, snippet);
+  const updated = createLyricBlock({ ...list[index], ...patch, id: list[index].id }, snippet);
   if (updated) list[index] = updated;
   else list.splice(index, 1);
   return normalizeLyricBlocks(list, snippet);
@@ -89,6 +121,12 @@ export function removeLyricBlock(lyrics, index, snippet = {}) {
   if (!Number.isInteger(index) || index < 0 || index >= list.length) return list;
   list.splice(index, 1);
   return normalizeLyricBlocks(list, snippet);
+}
+
+export function lyricBlockIndexById(lyrics, id, snippet = {}) {
+  const targetId = cleanLyricId(id);
+  if (!targetId) return -1;
+  return normalizeLyricBlocks(lyrics, snippet).findIndex(block => block.id === targetId);
 }
 
 /** The note/hit onset ticks of a snippet, unique and sorted ascending. */

@@ -13,9 +13,11 @@
 // re-normalizing the lyrics array on every animation frame.
 import {
   normalizeLyricBlocks,
+  ensureLyricBlockIds,
   createLyricBlock,
   updateLyricBlock,
   removeLyricBlock,
+  lyricBlockIndexById,
 } from '../engine/Lyrics.js';
 import { showToast } from '../ui/Toast.js';
 import { TICK_WIDTH } from './editConstants.js';
@@ -33,7 +35,7 @@ export const EditLyricsMixin = {
     this._lyricsRibbonEl = null;
     this._lyricsCache = null;
     this._lyricsActiveIdx = -1;
-    if (!Number.isInteger(this._lyricsSelectedIdx)) this._lyricsSelectedIdx = -1;
+    if (typeof this._lyricsSelectedId !== 'string') this._lyricsSelectedId = '';
     // Lyrics belong to pitched/drum snippets in the roll editor, not the audio
     // player view.
     if (!this._snippet || this._snippet.type === 'audio') return;
@@ -80,12 +82,20 @@ export const EditLyricsMixin = {
     this._renderLyricRibbon();
   },
 
-  _selectedLyricBlock() {
-    const lyrics = normalizeLyricBlocks(this._snippet?.lyrics, this._snippet);
-    if (!Number.isInteger(this._lyricsSelectedIdx) || this._lyricsSelectedIdx < 0 || this._lyricsSelectedIdx >= lyrics.length) {
-      return null;
+  _ensureSnippetLyricsWithIds() {
+    if (!this._snippet || !Array.isArray(this._snippet.lyrics)) return [];
+    const lyrics = ensureLyricBlockIds(this._snippet.lyrics, this._snippet);
+    this._snippet.lyrics = lyrics;
+    if (this._lyricsSelectedId && lyricBlockIndexById(lyrics, this._lyricsSelectedId, this._snippet) === -1) {
+      this._lyricsSelectedId = '';
     }
-    return lyrics[this._lyricsSelectedIdx];
+    return lyrics;
+  },
+
+  _selectedLyricBlock() {
+    const lyrics = this._ensureSnippetLyricsWithIds();
+    const idx = lyricBlockIndexById(lyrics, this._lyricsSelectedId, this._snippet);
+    return idx >= 0 ? lyrics[idx] : null;
   },
 
   _lyricFormValues() {
@@ -98,10 +108,13 @@ export const EditLyricsMixin = {
   _saveLyricBlockFromForm() {
     if (!this._snippet) return;
     const beforeState = this._snapshotSnippetState();
-    const lyrics = normalizeLyricBlocks(this._snippet.lyrics, this._snippet);
-    const selectedIdx = Number.isInteger(this._lyricsSelectedIdx) ? this._lyricsSelectedIdx : -1;
+    const lyrics = this._ensureSnippetLyricsWithIds();
+    const selectedIdx = lyricBlockIndexById(lyrics, this._lyricsSelectedId, this._snippet);
     const formValues = this._lyricFormValues();
-    const candidate = createLyricBlock(formValues, this._snippet);
+    const candidate = createLyricBlock({
+      ...formValues,
+      id: selectedIdx >= 0 ? this._lyricsSelectedId : undefined,
+    }, this._snippet);
     if (!candidate) {
       showToast('Type lyric text first');
       return;
@@ -112,34 +125,29 @@ export const EditLyricsMixin = {
 
     if (selectedIdx >= 0 && selectedIdx < lyrics.length) {
       next = updateLyricBlock(lyrics, selectedIdx, formValues, this._snippet);
-      savedBlock = next.find(block => (
-        block.text === candidate.text
-        && block.startTick === candidate.startTick
-        && block.durationTick === candidate.durationTick
-      ))
-        || next[Math.min(selectedIdx, next.length - 1)]
-        || candidate;
+      savedBlock = next[lyricBlockIndexById(next, candidate.id, this._snippet)] || candidate;
       description = 'Edit lyric';
     } else {
       next = normalizeLyricBlocks([...lyrics, savedBlock], this._snippet);
     }
 
-    this._snippet.lyrics = next;
-    this._lyricsSelectedIdx = savedBlock ? next.findIndex(block => (
-      block.text === savedBlock.text
-      && block.startTick === savedBlock.startTick
-      && block.durationTick === savedBlock.durationTick
-    )) : -1;
+    this._snippet.lyrics = ensureLyricBlockIds(next, this._snippet);
+    this._lyricsSelectedId = savedBlock && lyricBlockIndexById(this._snippet.lyrics, savedBlock.id, this._snippet) >= 0
+      ? savedBlock.id
+      : '';
     this._commitLyricEdit(description, beforeState);
     this._syncLyricFormToSelection();
     showToast(description === 'Add lyric' ? 'Lyric added' : 'Lyric updated');
   },
 
   _deleteSelectedLyricBlock() {
-    if (!this._snippet || !Number.isInteger(this._lyricsSelectedIdx) || this._lyricsSelectedIdx < 0) return;
+    if (!this._snippet || !this._lyricsSelectedId) return;
+    const lyrics = this._ensureSnippetLyricsWithIds();
+    const selectedIdx = lyricBlockIndexById(lyrics, this._lyricsSelectedId, this._snippet);
+    if (selectedIdx < 0) return;
     const beforeState = this._snapshotSnippetState();
-    this._snippet.lyrics = removeLyricBlock(this._snippet.lyrics, this._lyricsSelectedIdx, this._snippet);
-    this._lyricsSelectedIdx = -1;
+    this._snippet.lyrics = removeLyricBlock(lyrics, selectedIdx, this._snippet);
+    this._lyricsSelectedId = '';
     this._commitLyricEdit('Delete lyric', beforeState);
     this._syncLyricFormToSelection();
     showToast('Lyric deleted');
@@ -163,13 +171,14 @@ export const EditLyricsMixin = {
   },
 
   _selectLyricBlock(idx) {
-    this._lyricsSelectedIdx = idx;
+    const lyrics = this._ensureSnippetLyricsWithIds();
+    this._lyricsSelectedId = lyrics[idx]?.id || '';
     this._syncLyricFormToSelection();
     this._syncLyricSelectionClass();
   },
 
   _clearLyricForm() {
-    this._lyricsSelectedIdx = -1;
+    this._lyricsSelectedId = '';
     const defaultDuration = this._gridSize || this.transport?.ticksPerBeat || 480;
     const text = this.el?.querySelector('#edit-lyrics-input');
     const start = this.el?.querySelector('#edit-lyrics-start');
@@ -202,10 +211,12 @@ export const EditLyricsMixin = {
 
   _renderLyricRibbon() {
     if (!this._lyricsRibbonEl) return;
-    const lyrics = normalizeLyricBlocks(this._snippet?.lyrics, this._snippet);
+    const lyrics = this._ensureSnippetLyricsWithIds();
     this._lyricsCache = lyrics;        // reused per-frame by the highlight loop
     this._lyricsActiveIdx = -1;
-    if (this._lyricsSelectedIdx >= lyrics.length) this._lyricsSelectedIdx = -1;
+    if (this._lyricsSelectedId && lyricBlockIndexById(lyrics, this._lyricsSelectedId, this._snippet) === -1) {
+      this._lyricsSelectedId = '';
+    }
     const duration = Math.max(1, this._displayDurationTicks?.() || this._snippet?.durationTicks || 1);
     this._lyricsRibbonEl.style.width = `${Math.max(320, duration * TICK_WIDTH)}px`;
     if (!lyrics.length) {
@@ -217,8 +228,8 @@ export const EditLyricsMixin = {
       const bar = (l.startTick / tpb) + 1;
       const x = Math.max(0, l.startTick) * TICK_WIDTH;
       const w = Math.max(28, l.durationTick * TICK_WIDTH);
-      const selected = i === this._lyricsSelectedIdx ? ' is-selected' : '';
-      return `<button class="edit-lyric${selected}" type="button" data-lyric-index="${i}" style="left:${x}px;width:${w}px"`
+      const selected = l.id === this._lyricsSelectedId ? ' is-selected' : '';
+      return `<button class="edit-lyric${selected}" type="button" data-lyric-index="${i}" data-lyric-id="${escAttr(l.id || '')}" style="left:${x}px;width:${w}px"`
         + ` title="starts at bar ${bar.toFixed(2)}, lasts ${l.durationTick} ticks">${escHtml(l.text)}</button>`;
     }).join('');
     this._lyricsRibbonEl.querySelectorAll('.edit-lyric').forEach(el => {
@@ -232,7 +243,7 @@ export const EditLyricsMixin = {
   _syncLyricSelectionClass() {
     if (!this._lyricsRibbonEl) return;
     this._lyricsRibbonEl.querySelectorAll('.edit-lyric').forEach(el => {
-      el.classList.toggle('is-selected', Number(el.dataset.lyricIndex) === this._lyricsSelectedIdx);
+      el.classList.toggle('is-selected', el.dataset.lyricId === this._lyricsSelectedId);
     });
   },
 

@@ -122,22 +122,47 @@ export const EditLyricsMixin = {
     let next;
     let savedBlock = candidate;
     let description = 'Add lyric';
+    let addedBlock = true;
 
     if (selectedIdx >= 0 && selectedIdx < lyrics.length) {
       next = updateLyricBlock(lyrics, selectedIdx, formValues, this._snippet);
       savedBlock = next[lyricBlockIndexById(next, candidate.id, this._snippet)] || candidate;
       description = 'Edit lyric';
+      addedBlock = false;
     } else {
       next = normalizeLyricBlocks([...lyrics, savedBlock], this._snippet);
     }
 
     this._snippet.lyrics = ensureLyricBlockIds(next, this._snippet);
-    this._lyricsSelectedId = savedBlock && lyricBlockIndexById(this._snippet.lyrics, savedBlock.id, this._snippet) >= 0
-      ? savedBlock.id
-      : '';
+    if (addedBlock) {
+      this._lyricsSelectedId = '';
+    } else {
+      this._lyricsSelectedId = savedBlock && lyricBlockIndexById(this._snippet.lyrics, savedBlock.id, this._snippet) >= 0
+        ? savedBlock.id
+        : '';
+    }
     this._commitLyricEdit(description, beforeState);
-    this._syncLyricFormToSelection();
+    if (addedBlock) this._prepareLyricFormForNextBlock(savedBlock);
+    else this._syncLyricFormToSelection();
     showToast(description === 'Add lyric' ? 'Lyric added' : 'Lyric updated');
+  },
+
+  _prepareLyricFormForNextBlock(block) {
+    const fallbackDuration = this._gridSize || this.transport?.ticksPerBeat || 480;
+    const durationTick = Math.max(1, int(block?.durationTick, fallbackDuration));
+    const rawNextStart = Math.max(0, int(block?.startTick, 0) + durationTick);
+    const snippetDuration = Number(this._snippet?.durationTicks);
+    const nextStart = Number.isFinite(snippetDuration) && snippetDuration > 0
+      ? Math.min(rawNextStart, Math.max(0, snippetDuration - 1))
+      : rawNextStart;
+    const text = this.el?.querySelector('#edit-lyrics-input');
+    const start = this.el?.querySelector('#edit-lyrics-start');
+    const duration = this.el?.querySelector('#edit-lyrics-duration');
+    if (text) text.value = '';
+    if (start) start.value = String(nextStart);
+    if (duration) duration.value = String(durationTick);
+    this._syncLyricFormButtons(null);
+    this._syncLyricSelectionClass();
   },
 
   _deleteSelectedLyricBlock() {

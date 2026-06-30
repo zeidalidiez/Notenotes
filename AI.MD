@@ -1443,7 +1443,8 @@ tick)` is the playback-highlight lookup.
 Unit coverage is split by layer. `tests/unit/lyrics.test.js` covers the pure
 engine helpers and edge cases such as duplicate block ids and timing clamps.
 `tests/unit/editLyricsMixin.test.js` covers the editor-facing behavior: updating
-or deleting the selected duplicate block by id, preserving selection when
+or deleting the selected duplicate block by id, keeping Add ready so consecutive
+form submissions create multiple lyric blocks, preserving selection when
 `EditMode._setDuration()` clamps lyric timing, carrying lyric edits through
 undo/redo snapshots, and toggling the active block highlight by playback tick.
 
@@ -1453,13 +1454,16 @@ lane directly under the roll toolbar (`_renderLyricsLane` is called from
 input, explicit Start and Length tick fields, Add/Update/Clear/Delete actions,
 and a horizontal ribbon whose lyric blocks are absolutely positioned using
 `startTick * TICK_WIDTH` and `durationTick * TICK_WIDTH`. Selecting a block fills
-the form for editing. Selection is stored as `_lyricsSelectedId`, not an array
-index. That is important because normalization can sort/clamp blocks, and users
-can intentionally create two blocks with the same text/start/length. Lyric edits
-use their own undo/autosave commit path so adding text never asks
-`_updateSnippetDuration()` to resize the clip from note content;
-`_snapshotSnippetState()` and `_restoreSnippetState()` include `lyrics` so
-normal Inspect undo/redo preserves lyric edits alongside notes, hits, and
+the form for editing. After adding a new block, the editor clears selection,
+clears the phrase input, and advances Start to the end of the just-added block
+while keeping Length, so pressing Add again creates a second timeline block
+instead of silently updating the first one. Selection is stored as
+`_lyricsSelectedId`, not an array index. That is important because normalization
+can sort/clamp blocks, and users can intentionally create two blocks with the
+same text/start/length. Lyric edits use their own undo/autosave commit path so
+adding text never asks `_updateSnippetDuration()` to resize the clip from note
+content; `_snapshotSnippetState()` and `_restoreSnippetState()` include `lyrics`
+so normal Inspect undo/redo preserves lyric edits alongside notes, hits, and
 modulation. The roll's playhead rAF loop calls `_updateLyricHighlight(tick)` to
 light the sounding lyric block (and clears it when stopped). Lyrics are skipped
 for audio snippets. This is context only - it never changes notes, playback, or

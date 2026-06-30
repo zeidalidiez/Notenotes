@@ -98,6 +98,47 @@ function lyricSummaries(snippet) {
   return snippet.lyrics.map(({ text, startTick, durationTick }) => ({ text, startTick, durationTick }));
 }
 
+function setLyricForm(harness, { text, startTick, durationTick }) {
+  harness.fields.get('#edit-lyrics-input').value = text;
+  harness.fields.get('#edit-lyrics-start').value = String(startTick);
+  harness.fields.get('#edit-lyrics-duration').value = String(durationTick);
+}
+
+test('EditLyricsMixin keeps Add ready so consecutive submissions create multiple blocks', () => {
+  const snippet = {
+    id: 'lyrics-snippet',
+    type: 'midi',
+    durationTicks: 960,
+    notes: [],
+    hits: [],
+    lyrics: [],
+  };
+  const harness = wireHarness(makeHarness(snippet, {
+    text: 'take me away',
+    startTick: 120,
+    durationTick: 120,
+  }));
+
+  harness._saveLyricBlockFromForm();
+  assert.equal(harness._lyricsSelectedId, '');
+  assert.equal(harness.fields.get('#edit-lyrics-save').textContent, 'Add');
+  assert.equal(harness.fields.get('#edit-lyrics-input').value, '');
+  assert.equal(harness.fields.get('#edit-lyrics-start').value, '240');
+
+  setLyricForm(harness, {
+    text: 'bring me home',
+    startTick: 360,
+    durationTick: 120,
+  });
+  harness._saveLyricBlockFromForm();
+
+  assert.equal(harness._lyricsSelectedId, '');
+  assert.deepEqual(lyricSummaries(snippet), [
+    { text: 'take me away', startTick: 120, durationTick: 120 },
+    { text: 'bring me home', startTick: 360, durationTick: 120 },
+  ]);
+});
+
 test('EditLyricsMixin update keeps selection on the chosen duplicate block', () => {
   const snippet = {
     id: 'lyrics-snippet',

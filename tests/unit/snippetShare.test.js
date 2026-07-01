@@ -239,6 +239,30 @@ test('caps mixed note and hit shares to a combined event budget', () => {
   assert.equal(decodedFromPayload.notes.length + decodedFromPayload.hits.length, MAX_SHARE_EVENTS);
 });
 
+test('trims dense shares until the final encoded code fits the URL budget', () => {
+  const hits = Array.from({ length: MAX_SHARE_EVENTS }, (_, i) => ({
+    type: `sample-${String(i).padStart(9, '0')}`,
+    startTick: i * 10,
+    velocity: 0.8,
+  }));
+
+  const code = encodeSnippetShare({
+    type: 'drum',
+    name: 'dense hit payload',
+    notes: [],
+    hits,
+    durationTicks: MAX_SHARE_EVENTS * 10,
+    bpm: 120,
+  });
+
+  assert.equal(typeof code, 'string');
+  assert.ok(code.length <= MAX_SHARE_CODE_CHARS, `share code length ${code.length} exceeded URL budget`);
+
+  const decoded = decodeSnippetShare(code);
+  assert.ok(decoded.hits.length > 0);
+  assert.ok(decoded.hits.length < MAX_SHARE_EVENTS);
+});
+
 test('builds and parses a share URL', () => {
   const url = shareUrlForSnippet(midiSnippet(), 'https://example.com/Notenotes/?old=1#frag');
   assert.ok(url.startsWith('https://example.com/Notenotes/?'));

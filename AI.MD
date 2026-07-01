@@ -513,8 +513,9 @@ btoa/Buffer), so it behaves identically in the browser and in tests.
   `MAX_SHARE_LYRIC_CHARS`, and the entire copied link spends at most
   `MAX_SHARE_TOTAL_LYRIC_CHARS` on lyrics before omitting later optional lyric
   text. If optional lyrics still push the encoded code past
-  `MAX_SHARE_CODE_CHARS`, the encoder drops lyric fields from the copied
-  payload instead of returning a bloated lyric URL.
+  `MAX_SHARE_CODE_CHARS`, the encoder drops lyric fields first, then trims the
+  retained event count until the final encoded code fits. If even one retained
+  event cannot fit, sharing returns null instead of producing an unreliable URL.
 - `decodeSnippetShare(code)` is strict: wrong version, malformed base64, or
   out-of-range entries are dropped; a code with no usable notes/hits returns
   null. Decode applies the same per-note and total lyric caps to crafted
@@ -1476,9 +1477,10 @@ by `MAX_SHARE_LYRIC_CHARS` per note and `MAX_SHARE_TOTAL_LYRIC_CHARS` per share
 in both encode and decode, so one pasted multi-KB lyric or hundreds of lyric
 notes cannot make `shareUrlForSnippet()` generate unreliable URLs. Mixed
 note/hit shares also enforce `MAX_SHARE_EVENTS` across both arrays so a dense
-mixed snippet cannot exceed the declared link budget after lyrics are stripped.
-These caps apply only to copied share payloads, not the in-editor `note.lyric`
-value.
+mixed snippet cannot exceed the declared link budget after lyrics are stripped;
+if the lyric-free payload is still too large, the encoder keeps the largest
+leading event subset that fits `MAX_SHARE_CODE_CHARS`. These caps apply only to
+copied share payloads, not the in-editor `note.lyric` value.
 
 Drum hits draw as blocks in the grid. Split view is for MIDI and should be
 disabled clearly for drums.

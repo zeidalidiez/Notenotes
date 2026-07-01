@@ -108,6 +108,40 @@ function withoutShareLyrics(payload) {
   };
 }
 
+function withShareEventLimit(payload, maxEvents) {
+  const limit = clamp(int(maxEvents) ?? 0, 0, MAX_SHARE_EVENTS);
+  const N = payload.N.slice(0, limit);
+  return {
+    ...payload,
+    N,
+    H: payload.H.slice(0, Math.max(0, limit - N.length)),
+  };
+}
+
+function encodePayloadWithinBudget(payload) {
+  const code = encodePayload(payload);
+  if (code.length <= MAX_SHARE_CODE_CHARS) return code;
+
+  const lyricFree = withoutShareLyrics(payload);
+  const lyricFreeCode = encodePayload(lyricFree);
+  if (lyricFreeCode.length <= MAX_SHARE_CODE_CHARS) return lyricFreeCode;
+
+  let best = null;
+  let lo = 1;
+  let hi = lyricFree.N.length + lyricFree.H.length;
+  while (lo <= hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    const nextCode = encodePayload(withShareEventLimit(lyricFree, mid));
+    if (nextCode.length <= MAX_SHARE_CODE_CHARS) {
+      best = nextCode;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return best;
+}
+
 /**
  * Encode a snippet into a URL-safe share code, or null when it cannot be
  * shared (audio, or no note/hit content).
@@ -150,8 +184,7 @@ export function encodeSnippetShare(snippet) {
     N,
     H,
   };
-  const code = encodePayload(payload);
-  return code.length <= MAX_SHARE_CODE_CHARS ? code : encodePayload(withoutShareLyrics(payload));
+  return encodePayloadWithinBudget(payload);
 }
 
 /**

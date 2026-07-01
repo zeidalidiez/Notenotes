@@ -19,6 +19,8 @@ export const SNIPPET_SHARE_VERSION = 1;
 export const MAX_SHARE_EVENTS = 512;   // notes + hits cap, keeps URLs sane
 export const MAX_SHARE_NAME = 60;
 export const MAX_SHARE_LYRIC_CHARS = 160;
+export const MAX_SHARE_TOTAL_LYRIC_CHARS = 2048;
+export const MAX_SHARE_CODE_CHARS = 16000;
 
 const PPQ = 480;
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
@@ -90,8 +92,20 @@ function cleanName(name) {
     .slice(0, MAX_SHARE_NAME);
 }
 
-function cleanShareLyric(value) {
-  return cleanNoteLyricText(value).slice(0, MAX_SHARE_LYRIC_CHARS);
+function cleanShareLyric(value, maxChars = MAX_SHARE_LYRIC_CHARS) {
+  const limit = clamp(int(maxChars) ?? 0, 0, MAX_SHARE_LYRIC_CHARS);
+  return cleanNoteLyricText(value).slice(0, limit);
+}
+
+function encodePayload(payload) {
+  return bytesToBase64Url(utf8Bytes(JSON.stringify(payload)));
+}
+
+function withoutShareLyrics(payload) {
+  return {
+    ...payload,
+    N: payload.N.map(entry => entry.length > 4 ? entry.slice(0, 4) : entry),
+  };
 }
 
 /**
@@ -104,6 +118,7 @@ export function encodeSnippetShare(snippet) {
   const hits = Array.isArray(snippet.hits) ? snippet.hits : [];
   if (!notes.length && !hits.length) return null;
 
+  let lyricCharsLeft = MAX_SHARE_TOTAL_LYRIC_CHARS;
   const N = notes.slice(0, MAX_SHARE_EVENTS).map(n => {
     const entry = [
       clamp(int(n.pitch) ?? 60, 0, 127),
@@ -111,8 +126,11 @@ export function encodeSnippetShare(snippet) {
       Math.max(1, int(n.durationTick) ?? PPQ),
       clamp(Math.round((Number(n.velocity) || 0.8) * 100), 1, 127),
     ];
-    const lyric = cleanShareLyric(n.lyric);
-    if (lyric) entry.push(lyric);
+    const lyric = cleanShareLyric(n.lyric, lyricCharsLeft);
+    if (lyric) {
+      entry.push(lyric);
+      lyricCharsLeft -= lyric.length;
+    }
     return entry;
   });
   const H = hits.slice(0, MAX_SHARE_EVENTS).map(h => [
@@ -130,7 +148,8 @@ export function encodeSnippetShare(snippet) {
     N,
     H,
   };
-  return bytesToBase64Url(utf8Bytes(JSON.stringify(payload)));
+  const code = encodePayload(payload);
+  return code.length <= MAX_SHARE_CODE_CHARS ? code : encodePayload(withoutShareLyrics(payload));
 }
 
 /**
@@ -153,6 +172,7 @@ export function decodeSnippetShare(code) {
   const rawH = Array.isArray(payload.H) ? payload.H.slice(0, MAX_SHARE_EVENTS) : [];
 
   const notes = [];
+  let lyricCharsLeft = MAX_SHARE_TOTAL_LYRIC_CHARS;
   for (const e of rawN) {
     if (!Array.isArray(e)) continue;
     const pitch = int(e[0]); const startTick = int(e[1]); const durationTick = int(e[2]); const vel = int(e[3]);
@@ -163,8 +183,11 @@ export function decodeSnippetShare(code) {
       durationTick: Math.max(1, durationTick ?? PPQ),
       velocity: clamp((vel ?? 80) / 100, 0.01, 1),
     };
-    const lyric = cleanShareLyric(e[4]);
-    if (lyric) note.lyric = lyric;
+    const lyric = cleanShareLyric(e[4], lyricCharsLeft);
+    if (lyric) {
+      note.lyric = lyric;
+      lyricCharsLeft -= lyric.length;
+    }
     notes.push(note);
   }
   const hits = [];

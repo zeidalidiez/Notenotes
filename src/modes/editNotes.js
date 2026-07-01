@@ -133,6 +133,8 @@ export const EditNotesMixin = {
     const origTick = note.startTick;
     const origPitch = note.pitch;
     const beforeState = this._snapshotSnippetState();
+    let nextTick = origTick;
+    let nextPitch = origPitch;
 
     const onMove = (me) => {
       const dx = me.clientX - startX;
@@ -141,25 +143,20 @@ export const EditNotesMixin = {
       const deltaTick = Math.round(dx / TICK_WIDTH / this._gridSize) * this._gridSize;
       const deltaPitch = -Math.round(dy / this._noteHeight);
 
-      const newTick = Math.max(0, origTick + deltaTick);
-      const newPitch = Math.max(this._pitchMin, Math.min(this._pitchMax - 1, origPitch + deltaPitch));
+      nextTick = Math.max(0, origTick + deltaTick);
+      nextPitch = Math.max(this._pitchMin, Math.min(this._pitchMax - 1, origPitch + deltaPitch));
 
-      el.style.left = `${newTick * TICK_WIDTH}px`;
-      el.style.top = `${(this._pitchMax - 1 - newPitch) * this._noteHeight}px`;
+      el.style.left = `${nextTick * TICK_WIDTH}px`;
+      el.style.top = `${(this._pitchMax - 1 - nextPitch) * this._noteHeight}px`;
     };
 
     const onUp = () => {
       document.removeEventListener('pointermove', onMove);
       document.removeEventListener('pointerup', onUp);
 
-      const finalLeft = parseFloat(el.style.left);
-      const finalTop = parseFloat(el.style.top);
-      const newTick = Math.round(finalLeft / TICK_WIDTH / this._gridSize) * this._gridSize;
-      const newPitch = this._pitchMax - 1 - Math.round(finalTop / this._noteHeight);
-
-      if (newTick !== origTick || newPitch !== origPitch) {
-        note.startTick = Math.max(0, newTick);
-        note.pitch = Math.max(this._pitchMin, Math.min(this._pitchMax - 1, newPitch));
+      if (nextTick !== origTick || nextPitch !== origPitch) {
+        note.startTick = nextTick;
+        note.pitch = nextPitch;
         this._onEdit('Move note', beforeState);
       }
     };

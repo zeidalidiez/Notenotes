@@ -1467,20 +1467,30 @@ the roll; lyrics must stay disabled for a selected hit even if a note exists at
 the same array index. `_selectedEditableEvent()` uses the kind for velocity and
 delete behavior too, and load/restore/rhythm-fit paths clear both fields.
 
+Clicking a MIDI note to select it for lyrics must not change timing. Notes can
+land off the visible edit grid after recording, mic transcription, imports, or
+rhythm tools; `_startNoteDrag()` tracks the proposed tick/pitch from actual
+pointer movement and commits only when that proposed value differs from the
+original. Do not derive the final click result from `el.style.left` on
+`pointerup`, because that re-quantizes an untouched off-grid note and makes a
+plain selection jump left or right.
+
 Unit coverage is split by layer. `tests/unit/lyrics.test.js` covers note lyric
 sanitization, `setNoteLyric`, note-derived karaoke blocks, drum exclusion, and
 legacy fallback precedence. `tests/unit/editLyricsMixin.test.js` covers
 selected-note lyric input state, committing/clearing `note.lyric`, undo/redo,
-and ignoring drum snippets. `tests/unit/snippetShare.test.js` covers preserving
-optional MIDI note lyrics in snippet share links. Shared note lyrics are capped
-by `MAX_SHARE_LYRIC_CHARS` per note and `MAX_SHARE_TOTAL_LYRIC_CHARS` per share
-in both encode and decode, so one pasted multi-KB lyric or hundreds of lyric
-notes cannot make `shareUrlForSnippet()` generate unreliable URLs. Mixed
-note/hit shares also enforce `MAX_SHARE_EVENTS` across both arrays so a dense
-mixed snippet cannot exceed the declared link budget after lyrics are stripped;
-if the lyric-free payload is still too large, the encoder keeps the largest
-leading event subset that fits `MAX_SHARE_CODE_CHARS`. These caps apply only to
-copied share payloads, not the in-editor `note.lyric` value.
+and ignoring drum snippets. `tests/unit/editNotesDrag.test.js` covers
+click-selecting an off-grid MIDI note without snapping or moving it.
+`tests/unit/snippetShare.test.js` covers preserving optional MIDI note lyrics in
+snippet share links. Shared note lyrics are capped by `MAX_SHARE_LYRIC_CHARS`
+per note and `MAX_SHARE_TOTAL_LYRIC_CHARS` per share in both encode and decode,
+so one pasted multi-KB lyric or hundreds of lyric notes cannot make
+`shareUrlForSnippet()` generate unreliable URLs. Mixed note/hit shares also
+enforce `MAX_SHARE_EVENTS` across both arrays so a dense mixed snippet cannot
+exceed the declared link budget after lyrics are stripped; if the lyric-free
+payload is still too large, the encoder keeps the largest leading event subset
+that fits `MAX_SHARE_CODE_CHARS`. These caps apply only to copied share
+payloads, not the in-editor `note.lyric` value.
 
 Drum hits draw as blocks in the grid. Split view is for MIDI and should be
 disabled clearly for drums.

@@ -207,6 +207,38 @@ test('caps the number of events to keep the URL bounded', () => {
   assert.equal(decoded.notes.length, MAX_SHARE_EVENTS);
 });
 
+test('caps mixed note and hit shares to a combined event budget', () => {
+  const notes = Array.from({ length: MAX_SHARE_EVENTS }, (_, i) => ({
+    pitch: 60 + (i % 12),
+    startTick: i * 10,
+    durationTick: 10,
+    velocity: 0.8,
+    lyric: 'la',
+  }));
+  const hits = Array.from({ length: MAX_SHARE_EVENTS }, (_, i) => ({
+    type: i % 2 ? 'snare' : 'kick',
+    startTick: i * 10,
+    velocity: 0.8,
+  }));
+
+  const code = encodeSnippetShare({ type: 'midi', name: 'dense mixed', notes, hits, durationTicks: 1920, bpm: 120 });
+  assert.ok(code.length <= MAX_SHARE_CODE_CHARS, `share code length ${code.length} exceeded URL budget`);
+
+  const decoded = decodeSnippetShare(code);
+  assert.equal(decoded.notes.length + decoded.hits.length, MAX_SHARE_EVENTS);
+
+  const decodedFromPayload = decodeSnippetShare(encodeForTest({
+    v: 1,
+    t: 'midi',
+    nm: 'crafted dense mixed',
+    d: 1920,
+    b: 120,
+    N: notes.map(note => [note.pitch, note.startTick, note.durationTick, 80, note.lyric]),
+    H: hits.map(hit => [hit.type, hit.startTick, 80]),
+  }));
+  assert.equal(decodedFromPayload.notes.length + decodedFromPayload.hits.length, MAX_SHARE_EVENTS);
+});
+
 test('builds and parses a share URL', () => {
   const url = shareUrlForSnippet(midiSnippet(), 'https://example.com/Notenotes/?old=1#frag');
   assert.ok(url.startsWith('https://example.com/Notenotes/?'));

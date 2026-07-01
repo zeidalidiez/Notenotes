@@ -118,8 +118,10 @@ export function encodeSnippetShare(snippet) {
   const hits = Array.isArray(snippet.hits) ? snippet.hits : [];
   if (!notes.length && !hits.length) return null;
 
+  const sharedNotes = notes.slice(0, MAX_SHARE_EVENTS);
+  const sharedHits = hits.slice(0, Math.max(0, MAX_SHARE_EVENTS - sharedNotes.length));
   let lyricCharsLeft = MAX_SHARE_TOTAL_LYRIC_CHARS;
-  const N = notes.slice(0, MAX_SHARE_EVENTS).map(n => {
+  const N = sharedNotes.map(n => {
     const entry = [
       clamp(int(n.pitch) ?? 60, 0, 127),
       Math.max(0, int(n.startTick) ?? 0),
@@ -133,7 +135,7 @@ export function encodeSnippetShare(snippet) {
     }
     return entry;
   });
-  const H = hits.slice(0, MAX_SHARE_EVENTS).map(h => [
+  const H = sharedHits.map(h => [
     String(h.type || 'kick').slice(0, 16),
     Math.max(0, int(h.startTick) ?? 0),
     clamp(Math.round((Number(h.velocity) || 0.8) * 100), 1, 127),
@@ -169,7 +171,7 @@ export function decodeSnippetShare(code) {
   if (payload.t !== 'midi' && payload.t !== 'drum') return null;
 
   const rawN = Array.isArray(payload.N) ? payload.N.slice(0, MAX_SHARE_EVENTS) : [];
-  const rawH = Array.isArray(payload.H) ? payload.H.slice(0, MAX_SHARE_EVENTS) : [];
+  const rawH = Array.isArray(payload.H) ? payload.H.slice(0, Math.max(0, MAX_SHARE_EVENTS - rawN.length)) : [];
 
   const notes = [];
   let lyricCharsLeft = MAX_SHARE_TOTAL_LYRIC_CHARS;

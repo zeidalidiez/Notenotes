@@ -506,13 +506,15 @@ btoa/Buffer), so it behaves identically in the browser and in tests.
 
 - `encodeSnippetShare(snippet)` returns a code or null. Only `midi`/`drum`
   snippets with content are shareable; audio is refused (sample data does not
-  belong in a URL). Notes/hits are capped at `MAX_SHARE_EVENTS` and values are
-  clamped on the way in. Optional MIDI note lyrics are share payload data, not
-  the editor source of truth: each note is capped by `MAX_SHARE_LYRIC_CHARS`,
-  and the entire copied link spends at most `MAX_SHARE_TOTAL_LYRIC_CHARS` on
-  lyrics before omitting later optional lyric text. If optional lyrics still
-  push the encoded code past `MAX_SHARE_CODE_CHARS`, the encoder drops lyric
-  fields from the copied payload instead of returning a bloated lyric URL.
+  belong in a URL). `MAX_SHARE_EVENTS` is a combined notes + hits budget, not
+  a per-array cap; notes spend the budget first and hits use the remaining
+  slots. Values are clamped on the way in. Optional MIDI note lyrics are share
+  payload data, not the editor source of truth: each note is capped by
+  `MAX_SHARE_LYRIC_CHARS`, and the entire copied link spends at most
+  `MAX_SHARE_TOTAL_LYRIC_CHARS` on lyrics before omitting later optional lyric
+  text. If optional lyrics still push the encoded code past
+  `MAX_SHARE_CODE_CHARS`, the encoder drops lyric fields from the copied
+  payload instead of returning a bloated lyric URL.
 - `decodeSnippetShare(code)` is strict: wrong version, malformed base64, or
   out-of-range entries are dropped; a code with no usable notes/hits returns
   null. Decode applies the same per-note and total lyric caps to crafted
@@ -1472,8 +1474,11 @@ and ignoring drum snippets. `tests/unit/snippetShare.test.js` covers preserving
 optional MIDI note lyrics in snippet share links. Shared note lyrics are capped
 by `MAX_SHARE_LYRIC_CHARS` per note and `MAX_SHARE_TOTAL_LYRIC_CHARS` per share
 in both encode and decode, so one pasted multi-KB lyric or hundreds of lyric
-notes cannot make `shareUrlForSnippet()` generate unreliable URLs. These caps
-apply only to copied share payloads, not the in-editor `note.lyric` value.
+notes cannot make `shareUrlForSnippet()` generate unreliable URLs. Mixed
+note/hit shares also enforce `MAX_SHARE_EVENTS` across both arrays so a dense
+mixed snippet cannot exceed the declared link budget after lyrics are stripped.
+These caps apply only to copied share payloads, not the in-editor `note.lyric`
+value.
 
 Drum hits draw as blocks in the grid. Split view is for MIDI and should be
 disabled clearly for drums.

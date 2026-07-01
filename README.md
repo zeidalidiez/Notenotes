@@ -186,7 +186,7 @@ These are the ideas that drive the project. Some are coded, some are sketches, s
 - [ ] **Touch + accelerometer** - on mobile, tilt for modulation, tap velocity for dynamics.
 - [ ] **Foot pedals & accessibility switches** - every input becomes an instrument.
 - [x] **Lyrics support** - select a MIDI note in Inspect, type the words that belong to it, and the lyric rides with that note. Move the note and the lyric moves; stretch the note and the lyric lasts longer. No tick math, no separate lyrics lane, and no splitting a perfectly good phrase into tiny word bits just because the app can.
-- [x] **Lyric sharing** - shared MIDI snippets keep note-attached lyrics, with long note text and giant lyric-heavy clips trimmed in the link payload so one pasted wall of words does not break the URL.
+- [x] **Lyric sharing** - shared MIDI snippets keep note-attached lyrics, with long note text, dense note/hit clips, and giant lyric-heavy payloads trimmed so one pasted wall of words does not break the URL.
 
 
 ###  Sound and color

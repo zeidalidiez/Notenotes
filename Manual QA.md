@@ -1355,29 +1355,29 @@ Expected:
 
 ## 16. Lyrics (Inspector)
 
-### 16.1 Place lyric blocks and watch them follow playback
+### 16.1 Attach lyrics to MIDI notes
 
 Steps:
 
 1. Capture or seed a short MIDI snippet with a few notes and open it in Inspect.
-2. In the **Lyrics** line under the toolbar, type `take me away`, set Start to `480`, set Length to `480`, and click Add.
-3. Confirm the Lyrics field clears, the button still says Add, and Start advances to the end of the new block.
-4. Type `bring me home`, set a later Start if needed, click Add again, and confirm both blocks remain in the ribbon.
-5. Click one block in the ribbon and update its text or Length.
-6. Add two lyric blocks with the same text, Start, and Length. Select the second duplicate, update it, then delete it.
-7. Select a lyric block near the end of the snippet, use the snippet length controls to shrink the clip so lyrics clamp, then update or delete the selected lyric.
-8. Press Play and watch the lyric blocks as the clip plays.
-9. Select one lyric block, click Delete, then add a phrase containing `< > "` characters.
-10. Reload the project and reopen the clip.
+2. Confirm there is no separate lyrics lane under the toolbar.
+3. Select a MIDI note and confirm the toolbar **Lyric** field enables.
+4. Type `take me away` in the Lyric field and press Enter.
+5. Confirm the selected note shows a compact lyric marker/preview.
+6. Drag the note later in the roll, then resize it wider.
+7. Select a different note and type a longer phrase such as `bring me home before the lights go out`.
+8. Confirm the long phrase does not overlap neighboring notes; it should be clipped in the note and fully visible in the selected-note field or title.
+9. Clear the Lyric field for that selected note and press Enter.
+10. Add a phrase containing `< > "` characters to another MIDI note.
+11. Open a drum snippet in Inspect.
+12. Reload the project and reopen the MIDI clip.
 
 Expected:
 
-- Lyric blocks appear at their explicit Start positions and their width follows Length.
-- Consecutive Add submissions create multiple lyric blocks instead of updating the block that was just added.
-- Selecting a block fills the Lyrics, Start, and Length fields; Update changes the same block instead of creating a duplicate.
-- Duplicate lyric blocks stay individually selectable; Update and Delete affect the selected block, not the first matching block.
-- Shrinking the snippet can clamp lyric timing, but the selected block remains the edit target afterward.
-- During playback the block currently sounding is highlighted, and the highlight moves in time; it clears when playback stops.
-- Delete removes only the selected lyric block.
-- Lyrics persist with the snippet across reload, and `< > "` characters never render as markup.
-- Audio snippets do not show a Lyrics line.
+- Lyrics are edited on selected MIDI notes, not in a separate Start/Length block lane.
+- The lyric timing follows the note's `startTick` and `durationTick`; moving or resizing the note changes the future karaoke timing.
+- Long lyrics stay contained in the note preview and never overlap adjacent notes.
+- Clearing the field removes `note.lyric` from the selected note.
+- `< > "` characters are stripped and never render as markup.
+- Drum snippets do not expose lyric editing.
+- Lyrics persist with the MIDI notes across reload.

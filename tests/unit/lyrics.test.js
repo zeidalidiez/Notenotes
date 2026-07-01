@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   cleanLyricText,
+  cleanNoteLyricText,
   normalizeLyrics,
   normalizeLyricBlocks,
   ensureLyricBlockIds,
@@ -14,6 +15,9 @@ import {
   activeLyricIndex,
   lyricsToText,
   lyricPhrasesToText,
+  setNoteLyric,
+  lyricBlocksFromNotes,
+  lyricTimelineForSnippet,
 } from '../../src/engine/Lyrics.js';
 
 const snippet = {
@@ -27,6 +31,67 @@ const snippet = {
 };
 
 const withoutIds = (blocks) => blocks.map(({ id, ...block }) => block);
+
+test('note lyric text sanitizes without splitting or truncating phrases', () => {
+  const line = 'take me away right now and keep going';
+  assert.equal(cleanNoteLyricText(line), line);
+  assert.equal(cleanNoteLyricText(' take   me\taway '), 'take me away');
+  assert.equal(cleanNoteLyricText('<b>take</b> "away"'), 'btake/b away');
+  assert.equal(cleanNoteLyricText('   '), '');
+});
+
+test('setNoteLyric writes sanitized text and removes empty lyric fields', () => {
+  const base = { pitch: 60, startTick: 120, durationTick: 240, velocity: 0.7 };
+
+  assert.deepEqual(setNoteLyric(base, '<b>take</b> "away"'), {
+    ...base,
+    lyric: 'btake/b away',
+  });
+  assert.deepEqual(setNoteLyric({ ...base, lyric: 'old text' }, '   '), base);
+});
+
+test('lyricBlocksFromNotes derives karaoke timing from MIDI note geometry', () => {
+  const blocks = lyricBlocksFromNotes({
+    type: 'midi',
+    durationTicks: 960,
+    notes: [
+      { pitch: 64, startTick: 480, durationTick: 240, lyric: 'second' },
+      { pitch: 60, startTick: 0, durationTick: 240, lyric: 'first phrase' },
+      { pitch: 67, startTick: 720, durationTick: 500, lyric: '<i>last</i>' },
+      { pitch: 72, startTick: 240, durationTick: 120 },
+    ],
+  });
+
+  assert.deepEqual(blocks, [
+    { text: 'first phrase', startTick: 0, durationTick: 240, noteIndex: 1 },
+    { text: 'second', startTick: 480, durationTick: 240, noteIndex: 0 },
+    { text: 'ilast/i', startTick: 720, durationTick: 240, noteIndex: 2 },
+  ]);
+});
+
+test('lyric timeline ignores drums and prefers note lyrics over legacy snippet blocks', () => {
+  assert.deepEqual(lyricBlocksFromNotes({
+    type: 'drum',
+    notes: [{ pitch: 60, startTick: 0, durationTick: 120, lyric: 'ignored' }],
+  }), []);
+
+  const legacy = [{ text: 'legacy', startTick: 0, durationTick: 120 }];
+  assert.deepEqual(lyricTimelineForSnippet({
+    type: 'midi',
+    durationTicks: 960,
+    notes: [{ pitch: 60, startTick: 240, durationTick: 120, lyric: 'note lyric' }],
+    lyrics: legacy,
+  }), [
+    { text: 'note lyric', startTick: 240, durationTick: 120, noteIndex: 0 },
+  ]);
+
+  assert.deepEqual(lyricTimelineForSnippet({
+    type: 'midi',
+    durationTicks: 960,
+    notes: [{ pitch: 60, startTick: 240, durationTick: 120 }],
+    lyrics: legacy,
+  }), legacy);
+});
 
 test('lyricsFromText lands words on successive note onsets', () => {
   const ly = lyricsFromText('twinkle little star now', snippet);

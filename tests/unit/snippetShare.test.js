@@ -8,6 +8,9 @@ import {
   sharedSnippetFromSearch,
   SNIPPET_SHARE_PARAM,
   MAX_SHARE_EVENTS,
+  MAX_SHARE_LYRIC_CHARS,
+  MAX_SHARE_TOTAL_LYRIC_CHARS,
+  MAX_SHARE_CODE_CHARS,
 } from '../../src/utils/SnippetShare.js';
 
 function midiSnippet(overrides = {}) {
@@ -41,6 +44,79 @@ test('round-trips a MIDI snippet through encode/decode', () => {
   // Importer assigns id/createdAt; decode must not.
   assert.equal(decoded.id, undefined);
   assert.equal(decoded.createdAt, undefined);
+});
+
+test('round-trips MIDI note lyrics through encode/decode', () => {
+  const code = encodeSnippetShare(midiSnippet({
+    notes: [
+      { pitch: 60, startTick: 0, durationTick: 480, velocity: 0.8, lyric: '<b>take</b> "away"' },
+      { pitch: 64, startTick: 480, durationTick: 240, velocity: 0.5 },
+    ],
+  }));
+
+  const decoded = decodeSnippetShare(code);
+  assert.equal(decoded.notes[0].lyric, 'btake/b away');
+  assert.equal(Object.hasOwn(decoded.notes[1], 'lyric'), false);
+});
+
+test('bounds MIDI note lyrics in share payloads', () => {
+  const longLyric = 'a'.repeat(MAX_SHARE_LYRIC_CHARS + 50);
+  const decodedFromEncoder = decodeSnippetShare(encodeSnippetShare(midiSnippet({
+    notes: [{ pitch: 60, startTick: 0, durationTick: 480, velocity: 0.8, lyric: longLyric }],
+  })));
+
+  assert.equal(decodedFromEncoder.notes[0].lyric.length, MAX_SHARE_LYRIC_CHARS);
+
+  const decodedFromPayload = decodeSnippetShare(encodeForTest({
+    v: 1,
+    t: 'midi',
+    nm: 'x',
+    d: 480,
+    b: 120,
+    N: [[60, 0, 480, 80, longLyric]],
+    H: [],
+  }));
+
+  assert.equal(decodedFromPayload.notes[0].lyric.length, MAX_SHARE_LYRIC_CHARS);
+});
+
+test('keeps lyric-heavy MIDI share codes within the URL budget', () => {
+  const lyric = 'a'.repeat(MAX_SHARE_LYRIC_CHARS);
+  const notes = Array.from({ length: MAX_SHARE_EVENTS }, (_, i) => ({
+    pitch: 60 + (i % 12),
+    startTick: i * 120,
+    durationTick: 120,
+    velocity: 0.8,
+    lyric,
+  }));
+
+  const code = encodeSnippetShare({
+    type: 'midi',
+    name: 'max lyric payload',
+    notes,
+    hits: [],
+    durationTicks: MAX_SHARE_EVENTS * 120,
+    bpm: 120,
+  });
+
+  assert.ok(code.length <= MAX_SHARE_CODE_CHARS, `share code length ${code.length} exceeded URL budget`);
+
+  const decoded = decodeSnippetShare(code);
+  const sharedLyricChars = decoded.notes.reduce((sum, note) => sum + (note.lyric?.length || 0), 0);
+  assert.ok(sharedLyricChars > 0);
+  assert.ok(sharedLyricChars <= MAX_SHARE_TOTAL_LYRIC_CHARS);
+
+  const decodedFromPayload = decodeSnippetShare(encodeForTest({
+    v: 1,
+    t: 'midi',
+    nm: 'crafted lyric payload',
+    d: MAX_SHARE_EVENTS * 120,
+    b: 120,
+    N: notes.map(note => [note.pitch, note.startTick, note.durationTick, 80, note.lyric]),
+    H: [],
+  }));
+  const decodedPayloadLyricChars = decodedFromPayload.notes.reduce((sum, note) => sum + (note.lyric?.length || 0), 0);
+  assert.ok(decodedPayloadLyricChars <= MAX_SHARE_TOTAL_LYRIC_CHARS);
 });
 
 test('strips HTML/control characters from the shared name (no markup in a link)', () => {
@@ -129,6 +205,62 @@ test('caps the number of events to keep the URL bounded', () => {
   }));
   const decoded = decodeSnippetShare(encodeSnippetShare({ type: 'midi', name: 'big', notes, hits: [], durationTicks: 1920, bpm: 120 }));
   assert.equal(decoded.notes.length, MAX_SHARE_EVENTS);
+});
+
+test('caps mixed note and hit shares to a combined event budget', () => {
+  const notes = Array.from({ length: MAX_SHARE_EVENTS }, (_, i) => ({
+    pitch: 60 + (i % 12),
+    startTick: i * 10,
+    durationTick: 10,
+    velocity: 0.8,
+    lyric: 'la',
+  }));
+  const hits = Array.from({ length: MAX_SHARE_EVENTS }, (_, i) => ({
+    type: i % 2 ? 'snare' : 'kick',
+    startTick: i * 10,
+    velocity: 0.8,
+  }));
+
+  const code = encodeSnippetShare({ type: 'midi', name: 'dense mixed', notes, hits, durationTicks: 1920, bpm: 120 });
+  assert.ok(code.length <= MAX_SHARE_CODE_CHARS, `share code length ${code.length} exceeded URL budget`);
+
+  const decoded = decodeSnippetShare(code);
+  assert.equal(decoded.notes.length + decoded.hits.length, MAX_SHARE_EVENTS);
+
+  const decodedFromPayload = decodeSnippetShare(encodeForTest({
+    v: 1,
+    t: 'midi',
+    nm: 'crafted dense mixed',
+    d: 1920,
+    b: 120,
+    N: notes.map(note => [note.pitch, note.startTick, note.durationTick, 80, note.lyric]),
+    H: hits.map(hit => [hit.type, hit.startTick, 80]),
+  }));
+  assert.equal(decodedFromPayload.notes.length + decodedFromPayload.hits.length, MAX_SHARE_EVENTS);
+});
+
+test('trims dense shares until the final encoded code fits the URL budget', () => {
+  const hits = Array.from({ length: MAX_SHARE_EVENTS }, (_, i) => ({
+    type: `sample-${String(i).padStart(9, '0')}`,
+    startTick: i * 10,
+    velocity: 0.8,
+  }));
+
+  const code = encodeSnippetShare({
+    type: 'drum',
+    name: 'dense hit payload',
+    notes: [],
+    hits,
+    durationTicks: MAX_SHARE_EVENTS * 10,
+    bpm: 120,
+  });
+
+  assert.equal(typeof code, 'string');
+  assert.ok(code.length <= MAX_SHARE_CODE_CHARS, `share code length ${code.length} exceeded URL budget`);
+
+  const decoded = decodeSnippetShare(code);
+  assert.ok(decoded.hits.length > 0);
+  assert.ok(decoded.hits.length < MAX_SHARE_EVENTS);
 });
 
 test('builds and parses a share URL', () => {

@@ -8,18 +8,20 @@ import { showToast } from '../ui/Toast.js';
 import { TICK_WIDTH, DRUM_TYPES } from './editConstants.js';
 
 export const EditNotesMixin = {
-  _selectNote(idx) {
+  _selectNote(idx, eventKind = this._snippet?.type === 'drum' ? 'hit' : 'note') {
     this._selectedNoteIdx = idx;
+    this._selectedEventKind = eventKind;
     this.el.querySelectorAll('.piano-roll__note').forEach(n => {
-      const isSel = n.dataset.noteIdx == idx || n.dataset.hitIdx == idx;
+      const isSel = eventKind === 'hit' ? n.dataset.hitIdx == idx : n.dataset.noteIdx == idx;
       n.classList.toggle('is-selected', isSel);
     });
     this._syncVelocityControl();
+    this._syncNoteLyricControl?.();
   },
 
   _selectedEditableEvent() {
     if (this._selectedNoteIdx === null || !this._snippet) return null;
-    if (this._snippet.type === 'drum') {
+    if (this._snippet.type === 'drum' || this._selectedEventKind === 'hit') {
       return this._snippet.hits?.[this._selectedNoteIdx] || null;
     }
     return this._snippet.notes?.[this._selectedNoteIdx] || null;
@@ -56,6 +58,7 @@ export const EditNotesMixin = {
     const beforeState = this._snapshotSnippetState();
     hits.splice(this._selectedNoteIdx, 1);
     this._selectedNoteIdx = null;
+    this._selectedEventKind = null;
     this._onEdit('Delete hit', beforeState);
     showToast('Hit deleted');
   },
@@ -214,6 +217,7 @@ export const EditNotesMixin = {
 
     this._snippet.notes.push(note);
     this._selectedNoteIdx = this._snippet.notes.length - 1;
+    this._selectedEventKind = 'note';
     this._onEdit('Add note', beforeState);
     showToast(`Added ${midiToNoteName(pitch).display}`);
   },
@@ -237,13 +241,14 @@ export const EditNotesMixin = {
 
     this._snippet.hits.push(hit);
     this._selectedNoteIdx = this._snippet.hits.length - 1;
+    this._selectedEventKind = 'hit';
     this._onEdit('Add hit', beforeState);
     showToast(`Added ${this._drumLabel(drumType)}`);
   },
 
   _deleteSelectedNote() {
     if (this._selectedNoteIdx === null || !this._snippet) return;
-    if (this._snippet.type === 'drum') {
+    if (this._snippet.type === 'drum' || this._selectedEventKind === 'hit') {
       this._deleteSelectedHit();
       return;
     }
@@ -253,6 +258,7 @@ export const EditNotesMixin = {
     const beforeState = this._snapshotSnippetState();
     this._snippet.notes.splice(this._selectedNoteIdx, 1);
     this._selectedNoteIdx = null;
+    this._selectedEventKind = null;
     this._onEdit('Delete note', beforeState);
     showToast('Note deleted');
   },
@@ -298,6 +304,8 @@ export const EditNotesMixin = {
 
     if (durationChanged) this._rebuildAll();
     else this._rebuildGrids();
+    this._syncVelocityControl();
+    this._syncNoteLyricControl?.();
 
     const count = (this._snippet.notes?.length || 0) + (this._snippet.hits?.length || 0);
     const isDrum = this._snippet?.type === 'drum';
@@ -344,6 +352,7 @@ export const EditNotesMixin = {
     this._snippet.modulation = this._cloneForUndo(state.modulation || []);
     this._snippet.durationTicks = state.durationTicks;
     this._selectedNoteIdx = null;
+    this._selectedEventKind = null;
     this._rebuildAll();
     this.store?.scheduleAutoSave(this.project);
     if (this.onSnippetRenamed) this.onSnippetRenamed(this._snippet);

@@ -1,13 +1,14 @@
 /**
- * Lyrics - timed text blocks attached to a snippet, each with a tick position
- * and length, so the Inspector and future Stage/karaoke views can show when
- * a phrase comes in and how long it lasts.
+ * Lyrics - timed text attached to MIDI notes, plus legacy snippet-level block
+ * helpers for older projects.
  *
- * Pure and DOM-free. Lyrics are stored on `snippet.lyrics` as
- * `[{ id, text, startTick, durationTick }]`. Each entry is an independent
- * timeline block; `lyricsFromText()` remains as a quick-import helper that
- * distributes words across note onsets or evenly across the snippet. The `id`
- * is a UI identity anchor only: lyric timing still comes from ticks.
+ * Pure and DOM-free. New lyrics are stored on MIDI note objects as
+ * `note.lyric`; timing comes from the note's `startTick` and `durationTick`.
+ * `lyricTimelineForSnippet()` derives karaoke-readable blocks from lyric-
+ * bearing notes first, and falls back to old `snippet.lyrics` blocks only when
+ * a snippet has no note-attached lyrics. The legacy block helpers stay here so
+ * old saved data can still be normalized/read without reviving the old editor
+ * lane.
  *
  * Text is sanitized at this boundary (no angle brackets / quotes / control
  * chars) so a lyric can never carry markup into a renderer.
@@ -25,6 +26,10 @@ export function cleanLyricText(value) {
     .replace(/[<>"]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+export function cleanNoteLyricText(value) {
+  return cleanLyricText(value);
 }
 
 export function cleanLyricId(value) {
@@ -121,6 +126,36 @@ export function removeLyricBlock(lyrics, index, snippet = {}) {
   if (!Number.isInteger(index) || index < 0 || index >= list.length) return list;
   list.splice(index, 1);
   return normalizeLyricBlocks(list, snippet);
+}
+
+export function setNoteLyric(note = {}, text = '') {
+  const lyric = cleanNoteLyricText(text);
+  const next = { ...note };
+  if (lyric) next.lyric = lyric;
+  else delete next.lyric;
+  return next;
+}
+
+export function lyricBlocksFromNotes(snippet = {}) {
+  if (snippet?.type !== 'midi' || !Array.isArray(snippet.notes)) return [];
+  const cap = snippetDuration(snippet);
+  const blocks = [];
+
+  snippet.notes.forEach((note, noteIndex) => {
+    const text = cleanNoteLyricText(note?.lyric);
+    if (!text) return;
+    const { startTick, durationTick } = normalizeTiming(note, snippet);
+    if (cap && startTick >= cap) return;
+    blocks.push({ text, startTick, durationTick, noteIndex });
+  });
+
+  return blocks.sort((a, b) => a.startTick - b.startTick || a.noteIndex - b.noteIndex);
+}
+
+export function lyricTimelineForSnippet(snippet = {}) {
+  const noteLyrics = lyricBlocksFromNotes(snippet);
+  if (noteLyrics.length) return noteLyrics;
+  return normalizeLyricBlocks(snippet?.lyrics || [], snippet);
 }
 
 export function lyricBlockIndexById(lyrics, id, snippet = {}) {

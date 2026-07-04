@@ -1480,12 +1480,25 @@ original. Do not derive the final click result from `el.style.left` on
 `pointerup`, because that re-quantizes an untouched off-grid note and makes a
 plain selection jump left or right.
 
+MIDI note resizing in Inspect is Shift-gated. `_createNoteElementForPane()` in
+`src/modes/editRoll.js` still renders the right-edge
+`.piano-roll__note-resize` handle, but its pointerdown handler returns without
+stopping propagation unless `event.shiftKey` is true. That lets an edge click
+without Shift bubble into the normal note pointerdown path, selecting the note
+and using ordinary drag semantics instead of starting a duration resize. The
+old `Alt+drag` note-resize path was removed; the in-app shortcut help and
+README now document Shift-dragging the note edge. Cursor feedback follows the same rule:
+`editEvents.js` syncs Shift keydown/keyup/blur into
+`_setNoteResizeModifierActive()`, which toggles `edit-mode.is-shift-resize`;
+`edit.css` only applies `ew-resize` to the note edge while that class is active.
+
 Unit coverage is split by layer. `tests/unit/lyrics.test.js` covers note lyric
 sanitization, `setNoteLyric`, note-derived karaoke blocks, drum exclusion, and
 legacy fallback precedence. `tests/unit/editLyricsMixin.test.js` covers
 selected-note lyric input state, committing/clearing `note.lyric`, undo/redo,
 and ignoring drum snippets. `tests/unit/editNotesDrag.test.js` covers
-click-selecting an off-grid MIDI note without snapping or moving it.
+click-selecting an off-grid MIDI note without snapping or moving it, plus the
+Shift-only MIDI note edge resize contract.
 `tests/unit/snippetShare.test.js` covers preserving optional MIDI note lyrics in
 snippet share links. Shared note lyrics are capped by `MAX_SHARE_LYRIC_CHARS`
 per note and `MAX_SHARE_TOTAL_LYRIC_CHARS` per share in both encode and decode,

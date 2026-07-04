@@ -549,15 +549,20 @@ export const EditRollMixin = {
 
       this._selectNote(idx, 'note');
 
-      if (e.altKey) {
-        this._startNoteResize(e, note, idx, el);
-      } else {
-        this._startNoteDrag(e, note, idx, el);
-      }
+      this._startNoteDrag(e, note, idx, el);
     });
 
     const resizeHandle = el.querySelector('.piano-roll__note-resize');
+    const syncResizeCursor = (e) => {
+      this._setNoteResizeModifierActive?.(e.shiftKey);
+    };
+    resizeHandle.addEventListener('pointerenter', syncResizeCursor);
+    resizeHandle.addEventListener('pointermove', syncResizeCursor);
+    resizeHandle.addEventListener('pointerleave', (e) => {
+      this._setNoteResizeModifierActive?.(e.shiftKey);
+    });
     resizeHandle.addEventListener('pointerdown', (e) => {
+      if (!e.shiftKey) return;
       e.stopPropagation();
       this._selectNote(idx, 'note');
       this._startNoteResize(e, note, idx, el);
@@ -615,6 +620,10 @@ export const EditRollMixin = {
 
   _drumHitVisualWidth() {
     return Math.max(18, this._gridSize * TICK_WIDTH - 2);
+  },
+
+  _setNoteResizeModifierActive(active) {
+    this.el?.classList?.toggle('is-shift-resize', !!active);
   },
 
   _gridLabel() {

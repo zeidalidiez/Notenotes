@@ -432,8 +432,12 @@
   top: 0;
   bottom: 0;
   width: 6px;
-  cursor: ew-resize;
+  cursor: pointer;
   background: transparent;
+}
+
+.edit-mode.is-shift-resize .piano-roll__note-resize {
+  cursor: ew-resize;
 }
 
 /* --- Velocity Meter (left side of each note) --- */

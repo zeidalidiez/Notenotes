@@ -1276,7 +1276,7 @@ class App {
         <table style="width:100%;font-size:var(--font-size-sm);border-collapse:collapse;">
           <tr><td style="padding:4px 8px;color:var(--accent-light);font-weight:var(--font-weight-semibold);">Click</td><td style="padding:4px 8px;color:var(--text-secondary);">Add note / Select note</td></tr>
           <tr><td style="padding:4px 8px;color:var(--accent-light);font-weight:var(--font-weight-semibold);">Drag</td><td style="padding:4px 8px;color:var(--text-secondary);">Move note or hit</td></tr>
-          <tr><td style="padding:4px 8px;color:var(--accent-light);font-weight:var(--font-weight-semibold);">Alt+drag</td><td style="padding:4px 8px;color:var(--text-secondary);">Resize note (extend/shrink)</td></tr>
+          <tr><td style="padding:4px 8px;color:var(--accent-light);font-weight:var(--font-weight-semibold);">Shift+drag edge</td><td style="padding:4px 8px;color:var(--text-secondary);">Resize note (extend/shrink)</td></tr>
           <tr><td style="padding:4px 8px;color:var(--accent-light);font-weight:var(--font-weight-semibold);">Ctrl+click</td><td style="padding:4px 8px;color:var(--text-secondary);">Delete note</td></tr>
           <tr><td style="padding:4px 8px;color:var(--accent-light);font-weight:var(--font-weight-semibold);">Click empty space</td><td style="padding:4px 8px;color:var(--text-secondary);">Add new note</td></tr>
           <tr><td style="padding:4px 8px;color:var(--accent-light);font-weight:var(--font-weight-semibold);">Scroll</td><td style="padding:4px 8px;color:var(--text-secondary);">Pan pitch range</td></tr>

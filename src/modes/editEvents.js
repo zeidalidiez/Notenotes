@@ -206,7 +206,14 @@ export const EditEventsMixin = {
     if (this._documentKeydownHandler) {
       document.removeEventListener('keydown', this._documentKeydownHandler);
     }
+    if (this._documentKeyupHandler) {
+      document.removeEventListener('keyup', this._documentKeyupHandler);
+    }
+    if (this._windowBlurHandler) {
+      window.removeEventListener('blur', this._windowBlurHandler);
+    }
     this._documentKeydownHandler = (e) => {
+      this._setNoteResizeModifierActive?.(e.shiftKey);
       if ((e.code === 'Delete' || e.code === 'Backspace') && this._selectedNoteIdx !== null) {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
         if (this.el.closest('.mode-view.is-active')) {
@@ -215,6 +222,14 @@ export const EditEventsMixin = {
         }
       }
     };
+    this._documentKeyupHandler = (e) => {
+      this._setNoteResizeModifierActive?.(e.shiftKey);
+    };
+    this._windowBlurHandler = () => {
+      this._setNoteResizeModifierActive?.(false);
+    };
     document.addEventListener('keydown', this._documentKeydownHandler);
+    document.addEventListener('keyup', this._documentKeyupHandler);
+    window.addEventListener('blur', this._windowBlurHandler);
   },
 };

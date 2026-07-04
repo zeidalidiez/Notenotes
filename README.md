@@ -268,7 +268,7 @@ For a deeper reference - including a synthesized drum sound built from oscillato
 | `ArrowUp` / `ArrowDown` | Octave shift (Pads, Micro Piano, Controller) |
 | `Delete` / `Backspace` | Delete selected note or clip |
 | `Ctrl+click` | Delete a note (Inspect) or clip (Canvas) |
-| `Alt+drag` | Resize note (Inspect) |
+| `Shift+drag note edge` | Resize note (Inspect) |
 | Hold `1` / `4` / `7` | Modulation down / reset / up (when not in use) |
 | Hold `3` / `6` / `9` | Pitch bend down / reset / up (when not in use) |
 

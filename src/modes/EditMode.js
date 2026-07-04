@@ -1,8 +1,8 @@
 /**
  * EditMode — Live Edit / Piano Roll.
  * Per-clip note editor for fine-tuning pitch, timing, duration, and velocity.
- * Supports click-to-add, drag-to-move, resize, delete, velocity editing,
- * vertical zoom, custom octave range, and split dual-pane view.
+ * Supports click-to-add, drag-to-move, Shift+edge resize, delete, velocity
+ * editing, vertical zoom, custom octave range, and split dual-pane view.
  */
 
 import './edit.css';

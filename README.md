@@ -160,9 +160,11 @@ Inspect also lets you make a blank MIDI or drum clip directly, even while you ar
 ```bash
 git clone https://github.com/zeidalidiez/Notenotes.git
 cd Notenotes
-npm install --legacy-peer-deps
+npm install
 npm run dev
 ```
+
+The dependency graph should install cleanly without `--legacy-peer-deps`. Notenotes uses Vite 8 with `vite-plugin-pwa` 1.3+, because the older PWA plugin line did not declare Vite 8 as a supported peer.
 
 The app opens at [http://localhost:5173/](http://localhost:5173/). Click any pad to wake the audio engine - browsers require a user gesture before they'll make sound. On iOS, use the **Tap to allow iOS sound** prompt if Safari claims Web Audio is running but the app is still silent. Safari may show a microphone permission dialog for this route primer; Notenotes stops that temporary stream immediately and does not record unless you choose Audio In.
 
@@ -280,7 +282,7 @@ For a deeper reference - including a synthesized drum sound built from oscillato
 | **Audio** | Web Audio API - AudioContext, OscillatorNode, BiquadFilterNode |
 | **Persistence** | IndexedDB via [idb](https://github.com/jakearchibald/idb) |
 | **Sheet music** | [abcjs](https://paulrosen.github.io/abcjs/) |
-| **PWA** | [vite-plugin-pwa](https://vite-pwa-org.netlify.app/) |
+| **PWA** | [vite-plugin-pwa](https://vite-pwa-org.netlify.app/) 1.3+ |
 | **Framework** | None. Pure vanilla ES Modules. |
 
 ### Why no framework?

@@ -29,6 +29,11 @@ notation surfaces.
   `.is-disabled`, `.is-recording`.
 - No new runtime dependency unless it preserves PWA/offline behavior, iOS audio
   unlock, exports, backups, and local-first storage.
+- Keep the Vite/PWA toolchain peer-clean. `vite-plugin-pwa@1.2.0` does not
+  declare Vite 8 support, so the project now floors the plugin at `^1.3.0` and
+  Vite at `^8.1.3`. Do not bring back `npm install --legacy-peer-deps`; use
+  `npm install --dry-run --strict-peer-deps` to catch lockfile drift, and run
+  `npm audit` when touching build dependencies.
 
 ## App Versioning
 

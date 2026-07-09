@@ -985,16 +985,18 @@ label/normalization helpers. It receives explicit getters/setters from
 instrument construction. `CreativeMode` remains the adapter that schedules saves
 and refreshes `ControllerMode` after bindings change.
 
-The old top-level `Ctrl` tab is now labeled `Labs`. Labs renders a focused
-`ControllerMode` panel that, in this slice, only shows the four held modifier
-slots (`LB`, `LT`, `RB`, `RT`) and the active modifier help/status lines. The
-old Pad Mode selector, Octave buttons, fallback scale list, custom bindings
-list, preset list, and controller artwork were removed because they duplicated
-surfaces the user can already reach through the `Controller` popover. The
-Create toolbar `Controller` button remains the global Controller Mapper entry
-point for learning/clearing bindings, loading/saving/deleting presets, and
-seeing the live gamepad connection status. Do not bury the mapper inside Labs
-unless product direction changes.
+The old top-level `Ctrl` tab is now labeled `Labs`. `ControllerMode` owns the
+Labs tab shell and currently exposes two working tabs: Controller and Sound.
+Controller shows the four held modifier slots (`LB`, `LT`, `RB`, `RT`) plus
+active modifier help/status. Sound hosts the project-wide Drone, Changes,
+Piano/MIDI Correction, and Height Velocity controls. MRT2 and Experiment are
+disabled future slots. The old Pad Mode selector, Octave buttons, fallback
+scale list, custom bindings list, preset list, and controller artwork remain
+removed because they duplicated other surfaces. The Create toolbar
+`Controller` button is still the global Controller Mapper entry point for
+learning/clearing bindings, loading/saving/deleting presets, and seeing live
+gamepad connection status. Do not bury the mapper inside Labs unless product
+direction changes.
 
 ### Controller button availability (Create mode)
 
@@ -2433,125 +2435,58 @@ existing CreativeMode wiring (`controllerMode?.refreshBindings?.()`) does
 not need to change. Future work that wants to surface bindings inside Labs
 can give it real behavior again.
 
-## Labs Tab Structure 0.1.110
+## Labs Tab Structure (current)
 
-The visible Labs panel is a small tabbed surface so it can host more
-than one lab without rendering every lab's UI at once. The tab
-definitions live in the `TABS` constant at the top of
-`src/instruments/ControllerMode.js`:
+The visible Labs panel is a small tabbed surface owned by
+`src/instruments/ControllerMode.js`. The `TABS` registry currently contains:
 
-- **Controller** — enabled. The four held modifier slot pickers
-  (`LB`, `LT`, `RB`, `RT`), the held-modifier help line, and the live
-  active-trigger status line. This is the only tab with rendered content
-  in this slice.
-- **Accessibility** — disabled stub. Reserved for Tremor filter, Dwell
-  play, and other input helpers. The runtime helpers
-  (`tremorAllows`, `dwellSettings`) already read from
-  `project.settings.accessibility`, so they function regardless of whether
-  this tab is active.
-- **Seed** — disabled stub. Reserved for AI Seed defaults
-  (provider, model, default snippet length). The interactive seed prompt
-  and generation surface stay in the AI Seed popover; this tab is the
-  config home.
-- **Custom** — disabled stub. Reserved for the future Custom Instrument
-  editor. Custom instruments are not yet shipped, so this tab is a
-  placeholder.
+- **Controller** — enabled. Renders the four held modifier slot pickers (`LB`,
+  `LT`, `RB`, `RT`), held-modifier help, and live active-trigger status. The
+  toolbar Controller popover, not this tab, owns learned bindings, fallback
+  notes, presets, and gamepad connection state.
+- **Sound** — enabled. Renders project-wide Drone, Changes, Piano/MIDI scale
+  Correction, and Height Velocity controls. `main.js` passes callbacks for
+  drone/progression changes; Correction and Height Velocity read/write the
+  shared project settings through `ControllerMode`.
+- **MRT2** and **Experiment** — disabled future slots. They render the generic
+  Future card and do not have runtime behavior yet.
 
-### Visible layout
+The tab schema remains `{ id, label, enabled, body }`. Enabled tabs render a
+description card and their specific body from `_renderActiveTabBody()`;
+disabled tabs render the shared placeholder. Tab labels are visible inside the
+pills and also provide `aria-label`/`title` text.
 
-The visible Labs layout is intentionally minimal:
+The active tab persists in `localStorage` as `notenotes.labs.activeTab`. Restore
+only accepts entries that still exist and are enabled. Reads/writes stay inside
+`try/catch` so blocked storage does not break Labs. `_attachGamepadInput()` is
+idempotent and subscribes only while Controller is active; returning to that
+tab rebinds its freshly rendered pickers and refreshes the active-trigger line.
+Sound state is refreshed on entry so changes made from the top bar or other
+surfaces do not leave stale control values.
 
-1. A single `Labs` title card at the top. No eyebrow, no active tab
-   name, no lede.
-2. A row of blank tab pills (no visible text). The active tab is filled
-   with the accent color; disabled tabs are outlined with `--surface-4`
-   at 40% opacity. The tab name lives in the `aria-label` and `title`
-   attributes only.
-3. A single panel that shows the active tab's body. For the Controller
-   tab, the panel leads with a `.ctrlmode__tab-content-desc` card
-   (the description moved from the old header lede), followed by the
-   modifier grid, then the green help and status lines.
+## Review Follow-up: Assets, Rendering, and Loading
 
-### Tab schema
-
-```js
-{
-  id,      // stable id; data-tab attribute, localStorage value
-  label,   // human-readable name; aria-label, title, placeholder tooltip
-  enabled, // true = interactive, false = disabled "Future" placeholder
-  body,    // HTML description shown at the top of an enabled tab's panel
-           //   (only Controller ships a body in this slice)
-}
-```
-
-The `TABS` constant carries this schema as a comment block at the top
-of `ControllerMode.js`. To add a new tab, append an entry with
-`enabled: false`, render its body in `_renderActiveTabBody()`, then flip
-`enabled: true` when the lab ships.
-
-### Placeholder for disabled tabs
-
-Disabled tabs render a generic `Future` card with a single description:
-"This lab slot is reserved for a future Notenotes feature." The
-per-tab identity (Accessibility, Seed, Custom) lives only in the
-`aria-label` and `title` attribute of the tab button, not in the visible
-placeholder. This keeps the three disabled slots visually identical and
-unambiguous: they are all "Future" labs, distinguished only by tooltip
-and order.
-
-### Runtime behavior across tab switches
-
-Each tab's runtime state continues to function when its tab is not
-active:
-
-- Modifier slot assignments, gamepad polling, and any future
-  accessibility/AI/Custom state all read from their own data sources
-  (`project.settings.*`, the gamepad input manager, etc.) independent
-  of the rendered DOM.
-- `_attachGamepadInput()` is idempotent and subscribes only when the
-  Controller tab is the active tab at render time, so background trigger
-  polling does not double-bind when the user navigates Create > Canvas
-  > Create > Labs.
-- When the user returns to the Controller tab via `_setActiveTab()`,
-  the modifier pickers' event handlers are re-bound to the freshly
-  rendered DOM nodes, and the live "Active: ..." status line is
-  refreshed so it picks up the current modifier state.
-
-### Persistence
-
-Active tab state persists in `localStorage` under
-`notenotes.labs.activeTab`. Only enabled tabs are restored, so flipping
-a stub to `enabled: true` later does not auto-promote a stale saved
-value until the user actually clicks that tab. Reads and writes are
-wrapped in `try/catch` so private mode and locked-down iframes do not
-break the constructor or the tab switcher.
-
-### Trigger text centering
-
-The green "Held modifiers" and "Active: ..." text below the modifier
-grid is centered both inside the `<p>` and inside the panel. Two CSS
-properties are needed for this to work on a max-width-constrained
-element inside a grid panel:
-
-- `text-align: center` centers the inline text content inside the
-  `<p>`.
-- `justify-self: center` centers the `<p>` element itself inside its
-  grid cell. Without this, the `max-width: min(100%, 640px)` constraint
-  on the help element left the 640px-wide block anchored to the left of
-  the panel, and only the text within the block was centered. The
-  result read as "off to the left" rather than "centered".
-
-Both rules have explanatory comments in `instruments.css`.
-
-### Removed CSS
-
-- `.ctrlmode__eyebrow` and `.ctrlmode__lede` were used only by the
-  removed header eyebrow and lede. The rules are kept (harmless) for
-  potential future surface headers, but no current code path renders
-  them inside Labs.
-- `.ctrlmode__placeholder-eyebrow` (the small "Coming soon" uppercase
-  label) is no longer used because the placeholder now leads with a
-  larger "Future" title.
+- `public/icons/icon-192.png` and `public/icons/icon-512.png` are real raster
+  versions of the Notenotes favicon. Keep both paths aligned with
+  `vite.config.js`; a Vite history fallback can otherwise make a missing icon
+  URL return `index.html` with status 200, hiding the broken manifest asset.
+- User-visible names that enter template-string renderers must go through
+  `escapeHtml`; ids and input/select values must go through `escapeAttr`.
+  `src/utils/html.js` is the shared helper for Canvas and settings mixins.
+  `EditMode` exposes equivalent instance helpers for its composed mixins.
+  Prefer `textContent` when a renderer creates nodes directly.
+- `SheetMusicView` and its large `abcjs` dependency load dynamically only when
+  the Export section is opened. Keep the import in `SettingsPanel._switchSection`
+  rather than restoring a top-level import, or `abcjs` returns to the startup
+  bundle. The async completion checks `_activeSection === 'sheet'` before
+  mounting so a quick tab switch cannot append into the wrong panel. Vite's
+  chunk warning budget is 700 kB: this accommodates the single-module deferred
+  `abcjs` chunk while still catching a regression to the former 1.18 MB startup
+  bundle. `_sectionLoadToken` increments on every settings-section activation;
+  async Sheet Music and Diagnostics completions must match that token before
+  mounting. Settings tabs listen to `pointerdown` for pointer response and
+  `click` for keyboard/assistive activation; pointer-generated clicks have a
+  nonzero `detail` and are ignored so one gesture switches sections once.
 
 ## FM Synth Voices 0.1.113
 

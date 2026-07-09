@@ -3,6 +3,12 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   base: '/Notenotes/',
+  build: {
+    // Sheet music/abcjs is code-split on demand. Keep a budget that still
+    // catches a return to the former 1.18 MB startup bundle without warning
+    // on the intentionally deferred abcjs chunk.
+    chunkSizeWarningLimit: 700,
+  },
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',

@@ -8,16 +8,17 @@
 import { downloadBlob, projectToMidiBlob, safeFilename, snippetToMidiBlob } from '../../export/MidiExporter.js';
 import { projectToWavBlob, snippetToWavBlob } from '../../export/WavExporter.js';
 import { showToast } from '../Toast.js';
+import { escapeAttr, escapeHtml } from '../../utils/html.js';
 
 export const ExportSectionMixin = {
   _renderSheetSection() {
     const snippets = (this.project?.snippets || []).filter(s => s.type !== 'audio');
     const allSnippets = this.project?.snippets || [];
     const options = snippets.length
-      ? snippets.map(s => `<option value="${s.id}">${s.name || `${(s.notes?.length || 0) + (s.hits?.length || 0)} events`}</option>`).join('')
+      ? snippets.map(s => `<option value="${escapeAttr(s.id)}">${escapeHtml(s.name || `${(s.notes?.length || 0) + (s.hits?.length || 0)} events`)}</option>`).join('')
       : '<option value="">No MIDI snippets yet</option>';
     const wavOptions = allSnippets.length
-      ? allSnippets.map(s => `<option value="${s.id}">${s.name || (s.type === 'audio' ? 'Audio in recording' : `${(s.notes?.length || 0) + (s.hits?.length || 0)} events`)}</option>`).join('')
+      ? allSnippets.map(s => `<option value="${escapeAttr(s.id)}">${escapeHtml(s.name || (s.type === 'audio' ? 'Audio in recording' : `${(s.notes?.length || 0) + (s.hits?.length || 0)} events`))}</option>`).join('')
       : '<option value="">No snippets yet</option>';
 
     return `

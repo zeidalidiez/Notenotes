@@ -141,7 +141,7 @@ export class SnippetTray {
       const toneBadges = renderToneBadges(toneBadgeItemsForSnippet(s), 'snippet-tray__tone-badges tone-badges');
 
       return `
-        <div class="snippet-tray__item ${s.aiSeeded ? 'is-ai-seeded' : ''}" data-id="${s.id}" draggable="true">
+        <div class="snippet-tray__item ${s.aiSeeded ? 'is-ai-seeded' : ''}" data-id="${this._escapeAttr(s.id)}" draggable="true">
           <div class="snippet-tray__item-preview">
             ${renderSnippetPreviewSVG(s)}
           </div>
@@ -153,9 +153,9 @@ export class SnippetTray {
             ${toneBadges}
           </div>
           <div class="snippet-tray__item-actions">
-            ${s.type === 'audio' && s.audioAssetId ? `<button class="snippet-tray__action-btn snippet-tray__tomidi-btn" data-tomidi="${s.id}" aria-label="Transcribe to MIDI" title="Transcribe this recording to an editable MIDI clip">${icon('audioLines', { size: 14 })}</button>` : ''}
-            ${s.type === 'audio' ? '' : `<button class="snippet-tray__action-btn snippet-tray__share-btn" data-share="${s.id}" aria-label="Copy share link" title="Copy a link that shares this snippet">${icon('share', { size: 14 })}</button>`}
-            <button class="snippet-tray__action-btn snippet-tray__delete-btn" data-delete="${s.id}" aria-label="Delete snippet" title="Delete">${icon('x', { size: 14 })}</button>
+            ${s.type === 'audio' && s.audioAssetId ? `<button class="snippet-tray__action-btn snippet-tray__tomidi-btn" data-tomidi="${this._escapeAttr(s.id)}" aria-label="Transcribe to MIDI" title="Transcribe this recording into an editable MIDI clip">${icon('audioLines', { size: 14 })}</button>` : ''}
+            ${s.type === 'audio' ? '' : `<button class="snippet-tray__action-btn snippet-tray__share-btn" data-share="${this._escapeAttr(s.id)}" aria-label="Copy share link" title="Copy a link that shares this snippet">${icon('share', { size: 14 })}</button>`}
+            <button class="snippet-tray__action-btn snippet-tray__delete-btn" data-delete="${this._escapeAttr(s.id)}" aria-label="Delete snippet" title="Delete">${icon('x', { size: 14 })}</button>
           </div>
         </div>
       `;

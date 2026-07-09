@@ -4,7 +4,6 @@
  * version history, project milestones, install help, and export.
  */
 
-import { SheetMusicView } from '../export/SheetMusicView.js';
 import { CHORD_TYPES, ARP_PATTERNS, ARP_RATES } from '../engine/ArpeggioManager.js';
 import { icon } from './icons.js';
 import { APP_VERSION } from '../version.js';
@@ -31,6 +30,7 @@ export class SettingsPanel {
     this._isOpen = false;
     this._sheetMusicView = null;
     this._diagnosticsPanel = null;
+    this._sectionLoadToken = 0;
     this._activeSection = 'settings'; // 'settings' | 'accessibility' | 'sheet' | 'history' | 'diagnostics'
   }
 
@@ -186,6 +186,9 @@ export class SettingsPanel {
     // Section tabs
     this.el.querySelectorAll('.settings-panel__tab').forEach(tab => {
       const activate = (e) => {
+        // Pointer activation already ran on pointerdown. Keep click for
+        // keyboard/assistive activation without switching the section twice.
+        if (e.type === 'click' && e.detail !== 0) return;
         e.preventDefault();
         this._switchSection(tab.dataset.section);
       };
@@ -333,6 +336,7 @@ export class SettingsPanel {
 
   _switchSection(section) {
     if (section === 'diagnostics' && !this._diagnosticsEnabled()) section = 'settings';
+    const sectionLoadToken = ++this._sectionLoadToken;
     this._diagnosticsPanel?.destroy();
     this._diagnosticsPanel = null;
     this._activeSection = section;
@@ -357,9 +361,19 @@ export class SettingsPanel {
 
       case 'sheet':
         body.innerHTML = this._renderSheetSection();
-        this._sheetMusicView = new SheetMusicView(this.project);
-        body.querySelector('#section-sheet-music')?.appendChild(this._sheetMusicView.render());
         this._bindExportEvents();
+        import('../export/SheetMusicView.js').then(({ SheetMusicView }) => {
+          const mount = body.querySelector('#section-sheet-music');
+          if (!mount || this._activeSection !== 'sheet' || sectionLoadToken !== this._sectionLoadToken) return;
+          this._sheetMusicView = new SheetMusicView(this.project);
+          mount.appendChild(this._sheetMusicView.render());
+        }).catch(err => {
+          console.warn('[Settings] Sheet music failed to load:', err);
+          const mount = body.querySelector('#section-sheet-music');
+          if (mount && this._activeSection === 'sheet' && sectionLoadToken === this._sectionLoadToken) {
+            mount.innerHTML = '<div class="settings-empty">Sheet music could not be loaded.</div>';
+          }
+        });
         break;
 
       case 'history':
@@ -375,7 +389,7 @@ export class SettingsPanel {
         body.innerHTML = '<div id="section-diagnostics"><div class="settings-empty">Loading diagnostics...</div></div>';
         import('./DiagnosticsPanel.js').then(({ DiagnosticsPanel }) => {
           const mount = body.querySelector('#section-diagnostics');
-          if (!mount || this._activeSection !== 'diagnostics') return;
+          if (!mount || this._activeSection !== 'diagnostics' || sectionLoadToken !== this._sectionLoadToken) return;
           mount.innerHTML = '';
           this._diagnosticsPanel = new DiagnosticsPanel({ transport: this.transport });
           mount.appendChild(this._diagnosticsPanel.render());

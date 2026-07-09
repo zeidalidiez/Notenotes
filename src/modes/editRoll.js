@@ -105,7 +105,7 @@ export const EditRollMixin = {
         <button class="btn btn--ghost edit-toolbar__btn" id="edit-close-btn" type="button" title="Back to snippet library" aria-label="Back to snippet library">Library</button>
       </div>
       <div class="edit-toolbar__group">
-        <input type="text" class="edit-toolbar__name-input" id="edit-snippet-name" value="${this._snippet.name || 'Snippet'}" placeholder="Snippet name" title="Edit snippet name" />
+        <input type="text" class="edit-toolbar__name-input" id="edit-snippet-name" value="${this._escapeAttr(this._snippet.name || 'Snippet')}" placeholder="Snippet name" title="Edit snippet name" />
         <button class="btn btn--ghost edit-toolbar__btn edit-toolbar__btn--tiny" id="edit-double-btn" title="Double snippet length">2x</button>
         <button class="btn btn--ghost edit-toolbar__btn edit-toolbar__btn--tiny" id="edit-half-btn" title="Halve snippet length">1/2</button>
         <span class="edit-toolbar__value">${noteCount} ${isDrum ? 'hits' : 'notes'}</span>
@@ -179,7 +179,7 @@ export const EditRollMixin = {
       const type = s.type === 'drum' ? 'Drum' : 'MIDI';
       const label = s.name || `${type} clip`;
       const selected = currentSelection === s.id ? 'selected' : '';
-      return `<option value="${s.id}" ${selected}>${type}: ${label} (${count})</option>`;
+      return `<option value="${this._escapeAttr(s.id)}" ${selected}>${type}: ${this._escapeHtml(label)} (${count})</option>`;
     }).join('');
   },
 

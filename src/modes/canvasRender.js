@@ -10,6 +10,7 @@ import { normalizeDegreeHighlighting } from '../engine/MusicTheory.js';
 import { icon } from '../ui/icons.js';
 import { showToast } from '../ui/Toast.js';
 import { renderToneBadges, toneBadgeItemsForClip } from '../ui/ToneBadges.js';
+import { escapeAttr, escapeHtml } from '../utils/html.js';
 import { peaksFromArrayBuffer } from '../utils/audioPeaks.js';
 import { LANE_COLORS, hexToRgba } from './canvasShared.js';
 
@@ -184,10 +185,10 @@ export const CanvasRenderMixin = {
 
       header.innerHTML = `
         <div class="canvas-lane__name-row">
-          <span class="canvas-lane__name" data-track-id="${track.id}" title="Double-click to rename">${track.name}</span>
+          <span class="canvas-lane__name" data-track-id="${escapeAttr(track.id)}" title="Double-click to rename">${escapeHtml(track.name)}</span>
           <span class="canvas-lane__type">${trackTypeLabel}</span>
-          <input class="canvas-lane__color" type="color" value="${trackColor}" data-track-color="${track.id}" title="Track color" aria-label="Track color" />
-          <button class="canvas-lane__remove-btn" data-remove-track="${track.id}" title="Remove track" aria-label="Remove track">${icon('x', { size: 14 })}</button>
+          <input class="canvas-lane__color" type="color" value="${escapeAttr(trackColor)}" data-track-color="${escapeAttr(track.id)}" title="Track color" aria-label="Track color" />
+          <button class="canvas-lane__remove-btn" data-remove-track="${escapeAttr(track.id)}" title="Remove track" aria-label="Remove track">${icon('x', { size: 14 })}</button>
         </div>
         ${instSelect}
         <div class="canvas-lane__controls">
@@ -271,8 +272,8 @@ export const CanvasRenderMixin = {
     const typeBadge = clip.snippet?.type === 'audio' ? 'LINE' : clip.snippet?.type === 'drum' ? 'DRUM' : 'MIDI';
     el.innerHTML = `
       <div class="canvas-clip__label-row">
-        <span class="canvas-clip__type-badge canvas-clip__type-badge--${clip.snippet?.type || 'midi'}">${typeBadge}</span>
-        <span class="canvas-clip__label">${snippetName}</span>
+        <span class="canvas-clip__type-badge canvas-clip__type-badge--${escapeAttr(clip.snippet?.type || 'midi')}">${typeBadge}</span>
+        <span class="canvas-clip__label">${escapeHtml(snippetName)}</span>
         ${this._renderToneBadges(clip)}
       </div>
       <div class="canvas-clip__preview">${this._renderClipPreview(clip, w)}</div>
@@ -434,8 +435,8 @@ export const CanvasRenderMixin = {
       const count = (s.notes?.length || 0) + (s.hits?.length || 0);
       const name = s.name || `${count} notes`;
       const icon = s.type === 'drum' ? 'DRUM' : s.type === 'audio' ? 'LINE' : 'MIDI';
-      return `<div class="canvas-snippet-dock__item" draggable="true" data-snippet-id="${s.id}">
-        <span class="canvas-snippet-dock__type canvas-snippet-dock__type--${s.type || 'midi'}">${icon}</span> ${name}
+      return `<div class="canvas-snippet-dock__item" draggable="true" data-snippet-id="${escapeAttr(s.id)}">
+        <span class="canvas-snippet-dock__type canvas-snippet-dock__type--${escapeAttr(s.type || 'midi')}">${icon}</span> ${escapeHtml(name)}
       </div>`;
     }).join('');
 

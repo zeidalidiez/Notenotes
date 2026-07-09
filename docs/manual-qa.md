@@ -1,5 +1,8 @@
 # Manual QA
 
+> Current operational checklist. Update this file when a shipped browser flow
+> changes; keep speculative QA plans in the archive or roadmap instead.
+
 Use this file as the beta hardening pass for Notenotes. The goal is not to test every possible musical idea. The goal is to prove that a user can make work, save it, export it, reload it, and recover it without surprises.
 
 For each test, write down:

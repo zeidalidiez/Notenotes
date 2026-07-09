@@ -1,5 +1,9 @@
 # WIP — Opus (instrument character roadmap)
 
+> Archived planning snapshot from June 2026. FM and Drum Height Velocity listed
+> below have since shipped. See [`../roadmap.md`](../roadmap.md) for current open
+> directions.
+
 Working notes for the "instruments with character" effort: what shipped, what's
 left to pick up, and the gotchas worth remembering. Pick up from "To do".
 

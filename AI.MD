@@ -998,6 +998,31 @@ learning/clearing bindings, loading/saving/deleting presets, and seeing live
 gamepad connection status. Do not bury the mapper inside Labs unless product
 direction changes.
 
+### Height Velocity pipeline
+
+`project.settings.labs.heightVelocity` enables the shared four-zone strike model
+for Pads, Piano, and Kit. `src/engine/HeightVelocity.js` is the pure geometry
+source: pointer position is measured from the top of the playable element, with
+the top band loudest (`0.99`) and the bottom band softest (`0.2`). CSS gridlines
+must match those four bands. The feature is opt-in and pointer geometry is used
+instead of pressure APIs so mouse, touch, and iOS behave consistently.
+
+ScaleBoard and MicroPiano already pass the derived note velocity into their synth
+paths. SketchKit must preserve the same information end to end:
+
+- pointer and Web MIDI input pass velocity into `triggerPad()`;
+- `triggerPad()` emits `(soundId, velocity)` and applies velocity to live synthesis;
+- `CreativeMode` forwards it to `RecordingManager.drumHit()` and the Stage stream;
+- drum snippets store the hit velocity rather than replacing it with `0.8`;
+- `PlaybackEngine` supplies the stored value when scheduling Canvas or Inspect hits;
+- MIDI/WAV exports already read the stored hit velocity.
+
+`0.8` remains the neutral fallback for keyboard, gamepad, dwell, legacy snippets,
+and Height Velocity off. `drumVelocityGain()` treats that old level as gain `1`, so
+enabling the new path does not quietly lower every pre-existing drum. The
+`settings-pads-changed` event refreshes SketchKit's zone overlay immediately after
+the Labs toggle changes.
+
 ### Controller button availability (Create mode)
 
 The Create toolbar `Controller` button (`ControllerMapperPopover`) is the
@@ -1225,7 +1250,7 @@ dependency. Keep this harness focused on pure module logic that does not need a
 browser, IndexedDB, Web Audio, or DOM rendering. It currently guards meter math,
 backup validation, AI settings persistence helpers, AI instrument-context
 mapping, controller binding helper normalization, and the pure audio storage
-audit. Browser-only behavior still belongs in Manual QA until a browser test
+audit. Browser-only behavior still belongs in `docs/manual-qa.md` until a browser test
 harness exists.
 
 ## Mobile Create Layout Hardening 0.1.54

@@ -1,5 +1,9 @@
 # Work In Progress
 
+> Archived planning snapshot from June 2026. Items may be shipped, superseded, or
+> rejected. See [`../roadmap.md`](../roadmap.md) and
+> [`../manual-qa.md`](../manual-qa.md) for current work.
+
 This file is the current short roadmap for Notenotes. Keep it focused on what still needs decisions, testing, or implementation. Completed technical details belong in `AI.MD`.
 
 ## Current Recommendation

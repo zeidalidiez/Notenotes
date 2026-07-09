@@ -2,9 +2,8 @@
  * snippetPreview — Shared mini-preview SVG for snippet tiles.
  *
  * Originally lived as `SnippetTray._renderMiniPreview()`. Extracted so the
- * Inspect file-explorer browser (see INSPECT_MODE_REVAMP.md Feature B) can
- * reuse the exact same visual without divergence. Output is byte-identical
- * to the previous inline implementation.
+ * Inspect file-explorer browser can reuse the exact same visual without
+ * divergence. Output is byte-identical to the previous inline implementation.
  */
 
 /**

@@ -1,5 +1,9 @@
 # Notenotes Handoff
 
+> Archived handoff from June 2026. See [`../../AI.MD`](../../AI.MD),
+> [`../architecture.md`](../architecture.md), and [`../roadmap.md`](../roadmap.md)
+> for current guidance.
+
 This file is for the next non-Codex agent working on Notenotes. It is intentionally practical rather than historical.
 
 ## Project Shape

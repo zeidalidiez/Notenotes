@@ -1,5 +1,8 @@
 # Gemini Evaluation: AI.MD vs. Codebase Reality
 
+> Archived audit from May 2026. Its findings were addressed; this is not current
+> implementation guidance. See [`../../AI.MD`](../../AI.MD).
+
 This document outlines the critical discrepancies between the `AI.MD` documentation and the actual implementation in the Notenotes codebase. These differences are dangerous because they can lead future AI models to make incorrect assumptions, resulting in bugs, timing issues, or data loss.
 
 ### 1. The "Ticks per Bar" Formula is Mathematically Wrong in AI.MD

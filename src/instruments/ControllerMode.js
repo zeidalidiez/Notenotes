@@ -65,7 +65,7 @@ const TABS = [
     id: 'sound',
     label: 'Sound',
     enabled: true,
-    body: 'Project-wide tonal and harmonic settings — a sustained <strong>Drone</strong> anchor, <strong>Changes</strong> for follow-the-progression chord-tone glow, <strong>Correction</strong> that snaps out-of-scale piano/MIDI notes back into the current key, and <strong>Height Velocity</strong> which splits each pad and piano key into four height zones so where you strike sets how loud it plays.',
+    body: 'Project-wide tonal and harmonic settings — a sustained <strong>Drone</strong> anchor, <strong>Changes</strong> for follow-the-progression chord-tone glow, <strong>Correction</strong> that snaps out-of-scale piano/MIDI notes back into the current key, and <strong>Height Velocity</strong> which splits Pads, Piano keys, and Kit pads into four height zones so where you strike sets how loud it plays.',
   },
   {
     id: 'mrt2',
@@ -384,7 +384,7 @@ export class ControllerMode {
           <span class="ctrlmode__sound-label">Changes</span>
           <button class="choice-picker-button ctrlmode__sound-changes" id="ct-sound-changes" type="button"
             aria-label="Project progression changes" aria-haspopup="dialog"
-            title="Future chord-tone glow will follow this progression">
+            title="Chord-tone glow follows this progression">
             <span class="choice-picker-button__label" id="ct-sound-changes-label">${this._escapeHtml(progressionButtonLabel(progression))}</span>
             <span class="choice-picker-button__chevron" aria-hidden="true">${icon('chevronDown', { size: 14 })}</span>
           </button>
@@ -430,7 +430,7 @@ export class ControllerMode {
       const changesBtn = this.el.querySelector('#ct-sound-changes');
       if (changesBtn) {
         const title = progression?.enabled
-          ? `Changes: ${text.replace('Changes: ', '')}. Future chord-tone glow will follow this progression.`
+          ? `Changes: ${text.replace('Changes: ', '')}. Chord-tone glow follows this progression.`
           : 'Changes: Off';
         changesBtn.title = title;
         changesBtn.setAttribute('aria-label', title);

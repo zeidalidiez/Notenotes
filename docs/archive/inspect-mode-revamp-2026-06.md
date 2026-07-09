@@ -1,5 +1,8 @@
 # Inspect Mode Revamp — Implementation Handoff
 
+> Archived implementation plan from June 2026. The revamp shipped; verify current
+> behavior in the app and [`../../AI.MD`](../../AI.MD) before reusing these notes.
+
 **Repo:** `zeidalidiez/Notenotes`
 **Audience:** the next coding agent (Claude Code) implementing this feature.
 **Status:** spec ready to implement. No code has been written yet.

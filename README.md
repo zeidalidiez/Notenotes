@@ -101,7 +101,7 @@ The whole snippet rides inside the link itself, so there is no upload, no accoun
 | Instrument | What it is |
 |---|---|
 | **Pads** | Pads locked to the project key and scale (Major, Minor, Pentatonic, Blues, Dorian, Mixolydian, Chromatic). Pad count follows the scale, Extensions can continue it into the next octave, Layout can switch between responsive pad templates, Compass gives you a circle-of-fifths chord surface, and Step Play works as a one-trigger sequencer. |
-| **Labs** | Lower-frequency setup surfaces. Controller assigns the four held shoulder/trigger modifiers; Sound holds Drone, Changes, scale Correction, and Height Velocity. The toolbar **Controller** button owns learned bindings, fallback notes, connection state, and saved presets. MRT2 and Experiment are visible future slots. |
+| **Labs** | Lower-frequency setup surfaces. Controller assigns the four held shoulder/trigger modifiers; Sound holds Drone, Changes, scale Correction, and Height Velocity. Height Velocity turns Pads, Piano keys, and Kit pads into four visible strike zones: hit higher for a louder note or drum, and that dynamic is kept in recording and playback. The toolbar **Controller** button owns learned bindings, fallback notes, connection state, and saved presets. MRT2 and Experiment are visible future slots. |
 | **Micro Piano** | Configurable chromatic keyboard (1 or 2 stacked, 10–32 keys each) with octave shifting. Optional degree colors can mark which keys belong to the project key. |
 | **Sketch Kit** | 10-pad synthesized drum kit. Four kit presets (Classic, 808, Electronic, Acoustic), keyboard labels on every pad, and the same Tone controls as the synth side. Drum noise is still generated in-browser, but it is shaped before filtering so snares, claps, hats, rims, and shakers hit with less raw static. |
 | **Audio In** | Record from any input device with a live waveform. Choose Auto, Mono, or Stereo capture when the browser supports it. New audio snippets are saved with durable audio data so backups can actually bring them back. |
@@ -298,6 +298,7 @@ Notenotes/
 ├── index.html                 # PWA entry point
 ├── vite.config.js             # Vite + PWA config
 ├── public/                    # Icons, manifest
+├── docs/                      # Current guides, roadmap, idea banks, archive
 └── src/
     ├── main.js                # App bootstrap
     ├── style.css              # Design system
@@ -334,6 +335,8 @@ Notenotes is built in the open and grows with its community. Whether you're fili
 4. **Music tests welcome.** A 10-second clip of "this used to break and now it doesn't" is a perfectly good test.
 
 Developer timing diagnostics exist for QA without living in the normal UI. Open the app with `?debug=1`, then Settings -> Diagnostics, to inspect meter timing, run the meter math matrix, and measure live tempo with an isolated silent transport. The diagnostics panel is URL-only, so it does not hang around for regular users after QA.
+
+The contributor documentation has a single entry point at [`docs/README.md`](./docs/README.md). It links the current architecture guide, manual browser QA, realistic roadmap, idea banks, and historical archive so an old handoff does not get mistaken for the next job.
 
 ### For AI agents working on this codebase
 

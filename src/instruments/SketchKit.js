@@ -13,7 +13,9 @@ import { icon } from '../ui/icons.js';
 import { performanceKeyLabel } from '../ui/PerformanceKeys.js';
 import { createDrumNoiseState, shapedDrumNoiseSample } from '../engine/DrumSynthesis.js';
 import { drumHumanize } from '../engine/Humanize.js';
+import { HEIGHT_VELOCITY_ZONES, velocityFromPointer } from '../engine/HeightVelocity.js';
 import { DRUM_KITS, SOUNDS, GM_DRUM_NOTES } from './drumKits.js';
+import './heightVelocity.css';
 
 // Drum kit / pad sound / GM note data extracted to ./drumKits.js.
 // DRUM_KITS is re-exported for backward compatibility (consumers import it from SketchKit.js).
@@ -21,6 +23,15 @@ export { DRUM_KITS };
 
 function titleCase(value = '') {
   return String(value).toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
+}
+
+export function normalizeDrumVelocity(value, fallback = 0.8) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? Math.max(0.01, Math.min(1, numeric)) : fallback;
+}
+
+export function drumVelocityGain(value) {
+  return normalizeDrumVelocity(value) / 0.8;
 }
 
 export class SketchKit {
@@ -124,7 +135,7 @@ export class SketchKit {
         <button class="tone-button controller-map-button" id="sk-controller-map-button" type="button" aria-expanded="false" aria-controls="controller-map-popover" title="Learn gamepad bindings">Controller</button>
         <button class="tone-button stage-button" id="sk-stage-button" type="button" title="Open the performance visual layer">Stage</button>
       </div>
-      <div class="sketchkit__pads" id="sk-pads" style="grid-template-columns:${this._gridColumns()};">
+      <div class="sketchkit__pads${this._heightVelocityActive() ? ' sketchkit__pads--velocity' : ''}" id="sk-pads" style="grid-template-columns:${this._gridColumns()};">
         ${this._renderPads()}
       </div>
     `;
@@ -139,6 +150,7 @@ export class SketchKit {
   }
 
   _renderPads() {
+    const velocityGrid = this._heightVelocityActive() ? this._velocityGridlinesMarkup() : '';
     return this._visibleSounds().map((s, i) => {
       const padClass = `sketchkit__pad--${s.id}`;
       const keyLabel = performanceKeyLabel(i);
@@ -147,6 +159,7 @@ export class SketchKit {
                 aria-label="${s.label}${keyLabel ? `, keyboard ${keyLabel}` : ''}">
           ${keyLabel ? `<span class="sketchkit__key-label" aria-hidden="true">${keyLabel}</span>` : ''}
           <span class="sketchkit__pad-label">${s.label}</span>
+          ${velocityGrid}
         </button>
       `;
     }).join('');
@@ -156,6 +169,7 @@ export class SketchKit {
     const container = this.el.querySelector('#sk-pads');
     if (!container) return;
     container.style.gridTemplateColumns = this._gridColumns();
+    container.classList.toggle('sketchkit__pads--velocity', this._heightVelocityActive());
     container.innerHTML = this._renderPads();
     this._bindPadEvents();
   }
@@ -253,7 +267,8 @@ export class SketchKit {
         const target = this._controllerLearnTargetForPad(sid);
         if (target && this._onControllerLearnTarget?.(target)) return;
         if (!tremorAllows(this.project, `kit:${sid}`)) return;
-        this.triggerPad(sid);
+        const velocity = this._heightVelocityActive() ? (velocityFromPointer(e, pad) ?? 0.8) : 0.8;
+        this.triggerPad(sid, velocity);
       });
 
       pad.addEventListener('pointerenter', () => {
@@ -298,12 +313,12 @@ export class SketchKit {
       .filter(Boolean);
   }
 
-  triggerVisiblePad(index) {
+  triggerVisiblePad(index, velocity = 0.8) {
     const sid = this.visiblePadIds()[index];
-    if (sid) this.triggerPad(sid);
+    if (sid) this.triggerPad(sid, velocity);
   }
 
-  triggerMidiInput(midi) {
+  triggerMidiInput(midi, velocity = 0.8) {
     const direct = Object.entries(GM_DRUM_NOTES).find(([, note]) => note === midi)?.[0];
     const ids = this.visiblePadIds();
     const sid = direct && ids.includes(direct)
@@ -311,15 +326,16 @@ export class SketchKit {
       : ids.length
         ? ids[((midi % ids.length) + ids.length) % ids.length]
         : null;
-    if (sid) this.triggerPad(sid);
+    if (sid) this.triggerPad(sid, velocity);
   }
 
-  triggerPad(sid) {
+  triggerPad(sid, velocity = 0.8) {
     if (!this._output || !this._toneInput) this.init();
     this.engine.unlockGesture?.();
+    const hitVelocity = normalizeDrumVelocity(velocity);
     const pad = this.el?.querySelector(`.sketchkit__pad[data-pad="${sid}"]`);
     if (this._onBeforeHit) this._onBeforeHit();
-    this._triggerSound(sid);
+    this._triggerSound(sid, undefined, hitVelocity);
     if (pad) {
       pad.classList.add('is-active');
       const oldTimer = this._activePadTimers.get(sid);
@@ -330,10 +346,10 @@ export class SketchKit {
       }, 120);
       this._activePadTimers.set(sid, timer);
     }
-    if (this._onHit) this._onHit(sid);
+    if (this._onHit) this._onHit(sid, hitVelocity);
   }
 
-  _triggerSound(sid, atTime) {
+  _triggerSound(sid, atTime, velocity = 0.8) {
     const ctx = this.engine.ctx;
     if (!ctx || !this._output) return;
     const t = atTime !== undefined ? atTime : ctx.currentTime;
@@ -345,24 +361,24 @@ export class SketchKit {
       case 'tomlo':
       case 'tommid':
       case 'tomhi':
-        this._synthTone(ctx, t, p); break;
+        this._synthTone(ctx, t, p, velocity); break;
       case 'snare':
-        this._synthSnare(ctx, t, p); break;
+        this._synthSnare(ctx, t, p, velocity); break;
       case 'clap':
-        this._synthClap(ctx, t, p); break;
+        this._synthClap(ctx, t, p, velocity); break;
       case 'hihat':
       case 'cymbal':
-        this._synthHiHat(ctx, t, p, sid === 'cymbal'); break;
+        this._synthHiHat(ctx, t, p, sid === 'cymbal', velocity); break;
       case 'rim':
-        this._synthRim(ctx, t, p); break;
+        this._synthRim(ctx, t, p, velocity); break;
       case 'shaker':
-        this._synthShaker(ctx, t, p); break;
+        this._synthShaker(ctx, t, p, velocity); break;
     }
   }
 
-  _synthTone(ctx, t, p) {
+  _synthTone(ctx, t, p, velocity = 0.8) {
     const h = drumHumanize();
-    const decay = p.decay * h.decayMul, vol = p.vol * h.gainMul;
+    const decay = p.decay * h.decayMul, vol = p.vol * h.gainMul * drumVelocityGain(velocity);
     const o = ctx.createOscillator(), g = ctx.createGain();
     o.type = p.osc;
     o.frequency.setValueAtTime(p.freq0 * h.freqMul, t);
@@ -381,9 +397,9 @@ export class SketchKit {
     }
   }
 
-  _synthSnare(ctx, t, p) {
+  _synthSnare(ctx, t, p, velocity = 0.8) {
     const h = drumHumanize();
-    const vol = p.vol * h.gainMul;
+    const vol = p.vol * h.gainMul * drumVelocityGain(velocity);
     const noiselen = p.noiseDecay * h.decayMul;
     const buf = this._drumNoiseBuffer(ctx, noiselen, 'snare');
     const n = ctx.createBufferSource(); n.buffer = buf;
@@ -400,9 +416,9 @@ export class SketchKit {
     o.connect(bg); bg.connect(this._drumOutput()); o.start(t); o.stop(t + p.bodyDecay);
   }
 
-  _synthClap(ctx, t, p) {
+  _synthClap(ctx, t, p, velocity = 0.8) {
     const h = drumHumanize();
-    const vol = p.vol * h.gainMul;
+    const vol = p.vol * h.gainMul * drumVelocityGain(velocity);
     for (let i = 0; i < 3; i++) {
       const off = t + i * 0.012 + Math.random() * 0.003; // slight irregular burst spacing
       const buf = this._drumNoiseBuffer(ctx, 0.04, 'clap');
@@ -415,10 +431,10 @@ export class SketchKit {
     }
   }
 
-  _synthHiHat(ctx, t, p, long) {
+  _synthHiHat(ctx, t, p, long, velocity = 0.8) {
     const h = drumHumanize();
     const dur = (long ? p.decay : (p.decay || 0.06)) * h.decayMul;
-    const vol = p.vol * h.gainMul;
+    const vol = p.vol * h.gainMul * drumVelocityGain(velocity);
     const stopAt = t + dur + 0.02;
 
     // Metallic core: six inharmonic square partials (TR-808-style) through a
@@ -449,9 +465,9 @@ export class SketchKit {
     n.connect(nf); nf.connect(ng); ng.connect(this._drumOutput()); n.start(t);
   }
 
-  _synthRim(ctx, t, p) {
+  _synthRim(ctx, t, p, velocity = 0.8) {
     const h = drumHumanize();
-    const vol = p.vol * h.gainMul;
+    const vol = p.vol * h.gainMul * drumVelocityGain(velocity);
     const noiselen = p.noiseDecay;
     const buf = this._drumNoiseBuffer(ctx, noiselen, 'rim');
     const n = ctx.createBufferSource(); n.buffer = buf;
@@ -469,9 +485,9 @@ export class SketchKit {
     o.connect(rg); rg.connect(this._drumOutput()); o.start(t); o.stop(t + p.rimDecay * 2);
   }
 
-  _synthShaker(ctx, t, p) {
+  _synthShaker(ctx, t, p, velocity = 0.8) {
     const h = drumHumanize();
-    const vol = p.vol * h.gainMul, dur = p.decay, steps = p.steps;
+    const vol = p.vol * h.gainMul * drumVelocityGain(velocity), dur = p.decay, steps = p.steps;
     for (let i = 0; i < steps; i++) {
       const off = t + i * (dur / steps);
       const buf = this._drumNoiseBuffer(ctx, 0.015, 'shaker');
@@ -482,6 +498,18 @@ export class SketchKit {
       g.gain.exponentialRampToValueAtTime(0.001, off + 0.025);
       n.connect(f); f.connect(g); g.connect(this._drumOutput()); n.start(off);
     }
+  }
+
+  _heightVelocityActive() {
+    return !!this.project?.settings?.labs?.heightVelocity;
+  }
+
+  _velocityGridlinesMarkup() {
+    let html = '<span class="sketchkit__pad-velgrid" aria-hidden="true">';
+    for (let zone = 0; zone < HEIGHT_VELOCITY_ZONES; zone++) {
+      html += '<span class="sketchkit__pad-velzone"></span>';
+    }
+    return `${html}</span>`;
   }
 
   _drumNoiseBuffer(ctx, seconds, kind) {

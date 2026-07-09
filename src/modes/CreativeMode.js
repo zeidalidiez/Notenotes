@@ -293,9 +293,9 @@ export class CreativeMode {
     this.microPiano.setBeforeNoteCallback(startArmedRecording);
     this.controllerMode.setBeforeNoteCallback(startArmedRecording);
     this.sketchKit.setBeforeHitCallback(startArmedRecording);
-    this.sketchKit.setHitCallback((drumName) => {
-      this._stageDrumHit(drumName);
-      this.recordingManager.drumHit(drumName);
+    this.sketchKit.setHitCallback((drumName, velocity) => {
+      this._stageDrumHit(drumName, velocity);
+      this.recordingManager.drumHit(drumName, velocity);
     });
     this.scaleBoard.setControllerLearnCallback((target) => this._handleControllerLearnTarget(target));
     this.microPiano.setControllerLearnCallback((target) => this._handleControllerLearnTarget(target));

@@ -1,6 +1,7 @@
 /**
  * Height Velocity (Labs) — derive a discrete velocity from WHERE on a pad/key the
- * pointer strikes. Lower strike = louder, like a real drum pad or key-bed.
+ * pointer strikes. Higher strike = louder, matching the visual shading on the
+ * playable surfaces.
  *
  * Four snap levels keep dynamics repeatable (a reliable ghost note vs. accent) and
  * make them legible via gridlines. This is PURE geometry (getBoundingClientRect),
@@ -10,13 +11,13 @@
  * The underlying value stays a continuous 0..1, so a future "continuous" mode is trivial.
  */
 
-/** Four levels, soft → loud. Bottom band = loudest. */
+/** Four levels, soft → loud. Top band = loudest. */
 export const HEIGHT_VELOCITY_LEVELS = [0.2, 0.4, 0.7, 0.99];
 export const HEIGHT_VELOCITY_ZONES = HEIGHT_VELOCITY_LEVELS.length;
 
 function clamp01(v) { return Math.max(0, Math.min(1, v)); }
 
-/** Map a vertical fraction (0 = top of element) to a snapped velocity. Bottom is loudest. */
+/** Map a vertical fraction (0 = top of element) to a snapped velocity. Top is loudest. */
 export function velocityForFraction(fractionFromTop) {
   // fractionFromTop is 0 at the top of the pad/key, 1 at the bottom. Striking HIGHER
   // (toward the top) plays louder, so velocity rises as fractionFromTop decreases.

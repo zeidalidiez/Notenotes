@@ -1,5 +1,10 @@
 # Accessibility Brainstorming for Notenotes
 
+> Discussion material, not an implementation plan. Tremor Filter, Dwell Play,
+> `?tremor=1` / `?dwell=1` profiles, Step Play, reduced-motion handling, and
+> accessible palettes are already shipped. The remaining ideas should extend those
+> paths and be checked against the current app before implementation.
+
 This document outlines ideas for increasing accessibility and approachability in Notenotes, specifically catering to disabled individuals, neurodivergent users, and beginners intimidated by traditional music theory.
 
 

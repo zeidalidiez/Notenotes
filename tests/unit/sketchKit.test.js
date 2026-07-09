@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { AudioEngine } from '../../src/engine/AudioEngine.js';
-import { SketchKit } from '../../src/instruments/SketchKit.js';
+import { drumVelocityGain, SketchKit } from '../../src/instruments/SketchKit.js';
 
 function freshKit() {
   const engine = AudioEngine.getInstance();
@@ -52,4 +52,21 @@ test('different drum sounds in a kit each trigger without error', () => {
     assert.doesNotThrow(() => kit._triggerSound(sound, ctx.currentTime));
   }
   assert.ok(ctx.totalCreated() > 0, 'nodes were created for the drum voices');
+});
+
+test('drum velocity keeps the legacy 0.8 level neutral and scales accents', () => {
+  assert.equal(drumVelocityGain(0.8), 1);
+  assert.equal(drumVelocityGain(0.2), 0.25);
+  assert.ok(drumVelocityGain(0.99) > 1, 'top-zone accents are louder than the legacy hit');
+});
+
+test('MIDI drum input forwards note velocity to the visible pad', () => {
+  const kit = new SketchKit();
+  kit.visiblePadIds = () => ['kick'];
+  let triggered = null;
+  kit.triggerPad = (soundId, velocity) => { triggered = { soundId, velocity }; };
+
+  kit.triggerMidiInput(36, 0.35);
+
+  assert.deepEqual(triggered, { soundId: 'kick', velocity: 0.35 });
 });

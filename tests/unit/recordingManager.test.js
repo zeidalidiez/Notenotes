@@ -69,15 +69,16 @@ test('drum hits are captured as instant events and classify the snippet as drum'
   rm.setArmed(true);
 
   transport.seek(0);
-  rm.drumHit('kick');
+  rm.drumHit('kick', 0.2);
   transport.seek(480);
-  rm.drumHit('snare');
+  rm.drumHit('snare', 0.99);
 
   rm._finalizeSnippet();
   const snippet = getSnippet();
   assert.equal(snippet.type, 'drum', 'hits-only snippet is a drum snippet');
   assert.equal(snippet.hits.length, 2);
   assert.deepEqual(snippet.hits.map(h => h.type), ['kick', 'snare']);
+  assert.deepEqual(snippet.hits.map(h => h.velocity), [0.2, 0.99]);
 });
 
 test('mixed notes and hits classify the snippet as midi', () => {

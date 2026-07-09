@@ -1,5 +1,5 @@
 /* Height Velocity (Labs) — tall pads + four strike-zone gridlines.
-   Imported by ScaleBoard; only active when the pads carry the --velocity class. */
+   Imported by ScaleBoard and SketchKit; only active on --velocity surfaces. */
 .scaleboard__pads--velocity {
   grid-auto-rows: minmax(140px, 38vh);
 }
@@ -28,6 +28,33 @@
 .scaleboard__pad-velgrid .scaleboard__pad-velzone:nth-child(3) { background: rgba(127, 127, 127, 0.06); }
 /* Keep pad text/labels above the gridline overlay. */
 .scaleboard__pads--velocity .scaleboard__pad > span:not(.scaleboard__pad-velgrid) {
+  position: relative;
+  z-index: 1;
+}
+
+.sketchkit__pads--velocity .sketchkit__pad {
+  position: relative;
+  overflow: hidden;
+}
+.sketchkit__pad-velgrid {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+  z-index: 0;
+}
+.sketchkit__pad-velgrid .sketchkit__pad-velzone {
+  flex: 1 1 0;
+  border-top: 1px dashed rgba(127, 127, 127, 0.35);
+}
+.sketchkit__pad-velgrid .sketchkit__pad-velzone:first-child {
+  border-top: none;
+}
+.sketchkit__pad-velgrid .sketchkit__pad-velzone:nth-child(1) { background: rgba(127, 127, 127, 0.20); }
+.sketchkit__pad-velgrid .sketchkit__pad-velzone:nth-child(2) { background: rgba(127, 127, 127, 0.12); }
+.sketchkit__pad-velgrid .sketchkit__pad-velzone:nth-child(3) { background: rgba(127, 127, 127, 0.06); }
+.sketchkit__pads--velocity .sketchkit__pad > span:not(.sketchkit__pad-velgrid) {
   position: relative;
   z-index: 1;
 }

@@ -154,7 +154,7 @@ export const CreativeStageOverlayMixin = {
     this._stageHeldNotes.delete(key);
   },
 
-  _stageDrumHit(drumName) {
+  _stageDrumHit(drumName, velocity = 0.8) {
     const sounds = this.sketchKit?._visibleSounds?.() || [];
     const index = Math.max(0, sounds.findIndex(sound => sound.id === drumName));
     this.stageEvents.hit({
@@ -165,6 +165,7 @@ export const CreativeStageOverlayMixin = {
       startTick: this.transport?.currentTick || 0,
       color: this._stageColorForDrum(drumName),
       label: sounds[index]?.label || drumName,
+      velocity,
     });
   },
 

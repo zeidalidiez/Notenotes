@@ -169,8 +169,8 @@ test('BUG: recorded modulation reaches a modern voice oscillators (currently swa
 
 // --- INSPECT MODE PLAYBACK ---
 //
-// INSPECT_MODE_REVAMP.md Feature D adds a "play only the inspected clip"
-// path. setInspectSource(snippet) routes _processTick through
+// The "play only the inspected clip" path uses setInspectSource(snippet) to
+// route _processTick through
 // _processInspectTick, which schedules notes/hits from the snippet
 // (not Canvas tracks) and loops the clip over its own durationTicks.
 
@@ -228,6 +228,29 @@ test('inspect source loops the clip over its durationTicks', () => {
   for (let tick = 0; tick < 360; tick++) pe._processTick(tick, ctx.currentTime + tick * 0.001);
 
   assert.equal(events.length, 2, 'looped note fires at the start of each loop iteration');
+});
+
+test('inspect drum playback preserves the recorded hit velocity', () => {
+  const ctx = freshEngine();
+  const transport = makeFakeTransport({ ticksPerBar: 1920 });
+  const pe = new PlaybackEngine(transport, { tracks: [], settings: {} });
+  pe.setInspectSource({
+    id: 'drum-velocity',
+    type: 'drum',
+    durationTicks: 480,
+    hits: [{ type: 'snare', startTick: 0, velocity: 0.35 }],
+  });
+
+  const events = [];
+  pe._getInspectKit()._triggerSound = (soundId, atTime, velocity) => {
+    events.push({ soundId, atTime, velocity });
+  };
+
+  pe._processTick(0, ctx.currentTime);
+
+  assert.equal(events.length, 1);
+  assert.equal(events[0].soundId, 'snare');
+  assert.equal(events[0].velocity, 0.35);
 });
 
 test('clearing the inspect source returns to Canvas-track playback', () => {

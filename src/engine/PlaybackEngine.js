@@ -420,7 +420,7 @@ export class PlaybackEngine {
         for (const hit of snippet.hits) {
           if (hit.startTick === localTick) {
             kit.setSoundTraits(hit.soundTraits || snippet.soundTraits || this.project?.settings?.soundTraits);
-            kit._triggerSound(hit.type || 'kick', nextTickTime);
+            kit._triggerSound(hit.type || 'kick', nextTickTime, hit.velocity ?? 0.8);
           }
         }
       }
@@ -513,7 +513,7 @@ export class PlaybackEngine {
             const hitStartTick = clipStartTick + Math.round((hit.startTick || 0) * timeScale);
             if (hitStartTick === tick) {
               kit.setSoundTraits(clip.soundTraits || hit.soundTraits || snippet.soundTraits || this.project?.settings?.soundTraits);
-              kit._triggerSound(hit.type || 'kick', nextTickTime);
+              kit._triggerSound(hit.type || 'kick', nextTickTime, hit.velocity ?? 0.8);
             }
           }
         }

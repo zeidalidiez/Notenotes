@@ -1,4 +1,9 @@
-# Brainstorm
+# Sound-design idea bank
+
+> Discussion material, not an implementation plan. Tone controls, clip Tone,
+> Modern and FM synth families, sampled instruments, and four-zone Height Velocity
+> are already shipped. Check the app and [`../roadmap.md`](../roadmap.md) before
+> turning an older idea below into work.
 
 ## Sound Shaping Ideas For Notenotes
 

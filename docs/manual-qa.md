@@ -1,5 +1,8 @@
 # Manual QA
 
+> Current operational checklist. Update this file when a shipped browser flow
+> changes; keep speculative QA plans in the archive or roadmap instead.
+
 Use this file as the beta hardening pass for Notenotes. The goal is not to test every possible musical idea. The goal is to prove that a user can make work, save it, export it, reload it, and recover it without surprises.
 
 For each test, write down:
@@ -275,6 +278,7 @@ Expected:
 - Pads and Piano keyboard notes hold until keyup; Kit hits fire immediately.
 - Kit pads show the keyboard key that triggers each visible pad.
 - MIDI notes route through the active surface: nearest visible Pads target, exact Piano MIDI, and Kit drum mapping.
+- Denying or leaving Web MIDI permission unavailable does not produce a warning, error, or unavailable toast during a normal session. With Debug logs enabled, an informational MIDI-unavailable entry is acceptable.
 - Piano/MIDI Correction defaults to Off. Closest, Up, and Down affect only Piano and external MIDI routed to Piano; Pads, Kit, and exact controller note bindings keep their own behavior.
 - Held keyboard, MIDI, and controller notes release cleanly when switching surfaces; no stuck notes remain.
 - Step Play uses chips in the modal instead of manual text entry; clicking a sequence chip removes it.

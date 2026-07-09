@@ -2,6 +2,22 @@ import { GamepadInputManager } from '../../engine/GamepadInputManager.js';
 import { showToast } from '../../ui/Toast.js';
 import { PERFORMANCE_KEYS } from '../../ui/PerformanceKeys.js';
 
+const EXPECTED_MIDI_ACCESS_ERRORS = new Set(['NotAllowedError', 'SecurityError']);
+
+export function isExpectedMidiAccessError(error) {
+  return EXPECTED_MIDI_ACCESS_ERRORS.has(error?.name);
+}
+
+export function reportMidiAccessFailure(error, { debug = false, logger = console } = {}) {
+  const expected = isExpectedMidiAccessError(error);
+  if (expected && debug) {
+    logger.info?.('[Notenotes Debug] MIDI input unavailable:', error);
+  } else if (!expected) {
+    logger.warn?.('[PerformanceInputRouter] MIDI input unavailable:', error);
+  }
+  return { expected, notifyUser: !expected };
+}
+
 export class PerformanceInputRouter {
   constructor({
     gamepadInput = new GamepadInputManager(),
@@ -14,6 +30,7 @@ export class PerformanceInputRouter {
     isCreativeActive,
     isControllerMapperOpen,
     ensureAudioReady,
+    isDebugLoggingEnabled = () => false,
     shiftActiveInstrumentOctave,
     refreshControllerMapperStatus,
     handleControllerButtonDown,
@@ -29,6 +46,7 @@ export class PerformanceInputRouter {
     this._isCreativeActive = isCreativeActive;
     this._isControllerMapperOpen = isControllerMapperOpen;
     this._ensureAudioReady = ensureAudioReady;
+    this._isDebugLoggingEnabled = isDebugLoggingEnabled;
     this._shiftActiveInstrumentOctave = shiftActiveInstrumentOctave;
     this._refreshControllerMapperStatus = refreshControllerMapperStatus;
     this._handleControllerButtonDown = handleControllerButtonDown;
@@ -158,8 +176,8 @@ export class PerformanceInputRouter {
       this._midiAccess.onstatechange = () => this._bindMidiInputs();
       if (this._midiAccess.inputs.size) showToast('MIDI input ready');
     } catch (err) {
-      console.warn('[PerformanceInputRouter] MIDI input unavailable:', err);
-      showToast('MIDI input unavailable or blocked');
+      const failure = reportMidiAccessFailure(err, { debug: this._isDebugLoggingEnabled() });
+      if (failure.notifyUser) showToast('MIDI input unavailable or blocked');
     }
   }
 

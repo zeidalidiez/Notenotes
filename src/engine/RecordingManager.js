@@ -185,8 +185,9 @@ export class RecordingManager {
   /**
    * Called when a drum hit occurs (instant event, no duration).
    * @param {string} drumName - e.g. 'kick', 'snare', 'hihat'
+   * @param {number} velocity - 0-1
    */
-  drumHit(drumName) {
+  drumHit(drumName, velocity = 0.8) {
     if (!this.armed) return;
     let tick = this._getRelativeTick();
     tick = this.quantizer.quantize(tick);
@@ -194,7 +195,7 @@ export class RecordingManager {
     this._capturedHits.push({
       type: drumName,
       startTick: tick,
-      velocity: 0.8,
+      velocity: Number.isFinite(Number(velocity)) ? Math.max(0.01, Math.min(1, Number(velocity))) : 0.8,
       soundTraits: this._currentToneSnapshot(),
     });
   }

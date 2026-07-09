@@ -930,9 +930,8 @@ class App {
     app.appendChild(this.modeTabs.render());
 
     // Mode switching. Stop any playback on every tab change so switching
-    // into or out of Inspect always silences the previous source. Per the
-    // INSPECT_MODE_REVAMP spec, this is the simplest correct rule: every
-    // tab boundary is a hard stop.
+    // into or out of Inspect always silences the previous source. Every tab
+    // boundary is intentionally a hard stop.
     //
     // Note: `_inspectSnippet` is intentionally NOT cleared here. It tracks
     // the clip loaded in EditMode (`editMode._snippet`), which doesn't

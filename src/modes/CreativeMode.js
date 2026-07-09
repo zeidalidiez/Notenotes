@@ -113,6 +113,7 @@ export class CreativeMode {
       isCreativeActive: () => this._isCreativeActive(),
       isControllerMapperOpen: () => !!this.controllerMapper?.isOpen(),
       ensureAudioReady: () => this.ensureAudioReady(),
+      isDebugLoggingEnabled: () => !!this.project?.settings?.debugLogging,
       shiftActiveInstrumentOctave: (delta) => this._shiftActiveInstrumentOctave(delta),
       refreshControllerMapperStatus: () => this._refreshControllerMapperStatus(),
       handleControllerButtonDown: (index) => this._handleControllerButtonDown(index),

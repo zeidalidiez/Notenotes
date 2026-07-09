@@ -19,7 +19,12 @@ import {
   customInstrumentTypeLabel,
   rootNoteOptions,
 } from '../src/ui/CreateInstrumentPopover.js';
-import { padPerformanceIndex, pianoPerformanceIndex } from '../src/modes/input/PerformanceInputRouter.js';
+import {
+  isExpectedMidiAccessError,
+  padPerformanceIndex,
+  pianoPerformanceIndex,
+  reportMidiAccessFailure,
+} from '../src/modes/input/PerformanceInputRouter.js';
 import { correctMidiToScale, normalizeDegreeHighlighting, normalizeMusicalContext } from '../src/engine/MusicTheory.js';
 import {
   DEGREE_PALETTES,
@@ -718,6 +723,32 @@ test('performance keyboard maps Pads forward and Piano high-to-low', () => {
   assert.equal(padPerformanceIndex('KeyQ', 13), 12);
   assert.equal(pianoPerformanceIndex('Digit1', 22), 21);
   assert.equal(pianoPerformanceIndex('KeyQ', 22), 9);
+});
+
+test('optional Web MIDI permission denial stays quiet outside debug logging', () => {
+  const calls = { info: 0, warn: 0 };
+  const logger = {
+    info: () => { calls.info += 1; },
+    warn: () => { calls.warn += 1; },
+  };
+  const denied = { name: 'NotAllowedError', message: 'Permission was not granted' };
+
+  assert.equal(isExpectedMidiAccessError(denied), true);
+  assert.deepEqual(reportMidiAccessFailure(denied, { logger }), {
+    expected: true,
+    notifyUser: false,
+  });
+  assert.deepEqual(calls, { info: 0, warn: 0 });
+
+  reportMidiAccessFailure(denied, { debug: true, logger });
+  assert.deepEqual(calls, { info: 1, warn: 0 });
+
+  const unexpected = reportMidiAccessFailure({ name: 'AbortError' }, { logger });
+  assert.deepEqual(unexpected, { expected: false, notifyUser: true });
+  assert.deepEqual(calls, { info: 1, warn: 1 });
+
+  reportMidiAccessFailure({ name: 'AbortError' }, { debug: true, logger });
+  assert.deepEqual(calls, { info: 1, warn: 2 });
 });
 
 test('pad mode normalization retires legacy custom without breaking old projects', () => {

@@ -183,7 +183,7 @@ These are the ideas that drive the project. Some are coded, some are sketches, s
 
 ### More ways to create
 - [x] **Mic-to-midi** - Record a melody through Audio In (hum, whistle, sing), then hit **To MIDI** on the recording. The app tracks the pitch and drops an editable MIDI clip into your library - clean it up in Inspect. Single-line input works best; it is a starting point, not a note-perfect transcript.
-- [x] **MIDI device support** - bring your own keyboard, pad controller, or wind instrument. Web MIDI input follows the active Create surface and routes into Pads, Piano, Kit, or Step Play.
+- [x] **MIDI device support** - bring your own keyboard, pad controller, or wind instrument. Web MIDI input follows the active Create surface and routes into Pads, Piano, Kit, or Step Play. If a browser blocks optional MIDI permission, Notenotes carries on quietly; enable Debug logs when you actually want that capability detail.
 - [ ] **Webcam/Wiimote motion controls** - Movement to modulate, other potential uses.
 - [ ] **Touch + accelerometer** - on mobile, tilt for modulation, tap velocity for dynamics.
 - [ ] **Foot pedals & accessibility switches** - every input becomes an instrument.

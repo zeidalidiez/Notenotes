@@ -957,7 +957,12 @@ the input meaning:
   visible pad and then play the current Pad Mode action, Piano plays the exact
   MIDI note, and Kit prefers General MIDI drum notes with a visible-pad fallback.
   In Step Play mode, any MIDI note-on advances the Step sequence and note-off is
-  ignored.
+  ignored. `NotAllowedError` and `SecurityError` from `requestMIDIAccess()` are
+  expected optional-capability outcomes: normal sessions do not warn or toast.
+  With `project.settings.debugLogging` enabled they are logged at info level.
+  Unexpected MIDI initialization failures still warn and show the unavailable
+  toast. Keep this policy in `reportMidiAccessFailure()` so tests and runtime use
+  the same classification.
 - `project.musicalContext.correction` is the optional top-bar Piano/MIDI note
   correction mode. It is additive and defaults to `off`. `off` preserves current
   chromatic Micro Piano behavior. `closest`, `up`, and `down` only affect Micro

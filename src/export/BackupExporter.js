@@ -1,6 +1,11 @@
 import { APP_VERSION } from '../version.js';
 
 const BACKUP_VERSION = 1;
+export const MAX_BACKUP_FILE_BYTES = 256 * 1024 * 1024;
+const MAX_BACKUP_DEPTH = 64;
+const MAX_BACKUP_NODES = 2_000_000;
+const MAX_BACKUP_COLLECTION_ITEMS = 100_000;
+const UNSAFE_JSON_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -29,6 +34,120 @@ function isNewerVersion(incoming, current) {
     if (left < right) return false;
   }
   return false;
+}
+
+function isRecord(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function assertRecord(value, label) {
+  if (!isRecord(value)) throw new Error(`${label} must be an object`);
+  return value;
+}
+
+function assertRecordArray(value, label, { required = false } = {}) {
+  if (value === undefined && !required) return [];
+  if (!Array.isArray(value)) throw new Error(`${label} must be an array`);
+  for (const item of value) assertRecord(item, `${label} entry`);
+  return value;
+}
+
+function assertSafeBackupTree(root) {
+  const seen = new WeakSet();
+  const stack = [{ value: root, depth: 0 }];
+  let nodes = 0;
+
+  while (stack.length) {
+    const { value, depth } = stack.pop();
+    if (!value || typeof value !== 'object') continue;
+    if (depth > MAX_BACKUP_DEPTH) throw new Error('Backup data is nested too deeply');
+    if (seen.has(value)) throw new Error('Backup data must not contain circular references');
+    seen.add(value);
+
+    if (Array.isArray(value) && value.length > MAX_BACKUP_COLLECTION_ITEMS) {
+      throw new Error('Backup contains an unsupported number of items');
+    }
+
+    const keys = Object.keys(value);
+    nodes += keys.length + 1;
+    if (nodes > MAX_BACKUP_NODES) {
+      throw new Error('Backup contains an unsupported amount of data');
+    }
+
+    for (const key of keys) {
+      if (UNSAFE_JSON_KEYS.has(key)) throw new Error('Backup contains an unsafe property');
+      stack.push({ value: value[key], depth: depth + 1 });
+    }
+  }
+}
+
+function assertOptionalString(value, label) {
+  if (value !== undefined && typeof value !== 'string') {
+    throw new Error(`${label} must be text`);
+  }
+}
+
+function validateSnippet(snippet, label) {
+  assertRecord(snippet, label);
+  assertOptionalString(snippet.id, `${label} id`);
+  assertOptionalString(snippet.type, `${label} type`);
+  assertOptionalString(snippet.audioDataUrl, `${label} audio data`);
+  assertRecordArray(snippet.notes, `${label} notes`);
+  assertRecordArray(snippet.hits, `${label} hits`);
+}
+
+function validateCustomInstrument(instrument, label) {
+  assertRecord(instrument, label);
+  assertOptionalString(instrument.id, `${label} id`);
+  assertOptionalString(instrument.type, `${label} type`);
+  assertOptionalString(instrument.audioDataUrl, `${label} audio data`);
+}
+
+function validateProject(project, label = 'Workspace project') {
+  assertRecord(project, label);
+  if (typeof project.id !== 'string' || !project.id.trim()) {
+    throw new Error(`${label} needs a project id`);
+  }
+  assertOptionalString(project.name, `${label} name`);
+
+  const snippets = assertRecordArray(project.snippets, `${label} snippets`);
+  snippets.forEach((snippet, index) => validateSnippet(snippet, `${label} snippet ${index + 1}`));
+
+  const tracks = assertRecordArray(project.tracks, `${label} tracks`);
+  tracks.forEach((track, trackIndex) => {
+    const clips = assertRecordArray(track.clips, `${label} track ${trackIndex + 1} clips`);
+    clips.forEach((clip, clipIndex) => {
+      if (clip.snippet !== undefined) {
+        validateSnippet(clip.snippet, `${label} track ${trackIndex + 1} clip ${clipIndex + 1} snippet`);
+      }
+    });
+  });
+
+  if (project.settings !== undefined) {
+    assertRecord(project.settings, `${label} settings`);
+    const instruments = assertRecordArray(
+      project.settings.customInstruments,
+      `${label} custom instruments`,
+    );
+    instruments.forEach((instrument, index) => {
+      validateCustomInstrument(instrument, `${label} custom instrument ${index + 1}`);
+    });
+  }
+}
+
+function validateSnapshots(snapshots, label) {
+  const entries = assertRecordArray(snapshots, label);
+  entries.forEach((snapshot, index) => {
+    validateProject(snapshot.data, `${label} entry ${index + 1} project`);
+  });
+}
+
+function isVersionString(value) {
+  return typeof value === 'string'
+    && value.length <= 64
+    && /^\d+(?:\.\d+)*(?:[-+][0-9A-Za-z.-]+)?$/.test(value);
 }
 
 export function workspaceBackup(project, options = {}) {
@@ -105,20 +224,66 @@ export async function saveJsonToDirectory(data, filename, directoryHandle) {
 }
 
 export async function readJsonFile(file) {
-  const text = await file.text();
-  return JSON.parse(text);
+  if (!file || typeof file.text !== 'function') {
+    throw new Error('Backup file could not be read');
+  }
+  if (Number.isFinite(file.size) && file.size > MAX_BACKUP_FILE_BYTES) {
+    throw new Error('Backup file exceeds the 256 MB import limit');
+  }
+
+  let text;
+  try {
+    text = await file.text();
+  } catch {
+    throw new Error('Backup file could not be read');
+  }
+  if (typeof text !== 'string' || text.length > MAX_BACKUP_FILE_BYTES) {
+    throw new Error('Backup file exceeds the 256 MB import limit');
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error('Backup file does not contain valid JSON');
+  }
 }
 
 export function validateBackup(data) {
-  if (!data || typeof data !== 'object') throw new Error('Backup is not valid JSON');
-  if ((data.version || 1) > BACKUP_VERSION) {
-    throw new Error(`Backup schema v${data.version} needs a newer Notenotes version`);
+  if (!isRecord(data)) throw new Error('Backup root must be an object');
+  assertSafeBackupTree(data);
+
+  const schemaVersion = data.version === undefined ? 1 : data.version;
+  if (!Number.isInteger(schemaVersion) || schemaVersion < 1) {
+    throw new Error('Backup schema version is invalid');
+  }
+  if (schemaVersion > BACKUP_VERSION) {
+    throw new Error(`Backup schema v${schemaVersion} needs a newer Notenotes version`);
+  }
+  if (data.appVersion !== undefined && !isVersionString(data.appVersion)) {
+    throw new Error('Backup app version is invalid');
   }
   if (isNewerVersion(data.appVersion, APP_VERSION)) {
     throw new Error(`Backup from Notenotes ${data.appVersion} needs a newer app version`);
   }
-  if (data.kind === 'notenotes-workspace' && data.project?.id) return 'workspace';
-  if (data.kind === 'notenotes-snippets' && Array.isArray(data.snippets)) return 'snippets';
+
+  if (data.kind === 'notenotes-workspace') {
+    validateProject(data.project);
+    validateSnapshots(data.milestones, 'Workspace milestones');
+    validateSnapshots(data.versions, 'Workspace versions');
+    return 'workspace';
+  }
+
+  if (data.kind === 'notenotes-snippets') {
+    const snippets = assertRecordArray(data.snippets, 'Snippet backup snippets', { required: true });
+    snippets.forEach((snippet, index) => validateSnippet(snippet, `Snippet backup snippet ${index + 1}`));
+    const instruments = assertRecordArray(data.customInstruments, 'Snippet backup custom instruments');
+    instruments.forEach((instrument, index) => {
+      validateCustomInstrument(instrument, `Snippet backup custom instrument ${index + 1}`);
+    });
+    if (data.sourceProject !== undefined) assertRecord(data.sourceProject, 'Snippet backup source project');
+    return 'snippets';
+  }
+
   throw new Error('Not a Notenotes backup file');
 }
 

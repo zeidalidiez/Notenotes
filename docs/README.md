@@ -1,30 +1,24 @@
 # Notenotes documentation
 
-The root stays intentionally small: the public [`README.md`](../README.md), the
-maintainer/agent guide [`AI.MD`](../AI.MD), licensing, and project configuration.
-Everything else belongs here.
+The repository keeps only current, durable documentation. Git history and merged
+pull requests preserve completed plans and investigation notes.
 
 ## Current references
 
-- [`architecture.md`](architecture.md) — concise codebase map and design boundaries.
-- [`manual-qa.md`](manual-qa.md) — the browser/device beta-hardening checklist.
-- [`roadmap.md`](roadmap.md) — realistic open directions, not a promise or release plan.
-- [`AI_INTERFACE.md`](AI_INTERFACE.md) — the optional AI feature contract.
-- [`crash-fix-and-test-harness.md`](crash-fix-and-test-harness.md) — audio voice-lifecycle failure and regression harness.
+- [`architecture.md`](architecture.md) maps the codebase and design boundaries.
+- [`roadmap.md`](roadmap.md) records strategic directions, not scheduled work.
+- [`manual-qa.md`](manual-qa.md) is the release and device verification checklist.
+- [`AI_INTERFACE.md`](AI_INTERFACE.md) defines the optional AI feature contract.
+- [`../AGENTS.md`](../AGENTS.md) contains repository-wide contributor rules.
 
-## Idea banks
+## Where information belongs
 
-- [`ideas/accessibility.md`](ideas/accessibility.md) — accessibility concepts and shipped-status notes.
-- [`ideas/sound-design.md`](ideas/sound-design.md) — approachable sound-shaping directions.
+- User-facing product information and setup: root [`README.md`](../README.md).
+- Durable architecture and invariants: `AGENTS.md` or `architecture.md`.
+- Repeatable behavior: automated tests.
+- Actionable work with acceptance criteria: GitHub Issues and pull requests.
+- Early exploration: GitHub Discussions.
 
-These are discussion material. An idea appearing there does not mean it is accepted
-or scheduled.
-
-## Historical material
-
-[`archive/`](archive/) keeps old handoffs, audits, implementation plans, and roadmap
-snapshots for context. Archived files are not current instructions. Start with this
-index, the README, and `AI.MD` instead.
-
-`superpowers/` contains dated feature specs and plans. `media/` and the scale
-evaluation HTML are supporting research assets rather than general contributor docs.
+Do not add dated implementation plans, completed-feature journals, PR screenshots,
+or generated reports to `docs/`. Update an existing canonical document or rely on
+the issue, PR, tests, and Git history instead.

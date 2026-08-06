@@ -1,6 +1,7 @@
 import { APP_VERSION } from '../version.js';
 
 const BACKUP_VERSION = 1;
+export const MAX_BACKUP_FILE_BYTES = 256 * 1024 * 1024;
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -105,8 +106,28 @@ export async function saveJsonToDirectory(data, filename, directoryHandle) {
 }
 
 export async function readJsonFile(file) {
-  const text = await file.text();
-  return JSON.parse(text);
+  if (!file || typeof file.text !== 'function') {
+    throw new Error('Backup file could not be read');
+  }
+  if (Number.isFinite(file.size) && file.size > MAX_BACKUP_FILE_BYTES) {
+    throw new Error('Backup file exceeds the 256 MB import limit');
+  }
+
+  let text;
+  try {
+    text = await file.text();
+  } catch {
+    throw new Error('Backup file could not be read');
+  }
+  if (typeof text !== 'string' || text.length > MAX_BACKUP_FILE_BYTES) {
+    throw new Error('Backup file exceeds the 256 MB import limit');
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error('Backup file does not contain valid JSON');
+  }
 }
 
 export function validateBackup(data) {

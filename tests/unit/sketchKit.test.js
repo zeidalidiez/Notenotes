@@ -70,3 +70,16 @@ test('MIDI drum input forwards note velocity to the visible pad', () => {
 
   assert.deepEqual(triggered, { soundId: 'kick', velocity: 0.35 });
 });
+
+test('unfinished custom kits stay out of the playable kit surface', () => {
+  const kit = new SketchKit({
+    settings: {
+      customInstruments: [{ id: 'saved-kit', name: 'Saved Kit', type: 'kit' }],
+    },
+  });
+
+  kit.loadKit('custom:saved-kit');
+
+  assert.equal(kit.selectedKitId, 'classic');
+  assert.doesNotMatch(kit._renderKitOptions(), /Saved Kit|custom:saved-kit/);
+});

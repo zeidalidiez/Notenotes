@@ -89,8 +89,6 @@ export class CreativeMode {
     this.microPiano = new MicroPiano(this.synth, this.project);
     this.sketchKit = new SketchKit(this.project);
     this.sketchKit.onSoundTraitsChanged = (traits) => this._applyProjectSoundTraits(traits);
-    this.sketchKit.onCreateInstrument = (anchor) => this._toggleCreateInstrumentPopover(anchor);
-    this.sketchKit.onDeleteInstrument = () => this._deleteSelectedCustomInstrument();
     this.sketchKit.onKitChanged = () => this.store?.scheduleAutoSave(this.project);
     this.sketchKit.onAISeedClick = (anchor, buttonEl) => this._toggleAISeedPopover(anchor, buttonEl);
     this.sketchKit.onControllerMapperClick = (anchor, buttonEl) => this._toggleControllerMapperPopover(anchor, buttonEl);
@@ -157,9 +155,8 @@ export class CreativeMode {
     });
     this.createInstrumentPopover = new CreateInstrumentPopover({
       getProject: () => this.project,
-      getCustomInstruments: () => this._customInstruments(),
+      getCustomInstruments: () => this._customInstruments().filter(instrument => instrument.type === 'patch'),
       getSelectedInstrument: () => this._selectedCustomInstrument(),
-      getDefaultType: () => this.activeInstrument === INSTRUMENTS.KIT ? 'kit' : 'patch',
       onBeforeOpen: () => {
         this._closeTonePopover();
         this._closePadsPopover();

@@ -46,8 +46,8 @@ export function midiInstrumentGroups(project = null) {
   return groups;
 }
 
-/** Built-in drum kits and sample-based custom kit instruments. */
-export function drumInstrumentGroups(project = null) {
+/** Built-in drum kits available across Canvas and Inspect. */
+export function drumInstrumentGroups() {
   const builtIns = Object.entries(DRUM_KITS).map(([id, kit]) => ({
     value: id,
     label: kit.name,
@@ -55,18 +55,7 @@ export function drumInstrumentGroups(project = null) {
     description: `${Object.keys(kit.sounds || {}).length} synthesized sounds`,
     tags: ['drum', 'kit', kit.name],
   }));
-  const groups = [{ id: 'drum', label: 'Drum kits', items: builtIns }];
-  const custom = (project?.settings?.customInstruments || [])
-    .filter(instrument => instrument.type === 'kit')
-    .map(instrument => ({
-      value: `custom:${instrument.id}`,
-      label: instrument.name || 'Untitled kit',
-      kicker: 'Custom kit',
-      description: 'Custom drum instrument',
-      tags: ['custom', 'kit', instrument.name],
-    }));
-  if (custom.length) groups.push({ id: 'custom', label: 'Custom instruments', items: custom });
-  return groups;
+  return [{ id: 'drum', label: 'Drum kits', items: builtIns }];
 }
 
 /**

@@ -51,8 +51,6 @@ export class SketchKit {
     this._onControllerLearnTarget = null;
     this.onSoundTraitsChanged = null;
     this.onKitChanged = null;
-    this.onCreateInstrument = null;
-    this.onDeleteInstrument = null;
     this.onAISeedClick = null;
     this.onControllerMapperClick = null;
     this.onStageClick = null;
@@ -73,7 +71,7 @@ export class SketchKit {
   get project() { return this._project; }
 
   loadKit(kitId) {
-    if (DRUM_KITS[kitId] || this._customKitInstruments().some(instrument => `custom:${instrument.id}` === kitId)) {
+    if (DRUM_KITS[kitId]) {
       this._kitId = kitId;
       this._refreshKitSelector();
     }
@@ -81,9 +79,6 @@ export class SketchKit {
 
   get _activeKit() { return DRUM_KITS[this._kitId] || DRUM_KITS.classic; }
   get selectedKitId() { return this._kitId; }
-  get selectedCustomInstrumentId() {
-    return this._kitId?.startsWith?.('custom:') ? this._kitId.slice(7) : null;
-  }
 
   setHitCallback(onHit) { this._onHit = onHit; }
   setBeforeHitCallback(fn) { this._onBeforeHit = fn; }
@@ -128,8 +123,6 @@ export class SketchKit {
         <select class="sk-kit-selector__select" id="sk-kit-select" aria-label="Drum kit">
           ${this._renderKitOptions()}
         </select>
-        <button class="tone-button" id="sk-create-instrument-button" type="button">${this.selectedCustomInstrumentId ? 'Edit Instrument' : 'Create Instrument'}</button>
-        <button class="tone-button" id="sk-delete-instrument-button" type="button">Delete</button>
         <button class="tone-button" id="sk-tone-button" type="button" aria-expanded="false" aria-controls="sk-tone-popover">Tone</button>
         <button class="tone-button ai-seed-button" id="sk-ai-seed-button" type="button" aria-expanded="false" aria-controls="ai-seed-popover" title="Seed a snippet with AI">AI</button>
         <button class="tone-button controller-map-button" id="sk-controller-map-button" type="button" aria-expanded="false" aria-controls="controller-map-popover" title="Learn gamepad bindings">Controller</button>
@@ -177,17 +170,7 @@ export class SketchKit {
   _bindEvents() {
     this.el.querySelector('#sk-kit-select')?.addEventListener('change', (e) => {
       this.loadKit(e.target.value);
-      if (this.selectedCustomInstrumentId) showToast('Custom Kit playback is the next wiring step');
       if (this.onKitChanged) this.onKitChanged(this._kitId);
-      this._syncInstrumentButtons();
-    });
-    this.el.querySelector('#sk-create-instrument-button')?.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      if (this.onCreateInstrument) this.onCreateInstrument(this.el.querySelector('#sk-kit-selector'));
-    });
-    this.el.querySelector('#sk-delete-instrument-button')?.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      if (this.onDeleteInstrument) this.onDeleteInstrument();
     });
     this.el.querySelector('#sk-tone-button')?.addEventListener('pointerdown', (e) => {
       e.preventDefault();
@@ -211,26 +194,14 @@ export class SketchKit {
       e.preventDefault();
       this.onStageClick?.(this.el.querySelector('#sk-kit-selector'), this.el.querySelector('#sk-stage-button'));
     });
-    this._syncInstrumentButtons();
     this._bindPadEvents();
-  }
-
-  _customKitInstruments() {
-    return (this.project?.settings?.customInstruments || []).filter(instrument => instrument.type === 'kit');
   }
 
   _renderKitOptions() {
     const builtIns = Object.entries(DRUM_KITS).map(([key, k]) =>
       `<option value="${key}" ${key === this._kitId ? 'selected' : ''}>${k.name}</option>`
     ).join('');
-    const custom = this._customKitInstruments().map(instrument => {
-      const id = `custom:${instrument.id}`;
-      return `<option value="${id}" ${id === this._kitId ? 'selected' : ''}>${instrument.name}</option>`;
-    }).join('');
-    return `
-      <optgroup label="Drum kits">${builtIns}</optgroup>
-      ${custom ? `<optgroup label="Custom instruments">${custom}</optgroup>` : ''}
-    `;
+    return `<optgroup label="Drum kits">${builtIns}</optgroup>`;
   }
 
   refreshKitSelector() {
@@ -247,15 +218,6 @@ export class SketchKit {
       this._kitId = 'classic';
       select.value = this._kitId;
     }
-    this._syncInstrumentButtons();
-  }
-
-  _syncInstrumentButtons() {
-    const isCustom = !!this.selectedCustomInstrumentId;
-    const createBtn = this.el?.querySelector('#sk-create-instrument-button');
-    const deleteBtn = this.el?.querySelector('#sk-delete-instrument-button');
-    if (createBtn) createBtn.textContent = isCustom ? 'Edit Instrument' : 'Create Instrument';
-    if (deleteBtn) deleteBtn.hidden = !isCustom;
   }
 
   _bindPadEvents() {

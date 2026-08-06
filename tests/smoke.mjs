@@ -16,7 +16,6 @@ import {
   normalizePianoCount,
 } from '../src/ui/CreateLayoutPopover.js';
 import {
-  customInstrumentTypeLabel,
   rootNoteOptions,
 } from '../src/ui/CreateInstrumentPopover.js';
 import {
@@ -838,9 +837,7 @@ test('layout popover helpers clamp controls to supported ranges', () => {
   assert.equal(normalizePianoCount(3), 1);
 });
 
-test('custom instrument popover helpers render stable labels and root options', () => {
-  assert.equal(customInstrumentTypeLabel({ type: 'kit' }), 'Kit');
-  assert.equal(customInstrumentTypeLabel({ type: 'patch' }), 'Patch');
+test('custom instrument popover renders stable root-note options', () => {
   const options = rootNoteOptions(60);
   assert.ok(options.includes('value="60" selected>C4</option>'));
   assert.ok(options.includes('value="95" >B6</option>'));

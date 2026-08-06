@@ -1921,13 +1921,11 @@ input[type="checkbox"].ctrlmode__sound-checkbox {
     text-overflow: ellipsis;
   }
 
-  #create-instrument-button,
-  #sk-create-instrument-button {
+  #create-instrument-button {
     grid-column: 1 / span 3;
   }
 
-  #delete-instrument-button,
-  #sk-delete-instrument-button {
+  #delete-instrument-button {
     grid-column: 4;
   }
 
@@ -1936,8 +1934,7 @@ input[type="checkbox"].ctrlmode__sound-checkbox {
     grid-column: 4 / span 2;
   }
 
-  #delete-instrument-button:not([hidden]) + #tone-button,
-  #sk-delete-instrument-button:not([hidden]) + #sk-tone-button {
+  #delete-instrument-button:not([hidden]) + #tone-button {
     grid-column: 5;
   }
 

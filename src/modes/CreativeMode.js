@@ -155,9 +155,8 @@ export class CreativeMode {
     });
     this.createInstrumentPopover = new CreateInstrumentPopover({
       getProject: () => this.project,
-      getCustomInstruments: () => this._customInstruments(),
+      getCustomInstruments: () => this._customInstruments().filter(instrument => instrument.type === 'patch'),
       getSelectedInstrument: () => this._selectedCustomInstrument(),
-      getDefaultType: () => this.activeInstrument === INSTRUMENTS.KIT ? 'kit' : 'patch',
       onBeforeOpen: () => {
         this._closeTonePopover();
         this._closePadsPopover();

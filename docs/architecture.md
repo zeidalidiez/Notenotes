@@ -1,8 +1,7 @@
 # Notenotes architecture
 
-This is the short architectural map for contributors. [`AI.MD`](../AI.MD) is
-the detailed, canonical implementation guide and should be read before a
-meaningful code change.
+This is the architectural map for contributors. Read the repository-wide
+[`AGENTS.md`](../AGENTS.md) before a meaningful code change.
 
 ## Design boundaries
 
@@ -73,5 +72,6 @@ npm test
 npm run build
 ```
 
-Update [`README.md`](../README.md) for user-visible behavior and `AI.MD` for any
-implementation detail another contributor would otherwise have to rediscover.
+Update [`README.md`](../README.md) for durable user-visible behavior. Update
+`AGENTS.md` only when a repository-wide engineering rule changes; focused
+implementation details belong in code and tests.

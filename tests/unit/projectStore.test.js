@@ -123,3 +123,34 @@ test('local settings persist by arbitrary key', async () => {
   await store.deleteLocalSetting('lastFolder');
   assert.equal(await store.getLocalSetting('lastFolder'), undefined);
 });
+
+test('flushAutoSave persists pending edits once and cancels the debounce', async () => {
+  const store = await freshStore();
+  const project = createProject('Flush Pending');
+  store._autoSaveDelay = 10;
+
+  let saves = 0;
+  let versions = 0;
+  const save = store.save.bind(store);
+  const saveVersion = store.saveVersion.bind(store);
+  store.save = async (...args) => {
+    saves++;
+    return save(...args);
+  };
+  store.saveVersion = async (...args) => {
+    versions++;
+    return saveVersion(...args);
+  };
+
+  project.bpm = 137;
+  store.scheduleAutoSave(project);
+
+  assert.equal(await store.flushAutoSave(), true);
+  assert.equal((await store.load(project.id)).bpm, 137);
+  assert.equal(saves, 1);
+  assert.equal(versions, 1);
+
+  await new Promise(resolve => setTimeout(resolve, 25));
+  assert.equal(saves, 1, 'cleared debounce does not save a second time');
+  assert.equal(await store.flushAutoSave(), false, 'nothing remains pending');
+});

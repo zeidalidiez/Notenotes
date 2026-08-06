@@ -8,7 +8,9 @@ on:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  # Let the active production deployment finish; GitHub will keep the newest
+  # pending run and skip superseded pending runs during rapid merges.
+  cancel-in-progress: false
 
 jobs:
   build-and-deploy:

@@ -262,8 +262,12 @@ class App {
       if (event.detail?.markEdit) this._scheduleFolderAutoBackup();
     });
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') this._runFolderAutoBackup({ reason: 'visibility' });
+      if (document.visibilityState === 'hidden') {
+        this._flushPendingAutoSave('visibility change');
+        this._runFolderAutoBackup({ reason: 'visibility' });
+      }
     });
+    window.addEventListener('pagehide', () => this._flushPendingAutoSave('page hide'));
     this._syncBackupStatus();
     this._scheduleFolderAutoBackup();
 
@@ -450,6 +454,12 @@ class App {
     } finally {
       this.settingsPanel?.openTo('history', { returnFocus: opener });
     }
+  }
+
+  _flushPendingAutoSave(reason) {
+    void this.store?.flushAutoSave?.().catch((error) => {
+      console.warn(`[ProjectStore] Could not flush auto-save during ${reason}:`, error);
+    });
   }
 
   _folderAutoBackupDue() {

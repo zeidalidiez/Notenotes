@@ -283,6 +283,7 @@ export class ProjectStore {
     this._autoSaveTimer = null;
     this._autoSaveDelay = 2000; // 2 second debounce
     this._pendingSave = null;
+    this._autoSaveInFlight = null;
     this._audioObjectUrls = new Map();
   }
 
@@ -747,14 +748,51 @@ export class ProjectStore {
    * @param {object} project
    */
   scheduleAutoSave(project) {
+    this._pendingSave = project;
     if (this._autoSaveTimer) {
       clearTimeout(this._autoSaveTimer);
     }
-    this._autoSaveTimer = setTimeout(async () => {
-      await this.save(project);
-      await this.saveVersion(project);
-      console.log('[ProjectStore] Auto-saved:', project.name);
+    this._autoSaveTimer = setTimeout(() => {
+      this._autoSaveTimer = null;
+      void this.flushAutoSave().catch((error) => {
+        console.error('[ProjectStore] Auto-save failed:', error);
+      });
     }, this._autoSaveDelay);
+  }
+
+  /**
+   * Persist any project waiting in the auto-save debounce immediately.
+   * Auto-saves are serialized so an older write cannot finish after a newer one.
+   * @returns {Promise<boolean>} Whether a pending project was saved.
+   */
+  async flushAutoSave() {
+    if (this._autoSaveTimer) {
+      clearTimeout(this._autoSaveTimer);
+      this._autoSaveTimer = null;
+    }
+
+    const project = this._pendingSave;
+    this._pendingSave = null;
+    if (!project) {
+      if (this._autoSaveInFlight) await this._autoSaveInFlight;
+      return false;
+    }
+
+    const previousSave = this._autoSaveInFlight;
+    const autoSave = (previousSave ? previousSave.catch(() => {}) : Promise.resolve())
+      .then(async () => {
+        await this.save(project);
+        await this.saveVersion(project);
+        console.log('[ProjectStore] Auto-saved:', project.name);
+      });
+    this._autoSaveInFlight = autoSave;
+
+    try {
+      await autoSave;
+      return true;
+    } finally {
+      if (this._autoSaveInFlight === autoSave) this._autoSaveInFlight = null;
+    }
   }
 
   _collectAudioAssetIdsFromValue(value, ids = new Set()) {

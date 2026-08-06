@@ -9,6 +9,7 @@ import { ChoicePicker } from '../ui/ChoicePicker.js';
 import { ARP_MODES } from '../engine/ArpeggioManager.js';
 import { showToast } from '../ui/Toast.js';
 import { INSTRUMENTS } from './creativeConstants.js';
+import { setSubtreeInteractive, setTabActive } from '../ui/InteractionState.js';
 
 export const CreativeInstrumentsMixin = {
   _patchDisplayName(id = this._activePatchId) {
@@ -423,11 +424,15 @@ export const CreativeInstrumentsMixin = {
     this.activeInstrument = id;
 
     this.el.querySelectorAll('.instrument-switcher__tab').forEach(tab => {
-      tab.classList.toggle('is-active', tab.dataset.instrument === id);
+      const active = tab.dataset.instrument === id;
+      tab.classList.toggle('is-active', active);
+      setTabActive(tab, active);
     });
 
     this.el.querySelectorAll('.instrument-view').forEach(view => {
-      view.classList.toggle('is-active', view.id === `instrument-${id}`);
+      const active = view.id === `instrument-${id}`;
+      view.classList.toggle('is-active', active);
+      setSubtreeInteractive(view, active);
     });
 
     this._syncPatchToolbarVisibility();

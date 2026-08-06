@@ -39,6 +39,7 @@ import { CreativeStageOverlayMixin } from './creativeStageOverlay.js';
 import { CreativeAiSeedMixin } from './creativeAiSeed.js';
 import { CreativeToneMixin } from './creativeTone.js';
 import { icon } from '../ui/icons.js';
+import { setSubtreeInteractive, setTabActive } from '../ui/InteractionState.js';
 
 export class CreativeMode {
   constructor(engine, transport, quantizer, store, project, modManager) {
@@ -443,6 +444,8 @@ export class CreativeMode {
     const switcher = document.createElement('div');
     switcher.className = 'instrument-switcher';
     switcher.id = 'instrument-switcher';
+    switcher.setAttribute('role', 'tablist');
+    switcher.setAttribute('aria-label', 'Create instruments');
     const tabs = [
       { id: INSTRUMENTS.SCALEBOARD, label: 'Pads' },
       { id: INSTRUMENTS.CONTROLLER, label: 'Labs' },
@@ -454,9 +457,27 @@ export class CreativeMode {
       const btn = document.createElement('button');
       btn.className = `instrument-switcher__tab${t.id === this.activeInstrument ? ' is-active' : ''}`;
       btn.dataset.instrument = t.id;
+      btn.id = `instrument-tab-${t.id}`;
+      btn.setAttribute('role', 'tab');
+      btn.setAttribute('aria-controls', `instrument-${t.id}`);
+      setTabActive(btn, t.id === this.activeInstrument);
       btn.innerHTML = `<span>${t.label}</span>`;
       this._bindToolbarTap(btn, () => {
         this._switchInstrument(t.id);
+      });
+      btn.addEventListener('keydown', (event) => {
+        const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End'];
+        if (!keys.includes(event.key)) return;
+        const currentIndex = tabs.findIndex(tab => tab.id === t.id);
+        let nextIndex = currentIndex;
+        if (event.key === 'Home') nextIndex = 0;
+        else if (event.key === 'End') nextIndex = tabs.length - 1;
+        else if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+        else nextIndex = (currentIndex + 1) % tabs.length;
+        event.preventDefault();
+        const nextId = tabs[nextIndex].id;
+        this._switchInstrument(nextId);
+        this.el.querySelector(`[data-instrument="${nextId}"]`)?.focus?.();
       });
       switcher.appendChild(btn);
     });
@@ -528,6 +549,9 @@ export class CreativeMode {
       const wrapper = document.createElement('div');
       wrapper.className = `instrument-view${v.id === this.activeInstrument ? ' is-active' : ''}`;
       wrapper.id = `instrument-${v.id}`;
+      wrapper.setAttribute('role', 'tabpanel');
+      wrapper.setAttribute('aria-labelledby', `instrument-tab-${v.id}`);
+      setSubtreeInteractive(wrapper, v.id === this.activeInstrument);
       wrapper.appendChild(v.content);
       container.appendChild(wrapper);
     });

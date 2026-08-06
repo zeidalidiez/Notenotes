@@ -71,6 +71,10 @@ test('validateBackup accepts structurally valid workspace archives and snippet b
 
   assert.equal(validateBackup(workspace), 'workspace');
   assert.equal(validateBackup(snippets), 'snippets');
+  assert.equal(validateBackup({
+    kind: 'notenotes-workspace',
+    project: project({ name: 'Legacy backup without version metadata' }),
+  }), 'workspace');
 });
 
 test('validateBackup rejects malformed structures before they reach persistence', () => {

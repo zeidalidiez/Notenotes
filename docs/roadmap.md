@@ -1,64 +1,76 @@
 # Notenotes roadmap
 
-This is a direction list for a free, local-first pre-DAW, not a release promise.
-The app has no hosted account service, server database, or private-data backend to
-grow. Work should improve making, keeping, understanding, or exporting a musical
-idea without turning Notenotes into a production DAW.
+This is a short direction map for a free, local-first pre-DAW, not a release
+promise or task tracker. Actionable work belongs in
+[GitHub Issues](https://github.com/zeidalidiez/Notenotes/issues) once it has a
+bounded user story and acceptance criteria.
 
-The public feature checklist and longer-term vision remain in the
-[`README`](../README.md). This file records the most credible next seams found in
-the code and older planning notes.
+## First: make the existing app dependable
 
-## Near-term: make the existing app dependable
+- Gate production deployment on the automated tests and production build.
+- Keep inactive modes, panels, and instruments out of the keyboard tab order and
+  accessibility tree; give modal surfaces complete focus behavior.
+- Flush pending autosaves on lifecycle boundaries and validate imported backups
+  against bounded, known schemas.
+- Do not expose a custom instrument type until playback, persistence, and
+  relevant export paths all honor it.
+- Record desktop Chrome and iOS Safari release results with the concise
+  [`manual QA checklist`](manual-qa.md).
 
-- Run and maintain the [`manual QA pass`](manual-qa.md) across desktop Chrome and
-  iOS Safari/Chrome, especially audio wake, recording, restore, backup, and export.
-- Add focused regressions when a reproducible bug is found; keep audio-device,
-  touch, PWA-install, and permission behavior in manual QA where simulation lies.
-- Keep README claims, project defaults, migrations, live playback, and exports in
-  sync whenever an existing feature is extended.
+## Then: reduce cross-surface drift
 
-## Instrument character without an effects rack
+- Establish a clearer contract between live synthesis and offline WAV rendering
+  before adding more synthesis families.
+- Add focused parity tests for patch identity, velocity response, Tone, pan,
+  channel count, and drum-kit behavior.
+- Make note spelling and ABC key output aware of project context instead of
+  always emitting sharp names under `K:C`.
+- Keep defaults, migrations, history, backup, sharing, Stage, and exports aligned
+  whenever project or snippet state changes.
 
-- Explore a Karplus–Strong plucked voice with live/offline-render parity.
-- Explore cached additive `PeriodicWave` recipes for organ, reed, and glass colors.
-- Improve layered drum character and widen narrow CC0 sample ranges where source
-  material and bundle size make that worthwhile.
-- Evaluate friendly sound-shaping concepts from the
-  [`sound-design idea bank`](ideas/sound-design.md), starting with a small user
-  outcome rather than exposing a modulation matrix.
+## Accessible ways to play
 
-The 2-operator FM family and Height Velocity across Pads, Piano, and Kit are
-already shipped; old documents that list them as unfinished are archived.
+Candidates for bounded design work:
 
-## Accessibility and alternate ways to play
+- a consistent low-stimulation profile;
+- non-color cues for degree, beat, and velocity meaning;
+- sticky or latching alternatives to held modifiers;
+- explicit adaptive-switch and foot-pedal mapping on top of existing Gamepad and
+  Step Play paths;
+- opt-in haptics behind capability detection.
 
-- Evaluate a low-stimulation profile that consistently reduces decorative motion,
-  pulsing, and high-energy visuals across every mode.
-- Add non-color cues where degree, beat, and velocity meaning currently depends on
-  color alone.
-- Prototype haptic metronome/feedback only behind capability detection and an
-  explicit opt-in.
-- Explore sticky/latching modifiers for players who cannot comfortably hold two
-  controls at once.
+Webcam/Wiimote motion, accelerometer input, color-strip notation, and body
+percussion recognition remain discussion-stage ideas rather than commitments.
 
-Tremor Filter, Dwell Play, URL-enabled profiles, Step Play, reduced-motion handling,
-and accessible palettes already exist. Extend those paths instead of rebuilding
-parallel versions.
+## Instrument character
+
+After renderer parity is better defined:
+
+- prototype a Karplus-Strong plucked voice;
+- prototype cached additive `PeriodicWave` recipes for organ, reed, and glass
+  colors;
+- improve layered drum character and widen narrow CC0 sample ranges where source
+  material and bundle size justify it;
+- prefer a small musical outcome over exposing a conventional effects rack.
+
+The FM family, four-zone Height Velocity, Tone controls, custom melodic patches,
+instrument picker, and four synthesized drum kits are already shipped.
 
 ## Deliberately later
 
-- MP3 export needs a reliable, appropriately licensed browser encoder path.
-- Stage video/GIF capture needs audio synchronization and predictable performance.
-- Microtonal modes and changing meter mid-song both affect editing, controllers,
-  labels, AI context, and exports; they need complete designs rather than isolated
-  UI switches.
+- MP3 export needs a reliable, appropriately licensed browser encoder.
+- Stage video/GIF capture needs audio synchronization and predictable mobile
+  performance.
+- True microtonality affects pitch labels, input, editing, AI context, MIDI, ABC,
+  and WAV output and needs one complete design.
+- Meter maps affect every timing and editing surface and should not begin as an
+  isolated selector.
 
-## Product guardrails
+## Guardrails
 
-- Prefer local files, browser storage, share links, and optional local folders over
-  accounts or a hosted sync service.
-- Prefer sketching and handoff features over mixing/mastering depth.
+- Prefer local files, browser storage, share links, and optional local folders
+  over accounts or hosted sync.
+- Prefer sketching and handoff over mixing and mastering depth.
 - Do not add runtime dependencies on proprietary or unclearly licensed audio.
-- Promote an idea into active work only with a bounded user story and a parity/test
-  plan. Move finished implementation plans into `docs/archive/`.
+- Do not use this file as a checkbox ledger. Close shipped work in its issue or
+  PR and keep only the remaining strategic direction here.

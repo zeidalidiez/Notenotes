@@ -241,17 +241,25 @@ export class TransportBar {
     });
 
     // Settings button
-    this.el.querySelector('#btn-settings')?.addEventListener('pointerdown', (e) => {
+    const settingsButton = this.el.querySelector('#btn-settings');
+    const activateSettings = (e) => {
+      if (e.type === 'click' && e.detail !== 0) return;
       e.preventDefault();
       this.closeMore();
-      if (this.onSettingsClick) this.onSettingsClick();
-    });
+      if (this.onSettingsClick) this.onSettingsClick(e.currentTarget);
+    };
+    settingsButton?.addEventListener('pointerdown', activateSettings);
+    settingsButton?.addEventListener('click', activateSettings);
 
-    this.el.querySelector('#btn-backup-status')?.addEventListener('pointerdown', (e) => {
+    const backupButton = this.el.querySelector('#btn-backup-status');
+    const activateBackup = (e) => {
+      if (e.type === 'click' && e.detail !== 0) return;
       e.preventDefault();
       this.closeMore();
-      if (this.onBackupClick) this.onBackupClick();
-    });
+      if (this.onBackupClick) this.onBackupClick(e.currentTarget);
+    };
+    backupButton?.addEventListener('pointerdown', activateBackup);
+    backupButton?.addEventListener('click', activateBackup);
 
     // Hold/Arp toggle
     this.el.querySelector('#btn-arp')?.addEventListener('pointerdown', (e) => {

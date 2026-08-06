@@ -14,6 +14,7 @@ import { SaveSectionMixin } from './settings/saveSection.js';
 import { AiSectionMixin } from './settings/aiSection.js';
 import { ExportSectionMixin } from './settings/exportSection.js';
 import { AccessibilitySectionMixin } from './settings/accessibilitySection.js';
+import { focusableElements, setSubtreeInteractive, setTabActive } from './InteractionState.js';
 
 const LATEST_VERSION_URL = 'https://raw.githubusercontent.com/zeidalidiez/Notenotes/main/src/version.js';
 
@@ -32,28 +33,31 @@ export class SettingsPanel {
     this._diagnosticsPanel = null;
     this._sectionLoadToken = 0;
     this._activeSection = 'settings'; // 'settings' | 'accessibility' | 'sheet' | 'history' | 'diagnostics'
+    this._returnFocus = null;
+    this._onDocumentKeyDown = (event) => this._handleDocumentKeyDown(event);
   }
 
   render() {
     this.el = document.createElement('div');
     this.el.className = 'settings-panel';
     this.el.id = 'settings-panel';
+    setSubtreeInteractive(this.el, false);
 
     this.el.innerHTML = `
-      <div class="settings-panel__overlay" id="settings-overlay"></div>
-      <div class="settings-panel__drawer" id="settings-drawer">
+      <div class="settings-panel__overlay" id="settings-overlay" aria-hidden="true"></div>
+      <div class="settings-panel__drawer" id="settings-drawer" role="dialog" aria-modal="true" aria-labelledby="settings-title">
         <div class="settings-panel__header">
-          <h2 class="settings-panel__title">Settings</h2>
+          <h2 class="settings-panel__title" id="settings-title">Settings</h2>
           <button class="btn btn--icon btn--ghost settings-panel__close" id="settings-close" aria-label="Close settings">${icon('x', { size: 16 })}</button>
         </div>
-        <div class="settings-panel__tabs">
-          <button class="settings-panel__tab is-active" data-section="settings">Settings</button>
-          <button class="settings-panel__tab" data-section="accessibility">Accessibility</button>
-          <button class="settings-panel__tab" data-section="sheet">Export</button>
-          <button class="settings-panel__tab" data-section="history">Save</button>
-          ${this._diagnosticsEnabled() ? '<button class="settings-panel__tab" data-section="diagnostics">Diagnostics</button>' : ''}
+        <div class="settings-panel__tabs" role="tablist" aria-label="Settings sections">
+          <button class="settings-panel__tab is-active" id="settings-tab-settings" data-section="settings" role="tab" aria-controls="settings-body" aria-selected="true" tabindex="0">Settings</button>
+          <button class="settings-panel__tab" id="settings-tab-accessibility" data-section="accessibility" role="tab" aria-controls="settings-body" aria-selected="false" tabindex="-1">Accessibility</button>
+          <button class="settings-panel__tab" id="settings-tab-sheet" data-section="sheet" role="tab" aria-controls="settings-body" aria-selected="false" tabindex="-1">Export</button>
+          <button class="settings-panel__tab" id="settings-tab-history" data-section="history" role="tab" aria-controls="settings-body" aria-selected="false" tabindex="-1">Save</button>
+          ${this._diagnosticsEnabled() ? '<button class="settings-panel__tab" id="settings-tab-diagnostics" data-section="diagnostics" role="tab" aria-controls="settings-body" aria-selected="false" tabindex="-1">Diagnostics</button>' : ''}
         </div>
-        <div class="settings-panel__body" id="settings-body">
+        <div class="settings-panel__body" id="settings-body" role="tabpanel" aria-labelledby="settings-tab-settings">
           ${this._renderSettingsSection()}
         </div>
       </div>
@@ -194,6 +198,7 @@ export class SettingsPanel {
       };
       tab.addEventListener('pointerdown', activate);
       tab.addEventListener('click', activate);
+      tab.addEventListener('keydown', (event) => this._handleSectionTabKeydown(event, tab));
     });
 
     window.addEventListener('project-time-signature-changed', () => {
@@ -343,10 +348,13 @@ export class SettingsPanel {
 
     // Update tab visuals
     this.el.querySelectorAll('.settings-panel__tab').forEach(t => {
-      t.classList.toggle('is-active', t.dataset.section === section);
+      const active = t.dataset.section === section;
+      t.classList.toggle('is-active', active);
+      setTabActive(t, active);
     });
 
     const body = this.el.querySelector('#settings-body');
+    body?.setAttribute('aria-labelledby', `settings-tab-${section}`);
 
     switch (section) {
       case 'settings':
@@ -434,29 +442,101 @@ export class SettingsPanel {
   }
 
   openTo(section = 'settings', options = {}) {
+    const opening = !this._isOpen;
+    if (opening) this._returnFocus = options.returnFocus || document.activeElement || null;
     this._isOpen = true;
     this.el.classList.add('is-open');
+    setSubtreeInteractive(this.el, true);
+    document.getElementById('app')?.setAttribute('inert', '');
+    if (opening) document.addEventListener('keydown', this._onDocumentKeyDown, true);
     this._switchSection(section);
-    if (options.focus === 'ai') {
+    if (opening || options.focus === 'ai') {
       requestAnimationFrame(() => {
-        const provider = this.el?.querySelector('#setting-ai-provider');
-        provider?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        try { provider?.focus(); } catch (_) {}
+        const target = options.focus === 'ai'
+          ? this.el?.querySelector('#setting-ai-provider')
+          : this.el?.querySelector('#settings-close');
+        if (options.focus === 'ai') target?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+        try { target?.focus({ preventScroll: options.focus !== 'ai' }); } catch (_) { target?.focus?.(); }
       });
     }
     this._dumpDebugSnapshot('settings-open');
   }
 
   close() {
+    if (!this._isOpen) {
+      setSubtreeInteractive(this.el, false);
+      document.getElementById('app')?.removeAttribute('inert');
+      document.removeEventListener('keydown', this._onDocumentKeyDown, true);
+      return;
+    }
     this._isOpen = false;
     this._diagnosticsPanel?.destroy();
     this._diagnosticsPanel = null;
     this.el.classList.remove('is-open');
+    setSubtreeInteractive(this.el, false);
+    document.getElementById('app')?.removeAttribute('inert');
+    document.removeEventListener('keydown', this._onDocumentKeyDown, true);
+
+    const returnFocus = this._returnFocus;
+    this._returnFocus = null;
+    requestAnimationFrame(() => {
+      if (returnFocus?.isConnected !== false && !returnFocus?.closest?.('[inert]')) {
+        try { returnFocus?.focus?.({ preventScroll: true }); } catch (_) { returnFocus?.focus?.(); }
+      }
+    });
   }
 
-  toggle() {
+  toggle(options = {}) {
     if (this._isOpen) this.close();
-    else this.open();
+    else this.openTo(this._activeSection, options);
+  }
+
+  _handleDocumentKeyDown(event) {
+    if (!this._isOpen) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      this.close();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+
+    const focusable = focusableElements(this.el);
+    if (!focusable.length) {
+      event.preventDefault();
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+    if (!this.el.contains(active)) {
+      event.preventDefault();
+      first.focus();
+    } else if (event.shiftKey && active === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  _handleSectionTabKeydown(event, currentTab) {
+    const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End'];
+    if (!keys.includes(event.key)) return;
+    const tabs = Array.from(this.el.querySelectorAll('.settings-panel__tab'));
+    const currentIndex = tabs.indexOf(currentTab);
+    let nextIndex = currentIndex;
+    if (event.key === 'Home') nextIndex = 0;
+    else if (event.key === 'End') nextIndex = tabs.length - 1;
+    else if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+    else nextIndex = (currentIndex + 1) % tabs.length;
+
+    event.preventDefault();
+    const next = tabs[nextIndex];
+    this._switchSection(next.dataset.section);
+    next.focus();
   }
 }
 

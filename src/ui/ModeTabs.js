@@ -2,6 +2,8 @@
  * ModeTabs — Bottom navigation for switching between Creative, Canvas, and Piano Roll modes.
  */
 
+import { setTabActive } from './InteractionState.js';
+
 export const Modes = {
   CREATIVE: 'creative',
   CANVAS: 'canvas',
@@ -37,6 +39,7 @@ export class ModeTabs {
     this.el.className = 'mode-tabs';
     this.el.id = 'mode-tabs';
     this.el.setAttribute('role', 'tablist');
+    this.el.setAttribute('aria-label', 'Workspace modes');
 
     const tabs = [
       { mode: Modes.CREATIVE, label: 'Create' },
@@ -48,14 +51,15 @@ export class ModeTabs {
       const btn = document.createElement('button');
       btn.className = `mode-tabs__tab${tab.mode === this.activeMode ? ' is-active' : ''}`;
       btn.setAttribute('role', 'tab');
-      btn.setAttribute('aria-selected', tab.mode === this.activeMode);
       btn.setAttribute('data-mode', tab.mode);
       btn.id = `tab-${tab.mode}`;
+      btn.setAttribute('aria-controls', `view-${tab.mode}`);
+      setTabActive(btn, tab.mode === this.activeMode);
       btn.innerHTML = `<span class="mode-tabs__label">${tab.label}</span>`;
-      btn.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
+      btn.addEventListener('click', () => {
         this.setActive(tab.mode);
       });
+      btn.addEventListener('keydown', (event) => this._handleTabKeydown(event, tab.mode, tabs));
       this.el.appendChild(btn);
     }
 
@@ -74,10 +78,27 @@ export class ModeTabs {
     tabs.forEach(tab => {
       const isActive = tab.dataset.mode === mode;
       tab.classList.toggle('is-active', isActive);
-      tab.setAttribute('aria-selected', isActive);
+      setTabActive(tab, isActive);
     });
 
     // Notify listeners
     for (const fn of this._onChangeCallbacks) fn(mode);
+  }
+
+  _handleTabKeydown(event, currentMode, tabs) {
+    const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End'];
+    if (!keys.includes(event.key)) return;
+
+    const currentIndex = tabs.findIndex(tab => tab.mode === currentMode);
+    let nextIndex = currentIndex;
+    if (event.key === 'Home') nextIndex = 0;
+    else if (event.key === 'End') nextIndex = tabs.length - 1;
+    else if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+    else nextIndex = (currentIndex + 1) % tabs.length;
+
+    event.preventDefault();
+    const nextMode = tabs[nextIndex].mode;
+    this.setActive(nextMode);
+    this.el.querySelector(`[data-mode="${nextMode}"]`)?.focus?.();
   }
 }

@@ -37,6 +37,7 @@ import {
 } from './utils/FolderBackup.js';
 import { applyAccessibilityProfilesFromUrl, ensureAccessibilitySettings } from './ui/AccessibilityProfiles.js';
 import { projectMasterVolume, projectMetronomeVolume } from './engine/OutputVolume.js';
+import { setSubtreeInteractive } from './ui/InteractionState.js';
 
 if (typeof window !== 'undefined') {
   const params = new URLSearchParams(window.location.search);
@@ -248,9 +249,9 @@ class App {
     });
     document.body.appendChild(this.settingsPanel.render());
 
-    // Wire metronome button to also show settings on long-press
-    this.transportBar.onSettingsClick = () => this.settingsPanel.toggle();
-    this.transportBar.onBackupClick = () => this._handleBackupStatusClick();
+    // Wire the transport settings and backup shortcuts after the panel exists.
+    this.transportBar.onSettingsClick = (opener) => this.settingsPanel.toggle({ returnFocus: opener });
+    this.transportBar.onBackupClick = (opener) => this._handleBackupStatusClick(opener);
     this.transportBar.onMoreOpen = () => this.settingsPanel.close();
     window.addEventListener('notenotes-open-settings', (event) => {
       this.transportBar.closeMore?.();
@@ -427,7 +428,7 @@ class App {
     }
   }
 
-  async _handleBackupStatusClick() {
+  async _handleBackupStatusClick(opener = null) {
     try {
       const handle = await getBackupFolderHandle(this.store);
       if (handle) {
@@ -447,7 +448,7 @@ class App {
       console.warn('[Backup] Could not request backup folder permission:', err);
       showToast('Could not request backup folder access');
     } finally {
-      this.settingsPanel?.openTo('history');
+      this.settingsPanel?.openTo('history', { returnFocus: opener });
     }
   }
 
@@ -909,6 +910,8 @@ class App {
     creativeView.className = 'mode-view';
     creativeView.id = `view-${Modes.CREATIVE}`;
     creativeView.setAttribute('role', 'tabpanel');
+    creativeView.setAttribute('aria-labelledby', `tab-${Modes.CREATIVE}`);
+    setSubtreeInteractive(creativeView, false);
     creativeView.appendChild(this.creativeMode.render());
 
     // Canvas mode uses real arranger UI
@@ -916,6 +919,8 @@ class App {
     canvasView.className = 'mode-view';
     canvasView.id = `view-${Modes.CANVAS}`;
     canvasView.setAttribute('role', 'tabpanel');
+    canvasView.setAttribute('aria-labelledby', `tab-${Modes.CANVAS}`);
+    setSubtreeInteractive(canvasView, false);
     // CanvasMode rendered after project load
 
     const pianoRollView = this._createModeView(Modes.PIANOROLL, false);
@@ -984,6 +989,8 @@ class App {
     view.className = `mode-view${active ? ' is-active' : ''}`;
     view.id = `view-${mode}`;
     view.setAttribute('role', 'tabpanel');
+    view.setAttribute('aria-labelledby', `tab-${mode}`);
+    setSubtreeInteractive(view, active);
 
     // Placeholder content for each mode
     const content = this._getModeContent(mode);
@@ -1040,8 +1047,15 @@ class App {
   _switchMode(mode) {
     const views = document.querySelectorAll('.mode-view');
     views.forEach(v => {
-      v.classList.toggle('is-active', v.id === `view-${mode}`);
+      const active = v.id === `view-${mode}`;
+      v.classList.toggle('is-active', active);
+      setSubtreeInteractive(v, active);
     });
+
+    const focusedView = document.activeElement?.closest?.('.mode-view');
+    if (focusedView?.hasAttribute?.('inert')) {
+      document.getElementById(`tab-${mode}`)?.focus?.();
+    }
   }
 
   /**

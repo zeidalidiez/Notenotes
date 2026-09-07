@@ -901,7 +901,11 @@ export async function snippetToWavBlob(snippet, project = {}, options = {}) {
   else if (snippet?.type === 'midi') {
     renderMidiWithTone(samples, snippet || {}, 0, bpm, traits, 1, { patch, pan: options.pan || 0, random });
   } else {
-    renderSnippetEvents(samples, snippet || {}, 0, bpm, { toneTraits: traits, pan: options.pan || 0, random });
+    const kitId = recordedInstrumentId(snippet, 'classic');
+    if (snippet?.type === 'drum' && kitId !== 'kit' && !DRUM_KITS[kitId]) {
+      throw new Error('Recorded drum kit is unavailable');
+    }
+    renderSnippetEvents(samples, snippet || {}, 0, bpm, { toneTraits: traits, pan: options.pan || 0, kitId, random });
   }
   return encodeWav(withWavChannelMode(samples, channelMode));
 }

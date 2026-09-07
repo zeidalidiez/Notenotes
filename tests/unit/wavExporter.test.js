@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { snippetToWavBlob } from '../../src/export/WavExporter.js';
+import { DRUM_KITS } from '../../src/instruments/SketchKit.js';
 
 async function pcm16(blob) {
   const buffer = await blob.arrayBuffer();
@@ -83,4 +84,13 @@ test('procedural drum and Tone-noise exports are reproducible by default', async
   const second = new Uint8Array(await (await snippetToWavBlob(snippet)).arrayBuffer());
 
   assert.deepEqual(second, first);
+});
+
+test('recorded drums retain the chosen kit through capture and snippet WAV export', async () => {
+  const kitId = Object.keys(DRUM_KITS).find(id => id !== 'classic');
+  const snippet = { type: 'drum', durationTicks: 480, hits: [{ type: 'kick', startTick: 0, velocity: 0.8 }] };
+  snippet.kitRecorded = { instrumentId: kitId };
+  const chosen = new Uint8Array(await (await snippetToWavBlob(snippet, {}, { seed: 1 })).arrayBuffer());
+  const classic = new Uint8Array(await (await snippetToWavBlob({ ...snippet, kitRecorded: { instrumentId: 'classic' } }, {}, { seed: 1 })).arrayBuffer());
+  assert.notDeepEqual(chosen, classic, 'the chosen drum timbre reaches the renderer');
 });

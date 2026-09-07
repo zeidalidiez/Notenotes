@@ -785,7 +785,15 @@ export class CreativeMode {
   }
 
   _stampRecordedPatch(snippet) {
-    if (!snippet || snippet.type !== 'midi') return;
+    if (!snippet) return;
+    if (snippet.type === 'drum') {
+      const instrumentId = this.sketchKit?.selectedKitId || 'classic';
+      snippet.instrumentId = instrumentId;
+      snippet.kitRecorded = { instrumentId, capturedAt: Date.now() };
+      snippet.schemaVersion = Math.max(snippet.schemaVersion || 1, 2);
+      return;
+    }
+    if (snippet.type !== 'midi') return;
     const instrumentId = this._activePatchId || 'chip_lead';
     snippet.instrumentId = instrumentId;
     snippet.patchRecorded = {

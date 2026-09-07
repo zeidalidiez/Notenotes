@@ -1,3 +1,4 @@
+import { onActivate } from './Activation.js';
 /**
  * TransportBar — UI component for the top transport controls.
  * Play/Pause, Stop, Record, BPM, Metronome, Beat Indicator, Loop controls.
@@ -13,6 +14,7 @@ import { TapTempo } from '../engine/TapTempo.js';
 import { ChoicePicker } from './ChoicePicker.js';
 import { icon } from './icons.js';
 import { progressionButtonLabel } from './progressionPicker.js';
+import { setSubtreeInteractive } from './InteractionState.js';
 
 export class TransportBar {
   /**
@@ -152,7 +154,35 @@ export class TransportBar {
 
     this._beatDots = this.el.querySelectorAll('.beat-indicator__dot');
     this._bindEvents();
+    this._bindResponsiveControls();
     return this.el;
+  }
+
+  _bindResponsiveControls() {
+    if (typeof window.matchMedia !== 'function') return;
+    const query = window.matchMedia('(max-width: 560px)');
+    const homes = ['.transport-bar__project-key', '#btn-arm-record', '#bpm-tap-button'].map(selector => {
+      const node = this.el.querySelector(selector);
+      return { node, parent: node.parentNode, next: node.nextSibling };
+    });
+    const sync = () => {
+      this._compact = query.matches;
+      const more = this.el.querySelector('#tb-more');
+      for (const home of homes) {
+        if (this._compact) more.appendChild(home.node);
+        else home.parent.insertBefore(home.node, home.next);
+      }
+      this._syncMoreInteraction();
+    };
+    query.addEventListener('change', sync);
+    sync();
+  }
+
+  _syncMoreInteraction() {
+    const more = this.el.querySelector('#tb-more');
+    const interactive = !this._compact || more.classList.contains('is-open');
+    if (!interactive && more.contains(document.activeElement)) this.el.querySelector('#tb-more-btn')?.focus();
+    setSubtreeInteractive(more, interactive);
   }
 
   setSaveState(state) {
@@ -171,14 +201,14 @@ export class TransportBar {
   _bindEvents() {
     this.el.querySelector('#save-retry').addEventListener('click', () => this.onRetrySave?.());
     // Play/pause
-    this.el.querySelector('#btn-play').addEventListener('pointerdown', (e) => {
+    onActivate(this.el.querySelector('#btn-play'), (e) => {
       e.preventDefault();
       if (this.onPlayToggle) this.onPlayToggle();
       else this.transport.toggle();
     });
 
     // Stop
-    this.el.querySelector('#btn-stop').addEventListener('pointerdown', (e) => {
+    onActivate(this.el.querySelector('#btn-stop'), (e) => {
       e.preventDefault();
       const now = Date.now();
       const isDoubleStop = now - this._lastStopPress < 650;
@@ -190,7 +220,7 @@ export class TransportBar {
     });
 
     // Record
-    this.el.querySelector('#btn-record').addEventListener('pointerdown', (e) => {
+    onActivate(this.el.querySelector('#btn-record'), (e) => {
       e.preventDefault();
       this.setRecordArmed(false);
       if (this.transport.state === TransportState.RECORDING) {
@@ -200,7 +230,7 @@ export class TransportBar {
       }
     });
 
-    this.el.querySelector('#btn-arm-record')?.addEventListener('pointerdown', (e) => {
+    onActivate(this.el.querySelector('#btn-arm-record'), (e) => {
       e.preventDefault();
       if (this.onArmRecordClick) this.onArmRecordClick(!this._recordArmed);
     });
@@ -210,7 +240,7 @@ export class TransportBar {
     bpmInput.addEventListener('change', () => {
       this._setBpm(parseInt(bpmInput.value, 10) || 120);
     });
-    this.el.querySelector('#bpm-button')?.addEventListener('pointerdown', (e) => {
+    onActivate(this.el.querySelector('#bpm-button'), (e) => {
       e.preventDefault();
       this._openBpmModal();
     });
@@ -219,17 +249,17 @@ export class TransportBar {
       e.preventDefault();
       this._openBpmModal();
     });
-    this.el.querySelector('#bpm-tap-button')?.addEventListener('pointerdown', (e) => {
+    onActivate(this.el.querySelector('#bpm-tap-button'), (e) => {
       e.preventDefault();
       this._registerTap();
     });
 
     this.el.querySelector('#project-root-select')?.addEventListener('change', () => this._emitProjectKeyChange());
-    this.el.querySelector('#project-scale-picker')?.addEventListener('pointerdown', (event) => {
+    onActivate(this.el.querySelector('#project-scale-picker'), (event) => {
       event.preventDefault();
       this._openScalePicker(event.currentTarget);
     });
-    this.el.querySelector('#chord-suggest-button')?.addEventListener('pointerdown', (event) => {
+    onActivate(this.el.querySelector('#chord-suggest-button'), (event) => {
       event.preventDefault();
       this._openSuggestPopover(event.currentTarget);
     });
@@ -237,7 +267,7 @@ export class TransportBar {
     this.el.querySelector('#project-meter-grouping-select')?.addEventListener('change', () => this._emitProjectMeterChange());
 
     // Metronome toggle
-    this.el.querySelector('#btn-metronome').addEventListener('pointerdown', (e) => {
+    onActivate(this.el.querySelector('#btn-metronome'), (e) => {
       e.preventDefault();
       const active = this.metronome.toggle();
       this.el.querySelector('#metronome-toggle').classList.toggle('is-active', active);
@@ -283,19 +313,19 @@ export class TransportBar {
     backupButton?.addEventListener('click', activateBackup);
 
     // Hold/Arp toggle
-    this.el.querySelector('#btn-arp')?.addEventListener('pointerdown', (e) => {
+    onActivate(this.el.querySelector('#btn-arp'), (e) => {
       e.preventDefault();
       if (this.onArpClick) this.onArpClick();
     });
 
     // Keys shortcut reference
-    this.el.querySelector('#btn-keys')?.addEventListener('pointerdown', (e) => {
+    onActivate(this.el.querySelector('#btn-keys'), (e) => {
       e.preventDefault();
       if (this.onKeysClick) this.onKeysClick();
     });
 
     // Mod reset
-    this.el.querySelector('#mod-reset-btn')?.addEventListener('pointerdown', (e) => {
+    onActivate(this.el.querySelector('#mod-reset-btn'), (e) => {
       e.preventDefault();
       e.stopPropagation();
       if (this.onModResetClick) this.onModResetClick();
@@ -316,8 +346,9 @@ export class TransportBar {
       const moreBtn = this.el.querySelector('#tb-more-btn');
       moreBtn?.classList.toggle('is-active', shouldOpen);
       moreBtn?.setAttribute('aria-expanded', String(shouldOpen));
+      this._syncMoreInteraction();
     };
-    this.el.querySelector('#tb-more-btn')?.addEventListener('pointerdown', toggleMore);
+    onActivate(this.el.querySelector('#tb-more-btn'), toggleMore);
   }
 
   _scaleLabel(scaleName) {
@@ -403,15 +434,15 @@ export class TransportBar {
     document.body.appendChild(overlay);
     this._suggestPopover = overlay;
 
-    overlay.addEventListener('pointerdown', (e) => {
+    onActivate(overlay, (e) => {
       if (e.target === overlay) this._closeSuggestPopover();
     });
-    overlay.querySelector('#suggest-close')?.addEventListener('pointerdown', (e) => {
+    onActivate(overlay.querySelector('#suggest-close'), (e) => {
       e.preventDefault();
       this._closeSuggestPopover();
     });
     overlay.querySelectorAll('.suggest-chord').forEach(button => {
-      button.addEventListener('pointerdown', (e) => {
+      onActivate(button, (e) => {
         e.preventDefault();
         const index = Number(button.dataset.index);
         const chord = suggestions[index];
@@ -453,6 +484,7 @@ export class TransportBar {
 
   closeMore() {
     this.el?.querySelector('#tb-more')?.classList.remove('is-open');
+    this._syncMoreInteraction();
     const btn = this.el?.querySelector('#tb-more-btn');
     btn?.classList.remove('is-active');
     btn?.setAttribute('aria-expanded', 'false');
@@ -630,16 +662,16 @@ export class TransportBar {
       }
     });
     overlay.querySelectorAll('[data-bpm-step]').forEach(button => {
-      button.addEventListener('pointerdown', (e) => {
+      onActivate(button, (e) => {
         e.preventDefault();
         syncDraft(draft + Number(button.dataset.bpmStep));
       });
     });
-    overlay.querySelector('#bpm-modal-cancel')?.addEventListener('pointerdown', (e) => {
+    onActivate(overlay.querySelector('#bpm-modal-cancel'), (e) => {
       e.preventDefault();
       this._closeBpmModal();
     });
-    overlay.querySelector('#bpm-modal-save')?.addEventListener('pointerdown', (e) => {
+    onActivate(overlay.querySelector('#bpm-modal-save'), (e) => {
       e.preventDefault();
       syncDraft(input.value);
       this._setBpm(draft);

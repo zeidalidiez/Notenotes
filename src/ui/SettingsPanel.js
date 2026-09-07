@@ -1,3 +1,4 @@
+import { onActivate } from './Activation.js';
 /**
  * SettingsPanel — Slide-out panel for app-wide settings.
  * Includes quantization, metronome settings, project management,
@@ -198,7 +199,7 @@ export class SettingsPanel {
   _bindEvents() {
     // Overlay close
     this.el.querySelector('#settings-overlay')?.addEventListener('pointerdown', () => this.close());
-    this.el.querySelector('#settings-close')?.addEventListener('pointerdown', (e) => {
+    onActivate(this.el.querySelector('#settings-close'), (e) => {
       e.preventDefault();
       this.close();
     });
@@ -239,7 +240,7 @@ export class SettingsPanel {
       }
     });
 
-    body.querySelector('#setting-install-app')?.addEventListener('pointerdown', async (e) => {
+    onActivate(body.querySelector('#setting-install-app'), async (e) => {
       e.preventDefault();
       const promptEvent = window.notenotesInstallPrompt;
       if (promptEvent) {
@@ -252,7 +253,7 @@ export class SettingsPanel {
       showToast('Chrome: three-dot menu > Cast, save, and share > Install page as app', 7000);
     });
 
-    body.querySelector('#setting-version-check')?.addEventListener('pointerdown', async (e) => {
+    onActivate(body.querySelector('#setting-version-check'), async (e) => {
       e.preventDefault();
       await this._checkLatestVersion();
     });

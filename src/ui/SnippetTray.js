@@ -1,3 +1,4 @@
+import { onActivate } from './Activation.js';
 /**
  * SnippetTray — Horizontal scrollable list of captured snippets.
  * Shows mini previews, play/delete buttons.
@@ -66,7 +67,7 @@ export class SnippetTray {
         </div>
       </div>
     `;
-    this.el.querySelector('#snippet-tray-toggle')?.addEventListener('pointerdown', (e) => {
+    onActivate(this.el.querySelector('#snippet-tray-toggle'), (e) => {
       e.preventDefault();
       this._toggleCollapsed();
     });
@@ -118,8 +119,12 @@ export class SnippetTray {
 
     if (this.snippets.length === 0) {
       list.innerHTML = `<div class="snippet-tray__empty" id="snippet-empty">
-        Record a loop to capture snippets
+        <button class="btn btn--primary" id="record-first-idea" type="button">Record your first idea</button>
       </div>`;
+      onActivate(list.querySelector('#record-first-idea'), event => {
+        event.preventDefault();
+        this.onRecordRequested?.();
+      });
       return;
     }
 
@@ -163,7 +168,7 @@ export class SnippetTray {
 
     // Bind transcribe ("To MIDI") buttons on audio snippets
     list.querySelectorAll('.snippet-tray__tomidi-btn').forEach(btn => {
-      btn.addEventListener('pointerdown', (e) => {
+      onActivate(btn, (e) => {
         e.preventDefault();
         e.stopPropagation();
         const snippet = this.snippets.find(s => s.id === btn.dataset.tomidi);
@@ -173,7 +178,7 @@ export class SnippetTray {
 
     // Bind delete buttons
     list.querySelectorAll('.snippet-tray__delete-btn').forEach(btn => {
-      btn.addEventListener('pointerdown', (e) => {
+      onActivate(btn, (e) => {
         e.preventDefault();
         e.stopPropagation();
         this.removeSnippet(btn.dataset.delete);
@@ -182,7 +187,7 @@ export class SnippetTray {
 
     // Bind share buttons
     list.querySelectorAll('.snippet-tray__share-btn').forEach(btn => {
-      btn.addEventListener('pointerdown', (e) => {
+      onActivate(btn, (e) => {
         e.preventDefault();
         e.stopPropagation();
         const snippet = this.snippets.find(s => s.id === btn.dataset.share);

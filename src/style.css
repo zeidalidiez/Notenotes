@@ -624,6 +624,15 @@ input, textarea, select, [contenteditable] {
     flex-wrap: wrap;
   }
 
+  .transport-bar > .beat-indicator { display: none; }
+  .transport-bar > .save-status {
+    order: 4;
+    flex-basis: 100%;
+    justify-content: flex-end;
+    min-height: 14px;
+    font-size: 0.65rem;
+  }
+
   .transport-bar__bpm input {
     display: none;
   }
@@ -639,6 +648,9 @@ input, textarea, select, [contenteditable] {
     flex: 1 1 100%;
     flex-wrap: wrap;
     padding-left: 0;
+    gap: 8px;
+    border-top: var(--border-subtle);
+    padding-top: 8px;
   }
 
   .transport-bar__project-key select {
@@ -678,6 +690,9 @@ input, textarea, select, [contenteditable] {
     padding: var(--space-sm);
     z-index: 250;
     box-shadow: 0 12px 28px rgba(0,0,0,0.55);
+    width: min(340px, calc(100vw - 24px));
+    max-height: calc(100dvh - 160px);
+    overflow-y: auto;
   }
 
   .transport-bar__more.is-open {

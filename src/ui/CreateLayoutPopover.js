@@ -1,3 +1,4 @@
+import { onActivate } from './Activation.js';
 import {
   DEFAULT_DEGREE_COLORS,
   DEFAULT_DEGREE_HIGHLIGHTING,
@@ -333,7 +334,7 @@ export class CreateLayoutPopover {
         notify();
       });
     });
-    popover.querySelector('[data-degree-reset]')?.addEventListener('pointerdown', (event) => {
+    onActivate(popover.querySelector('[data-degree-reset]'), (event) => {
       event.preventDefault();
       const project = this.getProject?.();
       project.settings ||= {};
@@ -405,7 +406,7 @@ export class CreateLayoutPopover {
       popover.querySelector('[data-progression-glow-intensity-value]')?.replaceChildren(`${Math.round(glow.intensity * 100)}%`);
       notify();
     });
-    popover.querySelector('[data-progression-glow-reset]')?.addEventListener('pointerdown', (event) => {
+    onActivate(popover.querySelector('[data-progression-glow-reset]'), (event) => {
       event.preventDefault();
       const project = this.getProject?.();
       project.settings ||= {};

@@ -1,3 +1,4 @@
+import { onActivate } from '../ui/Activation.js';
 /**
  * EditMode — Live Edit / Piano Roll.
  * Per-clip note editor for fine-tuning pitch, timing, duration, and velocity.
@@ -444,7 +445,7 @@ export class EditMode {
     });
 
     this.el.querySelectorAll('.edit-browser__pill').forEach(btn => {
-      btn.addEventListener('pointerdown', (e) => {
+      onActivate(btn, (e) => {
         e.preventDefault();
         this.el.querySelectorAll('.edit-browser__pill').forEach(b => b.classList.remove('is-active'));
         btn.classList.add('is-active');
@@ -461,7 +462,7 @@ export class EditMode {
     });
 
     this.el.querySelectorAll('.edit-browser__view-btn').forEach(btn => {
-      btn.addEventListener('pointerdown', (e) => {
+      onActivate(btn, (e) => {
         e.preventDefault();
         this.el.querySelectorAll('.edit-browser__view-btn').forEach(b => b.classList.remove('is-active'));
         btn.classList.add('is-active');
@@ -519,7 +520,7 @@ export class EditMode {
       });
     });
     itemsContainer.querySelectorAll('.edit-browser__delete-btn').forEach(btn => {
-      btn.addEventListener('pointerdown', (e) => {
+      onActivate(btn, (e) => {
         e.preventDefault();
         e.stopPropagation();
         this._deleteBrowserSnippet(btn.dataset.delete);

@@ -108,6 +108,24 @@ export const CanvasClipsMixin = {
     return null;
   },
 
+  _placeLibrarySnippet(snippetId) {
+    const snippet = this.project?.snippets?.find(item => item.id === snippetId);
+    if (!snippet) return;
+    let track = this.project.tracks.find(item => this._trackAcceptsSnippet(item, snippet));
+    if (!track) {
+      this._addTrack(this._snippetTrackType(snippet));
+      track = this.project.tracks.at(-1);
+    }
+    const durationBars = snippet.durationTicks / this.transport.ticksPerBar || 1;
+    const end = track.clips.reduce((last, clip) => Math.max(last, this._clipEndBar(clip)), 0);
+    const clip = { id: crypto.randomUUID(), snippetId, snippet, startBar: end, durationBars, timeScale: 1 };
+    const start = this._resolveClipStart(track, clip, end, durationBars);
+    if (start === null) { showToast('No room for that clip on this track'); return; }
+    clip.startBar = start;
+    const previousInstrumentId = this._applyRecordedInstrumentToTrack(track, snippet);
+    this._commitClipAdd(track, clip, snippet, previousInstrumentId);
+  },
+
   _applyRecordedInstrumentToTrack(track, snippet) {
     const instrumentId = this._recordedInstrumentForSnippet(snippet);
     if (!track || !instrumentId) return null;

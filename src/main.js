@@ -8,6 +8,7 @@ import './instruments/instruments.css';
 import './ui/settings.css';
 
 import { AudioEngine } from './engine/AudioEngine.js';
+import { isDialogTarget, isNativeControl } from './ui/Activation.js';
 import { Transport } from './engine/Transport.js';
 import { Metronome } from './engine/Metronome.js';
 import { Quantizer } from './engine/Quantizer.js';
@@ -387,12 +388,9 @@ class App {
     this._bindAudioVisibilityResume();
     this._buildAudioUnlockPrompt();
 
-    // Inspect is the new default landing tab. Apply it last so `_switchMode`
-    // runs after every mode view + EditMode is mounted, and so the onChange
-    // callback (which calls `_switchMode` + canvas refresh) fires exactly
-    // once with the correct active mode.
-    this.modeTabs.setActive(Modes.PIANOROLL);
-    this._switchMode(Modes.PIANOROLL);
+    // A new workspace opens directly on a playable surface. Existing libraries
+    // still open in Inspect. The mode callback performs the initial switch.
+    this.modeTabs.setActive(this.project.snippets?.length ? Modes.PIANOROLL : Modes.CREATIVE);
 
     console.log('[App] Notenotes ready.');
   }
@@ -1214,11 +1212,13 @@ class App {
   _bindKeyboard() {
     document.addEventListener('keydown', (e) => {
       // Don't capture when typing in inputs
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable) return;
+      if (e.defaultPrevented || isDialogTarget(e.target)
+        || ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable) return;
+      const transportShortcut = !isNativeControl(e.target) && !e.ctrlKey && !e.metaKey && !e.altKey && !e.repeat;
 
       // Space → Play/Pause. Routed through `_handlePlayToggle` so Inspect
       // mode can audition the open clip instead of the Canvas arrangement.
-      if (e.code === 'Space') {
+      if (e.code === 'Space' && transportShortcut) {
         e.preventDefault();
         if (this._initialized) {
           this._handlePlayToggle();
@@ -1226,7 +1226,7 @@ class App {
       }
 
       // Enter â†’ Stop and rewind
-      if (e.code === 'Enter') {
+      if (e.code === 'Enter' && transportShortcut) {
         e.preventDefault();
         if (this._initialized) {
           this._cancelPendingPlaybackStart();
@@ -1235,7 +1235,7 @@ class App {
       }
 
       // Ctrl+Z → Undo
-      if (e.ctrlKey && !e.shiftKey && e.code === 'KeyZ') {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.code === 'KeyZ') {
         e.preventDefault();
         if (this.undoManager.undo()) {
           showToast(`Undo: ${this.undoManager.redoDescription}`);
@@ -1243,7 +1243,7 @@ class App {
       }
 
       // Ctrl+Shift+Z → Redo
-      if (e.ctrlKey && e.shiftKey && e.code === 'KeyZ') {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyZ') {
         e.preventDefault();
         if (this.undoManager.redo()) {
           showToast(`Redo: ${this.undoManager.undoDescription}`);
@@ -1251,7 +1251,7 @@ class App {
       }
 
       // Ctrl+S → Save
-      if (e.ctrlKey && e.code === 'KeyS') {
+      if ((e.ctrlKey || e.metaKey) && e.code === 'KeyS') {
         e.preventDefault();
         if (this.project) {
           this.store.scheduleAutoSave(this.project);
@@ -1262,7 +1262,7 @@ class App {
       }
 
       // 1/3/4/6/7/9 → Pitch bend / Modulation (hold to ramp)
-      if (e.code.startsWith('Digit') || e.code.startsWith('Numpad')) {
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.code.startsWith('Digit') || e.code.startsWith('Numpad'))) {
         if (this.modeTabs.activeMode === Modes.CREATIVE && this.creativeMode?.handlesPerformanceKey?.(e.code)) return;
         const key = e.code.replace('Digit', '').replace('Numpad', '');
         if (['1','3','4','6','7','9'].includes(key) && !e.repeat) {

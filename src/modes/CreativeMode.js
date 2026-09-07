@@ -557,6 +557,11 @@ export class CreativeMode {
     this.el.appendChild(container);
 
     // Snippet tray (bottom)
+    this.snippetTray.onRecordRequested = () => {
+      this.ensureAudioReady();
+      this.setRecordArmed(true);
+      this.snippetTray.el.querySelector('#record-first-idea')?.blur();
+    };
     this.el.appendChild(this.snippetTray.render());
 
     // Sync context-specific toolbar buttons once the instruments exist.

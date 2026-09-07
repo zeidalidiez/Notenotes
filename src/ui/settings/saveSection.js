@@ -1,3 +1,4 @@
+import { onActivate } from '../Activation.js';
 /**
  * saveSection — SettingsPanel "Save" tab: version history, storage status,
  * workspace backup (incl. folder backup), and milestones.
@@ -168,7 +169,7 @@ export const SaveSectionMixin = {
 
       // Bind restore buttons
       listEl.querySelectorAll('.version-list__restore').forEach(btn => {
-        btn.addEventListener('pointerdown', async (e) => {
+        onActivate(btn, async (e) => {
           e.preventDefault();
           const vid = parseInt(btn.dataset.versionId, 10);
           if (confirm('Restore this version? Current changes will be saved first.')) {
@@ -182,7 +183,7 @@ export const SaveSectionMixin = {
       });
 
       listEl.querySelectorAll('.version-list__delete').forEach(btn => {
-        btn.addEventListener('pointerdown', async (e) => {
+        onActivate(btn, async (e) => {
           e.preventDefault();
           const vid = parseInt(btn.dataset.versionId, 10);
           if (!Number.isFinite(vid) || !confirm('Delete this version history entry?')) return;
@@ -466,7 +467,7 @@ export const SaveSectionMixin = {
       this._loadStorageStatus();
     });
 
-    body.querySelector('#storage-health-check')?.addEventListener('pointerdown', async (e) => {
+    onActivate(body.querySelector('#storage-health-check'), async (e) => {
       e.preventDefault();
       await this._runStorageHealthAudit();
     });
@@ -484,7 +485,7 @@ export const SaveSectionMixin = {
       showToast(`Keeping up to ${limit} versions`);
     });
 
-    body.querySelector('#version-history-clear')?.addEventListener('pointerdown', async (e) => {
+    onActivate(body.querySelector('#version-history-clear'), async (e) => {
       e.preventDefault();
       if (!this.project || !this.store) return;
       if (!confirm('Clear all version history for this workspace?')) return;
@@ -494,7 +495,7 @@ export const SaveSectionMixin = {
       showToast('Version history cleared');
     });
 
-    body.querySelector('#backup-workspace-save')?.addEventListener('pointerdown', async (e) => {
+    onActivate(body.querySelector('#backup-workspace-save'), async (e) => {
       e.preventDefault();
       if (!this.project) return;
       await this.store?.save(this.project);
@@ -519,7 +520,7 @@ export const SaveSectionMixin = {
       }
     });
 
-    body.querySelector('#backup-folder-connect')?.addEventListener('pointerdown', async (e) => {
+    onActivate(body.querySelector('#backup-folder-connect'), async (e) => {
       e.preventDefault();
       if (!this._folderBackupSupported()) {
         showToast('Folder backup needs desktop Chrome or Edge');
@@ -546,7 +547,7 @@ export const SaveSectionMixin = {
       }
     });
 
-    body.querySelector('#backup-folder-save')?.addEventListener('pointerdown', async (e) => {
+    onActivate(body.querySelector('#backup-folder-save'), async (e) => {
       e.preventDefault();
       if (!this.project) return;
       const btn = e.currentTarget;
@@ -563,7 +564,7 @@ export const SaveSectionMixin = {
       }
     });
 
-    body.querySelector('#backup-folder-disconnect')?.addEventListener('pointerdown', async (e) => {
+    onActivate(body.querySelector('#backup-folder-disconnect'), async (e) => {
       e.preventDefault();
       if (!confirm('Disconnect backup folder? Existing backup files will stay in the folder.')) return;
       await this.store?.deleteLocalSetting(LOCAL_BACKUP_FOLDER_KEY);
@@ -574,7 +575,7 @@ export const SaveSectionMixin = {
       showToast('Backup folder disconnected');
     });
 
-    body.querySelector('#backup-snippets-save')?.addEventListener('pointerdown', async (e) => {
+    onActivate(body.querySelector('#backup-snippets-save'), async (e) => {
       e.preventDefault();
       if (!this.project) return;
       await this.store?.save(this.project);
@@ -591,7 +592,7 @@ export const SaveSectionMixin = {
     });
 
     const importInput = body.querySelector('#backup-import-file');
-    body.querySelector('#backup-import-btn')?.addEventListener('pointerdown', (e) => {
+    onActivate(body.querySelector('#backup-import-btn'), (e) => {
       e.preventDefault();
       importInput?.click();
     });
@@ -642,7 +643,7 @@ export const SaveSectionMixin = {
 
   _bindMilestoneEvents() {
     const body = this.el.querySelector('#settings-body');
-    body.querySelector('#milestone-save')?.addEventListener('pointerdown', async (e) => {
+    onActivate(body.querySelector('#milestone-save'), async (e) => {
       e.preventDefault();
       if (!this.project || !this.store) return;
       const input = body.querySelector('#milestone-name');
@@ -654,7 +655,7 @@ export const SaveSectionMixin = {
       showToast('Milestone saved');
     });
 
-    body.querySelector('#milestone-clear')?.addEventListener('pointerdown', async (e) => {
+    onActivate(body.querySelector('#milestone-clear'), async (e) => {
       e.preventDefault();
       if (!this.project || !this.store) return;
       if (!confirm('Clear all milestones for this workspace?')) return;
@@ -694,7 +695,7 @@ export const SaveSectionMixin = {
       }).join('');
 
       listEl.querySelectorAll('.milestone-list__restore').forEach(btn => {
-        btn.addEventListener('pointerdown', async (e) => {
+        onActivate(btn, async (e) => {
           e.preventDefault();
           const id = parseInt(btn.dataset.milestoneId, 10);
           if (confirm('Load this milestone? Current changes will be saved first.')) {
@@ -707,7 +708,7 @@ export const SaveSectionMixin = {
       });
 
       listEl.querySelectorAll('.milestone-list__delete').forEach(btn => {
-        btn.addEventListener('pointerdown', async (e) => {
+        onActivate(btn, async (e) => {
           e.preventDefault();
           const id = parseInt(btn.dataset.milestoneId, 10);
           if (!Number.isFinite(id) || !confirm('Delete this milestone?')) return;

@@ -1,3 +1,4 @@
+import { onActivate } from '../ui/Activation.js';
 /**
  * creativeTone — CreativeMode feature extracted for size; composed back onto
  * CreativeMode.prototype via Object.assign. Method bodies are unchanged.
@@ -116,7 +117,7 @@ export const CreativeToneMixin = {
   _bindTonePresetControls() {
     const popover = this._tonePopover;
     if (!popover) return;
-    popover.querySelector('#tone-preset-apply')?.addEventListener('pointerdown', (e) => {
+    onActivate(popover.querySelector('#tone-preset-apply'), (e) => {
       e.preventDefault();
       const preset = this._selectedTonePreset(popover);
       if (!preset) return showToast('Choose a Tone preset first');
@@ -125,7 +126,7 @@ export const CreativeToneMixin = {
       showToast(`Tone preset applied: ${preset.name}`);
     });
 
-    popover.querySelector('#tone-preset-delete')?.addEventListener('pointerdown', (e) => {
+    onActivate(popover.querySelector('#tone-preset-delete'), (e) => {
       e.preventDefault();
       const preset = this._selectedTonePreset(popover);
       if (!preset) return showToast('Choose a Tone preset first');
@@ -135,19 +136,19 @@ export const CreativeToneMixin = {
       showToast(`Tone preset deleted: ${preset.name}`);
     });
 
-    popover.querySelector('#tone-preset-picker')?.addEventListener('pointerdown', (e) => {
+    onActivate(popover.querySelector('#tone-preset-picker'), (e) => {
       e.preventDefault();
       this._openTonePresetPicker(e.currentTarget, popover);
     });
 
-    popover.querySelector('#tone-reset')?.addEventListener('pointerdown', (e) => {
+    onActivate(popover.querySelector('#tone-reset'), (e) => {
       e.preventDefault();
       this._applyProjectSoundTraits(normalizeSoundTraits({}));
       this._syncTonePopover();
       showToast('Tone reset');
     });
 
-    popover.querySelector('#tone-preset-save')?.addEventListener('pointerdown', (e) => {
+    onActivate(popover.querySelector('#tone-preset-save'), (e) => {
       e.preventDefault();
       const input = popover.querySelector('#tone-preset-name');
       const name = input?.value?.trim();
@@ -158,7 +159,7 @@ export const CreativeToneMixin = {
       showToast(`Tone preset saved: ${name}`);
     });
 
-    popover.querySelector('#tone-preset-save-new')?.addEventListener('pointerdown', (e) => {
+    onActivate(popover.querySelector('#tone-preset-save-new'), (e) => {
       e.preventDefault();
       const input = popover.querySelector('#tone-preset-name');
       const name = input?.value?.trim();

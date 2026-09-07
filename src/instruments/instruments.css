@@ -1867,8 +1867,8 @@ input[type="checkbox"].ctrlmode__sound-checkbox {
   }
 
   .instrument-switcher__tab {
-    flex: 0 0 auto;
-    min-width: 78px;
+    flex: 1 1 0;
+    min-width: 0;
     min-height: 40px;
     padding: var(--space-xs);
     font-size: var(--font-size-xs);

@@ -1,3 +1,4 @@
+import { onActivate } from '../ui/Activation.js';
 /**
  * canvasTracks — CanvasMode feature extracted for size; composed back onto
  * CanvasMode.prototype via Object.assign. Method bodies are unchanged.
@@ -10,6 +11,7 @@ import { normalizeTrackPan } from '../engine/StereoWidth.js';
 import { showToast } from '../ui/Toast.js';
 import { escapeHtml } from '../utils/html.js';
 import { ChoicePicker } from '../ui/ChoicePicker.js';
+import { mountModal } from '../ui/Modal.js';
 import { drumInstrumentGroups, labelForInstrument, midiInstrumentGroups } from './instrumentGroups.js';
 
 export const CanvasTracksMixin = {
@@ -178,35 +180,34 @@ export const CanvasTracksMixin = {
           <button class="canvas-time-modal__option" type="button" data-pan-preset="0"><span>Center</span><small>Reset to middle</small></button>
           <button class="canvas-time-modal__option" type="button" data-pan-preset="100"><span>Hard R</span><small>Send this track right</small></button>
         </div>
-        <p class="canvas-time-modal__note">Canvas WAV export is stereo and keeps this track position. MIDI export ignores pan for now.</p>
+        <p class="canvas-time-modal__note">Canvas WAV and MIDI exports keep this track position.</p>
         <div class="canvas-time-modal__actions">
           <button class="btn btn--ghost" id="canvas-pan-cancel" type="button">Cancel</button>
           <button class="btn" id="canvas-pan-save" type="button">Save</button>
         </div>
       </div>
     `;
-    document.body.appendChild(overlay);
+    const close = mountModal(overlay, { initialFocus: '#canvas-pan-slider' });
 
     const slider = overlay.querySelector('#canvas-pan-slider');
     const readout = overlay.querySelector('#canvas-pan-readout');
-    const close = () => overlay.remove();
     const updateReadout = () => {
       const next = normalizeTrackPan(Number(slider.value) / 100);
       if (readout) readout.textContent = this._panLabel(next);
     };
 
-    overlay.querySelector('#canvas-pan-cancel')?.addEventListener('pointerdown', (e) => {
+    onActivate(overlay.querySelector('#canvas-pan-cancel'), (e) => {
       e.preventDefault();
       close();
     });
-    overlay.querySelector('#canvas-pan-save')?.addEventListener('pointerdown', (e) => {
+    onActivate(overlay.querySelector('#canvas-pan-save'), (e) => {
       e.preventDefault();
       const next = normalizeTrackPan(Number(slider.value) / 100);
       close();
       this._setTrackPan(track, next);
     });
     overlay.querySelectorAll('[data-pan-preset]').forEach(btn => {
-      btn.addEventListener('pointerdown', (e) => {
+      onActivate(btn, (e) => {
         e.preventDefault();
         slider.value = btn.dataset.panPreset;
         updateReadout();
@@ -273,16 +274,14 @@ export const CanvasTracksMixin = {
         </div>
       </div>
     `;
-    document.body.appendChild(overlay);
-
-    const close = () => overlay.remove();
-    overlay.querySelector('#canvas-time-cancel')?.addEventListener('pointerdown', (e) => {
+    const close = mountModal(overlay);
+    onActivate(overlay.querySelector('#canvas-time-cancel'), (e) => {
       e.preventDefault();
       close();
     });
 
     overlay.querySelectorAll('[data-time-scale]').forEach(btn => {
-      btn.addEventListener('pointerdown', (e) => {
+      onActivate(btn, (e) => {
         e.preventDefault();
         const nextScale = normalizeClipTimeScale(btn.dataset.timeScale);
         close();

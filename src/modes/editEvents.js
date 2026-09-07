@@ -1,3 +1,4 @@
+import { onActivate } from '../ui/Activation.js';
 /**
  * editEvents — EditMode feature extracted for size; composed back onto
  * EditMode.prototype via Object.assign. Method bodies are unchanged.
@@ -18,12 +19,12 @@ export const EditEventsMixin = {
       this._rebuildGrids();
     });
 
-    toolbar.querySelector('#edit-close-btn')?.addEventListener('pointerdown', (e) => {
+    onActivate(toolbar.querySelector('#edit-close-btn'), (e) => {
       e.preventDefault();
       this.loadSnippet(null);
     });
 
-    toolbar.querySelector('#edit-patch-btn')?.addEventListener('pointerdown', (e) => {
+    onActivate(toolbar.querySelector('#edit-patch-btn'), (e) => {
       e.preventDefault();
       this._openPatchPicker();
     });
@@ -61,7 +62,7 @@ export const EditEventsMixin = {
       });
     }
 
-    toolbar.querySelector('#edit-delete-btn')?.addEventListener('pointerdown', (e) => {
+    onActivate(toolbar.querySelector('#edit-delete-btn'), (e) => {
       e.preventDefault();
       this._deleteSelectedNote();
     });
@@ -76,17 +77,17 @@ export const EditEventsMixin = {
       this._createBlankSnippet('drum');
     });
 
-    toolbar.querySelector('#edit-double-btn')?.addEventListener('pointerdown', (e) => {
+    onActivate(toolbar.querySelector('#edit-double-btn'), (e) => {
       e.preventDefault();
       this._setDuration(this._snippet ? this._snippet.durationTicks * 2 : 1920);
     });
 
-    toolbar.querySelector('#edit-half-btn')?.addEventListener('pointerdown', (e) => {
+    onActivate(toolbar.querySelector('#edit-half-btn'), (e) => {
       e.preventDefault();
       this._setDuration(this._snippet ? Math.max(480, Math.floor(this._snippet.durationTicks / 2)) : 960);
     });
 
-    toolbar.querySelector('#edit-zoom-out')?.addEventListener('pointerdown', (e) => {
+    onActivate(toolbar.querySelector('#edit-zoom-out'), (e) => {
       e.preventDefault();
       if (this._noteHeight > MIN_NOTE_HEIGHT) {
         this._noteHeight -= 4;
@@ -95,7 +96,7 @@ export const EditEventsMixin = {
       }
     });
 
-    toolbar.querySelector('#edit-zoom-in')?.addEventListener('pointerdown', (e) => {
+    onActivate(toolbar.querySelector('#edit-zoom-in'), (e) => {
       e.preventDefault();
       if (this._noteHeight < MAX_NOTE_HEIGHT) {
         this._noteHeight += 4;
@@ -122,7 +123,7 @@ export const EditEventsMixin = {
       }
     });
 
-    toolbar.querySelector('#edit-split-btn')?.addEventListener('pointerdown', (e) => {
+    onActivate(toolbar.querySelector('#edit-split-btn'), (e) => {
       e.preventDefault();
       if (this._snippet?.type === 'drum') return;
       this._splitMode = !this._splitMode;
@@ -132,12 +133,12 @@ export const EditEventsMixin = {
       this._rebuildAll();
     });
 
-    toolbar.querySelector('#edit-quantize-all-btn')?.addEventListener('pointerdown', (e) => {
+    onActivate(toolbar.querySelector('#edit-quantize-all-btn'), (e) => {
       e.preventDefault();
       this._quantizeAllNoteDurations();
     });
 
-    toolbar.querySelector('#edit-rhythm-fit-btn')?.addEventListener('pointerdown', (e) => {
+    onActivate(toolbar.querySelector('#edit-rhythm-fit-btn'), (e) => {
       e.preventDefault();
       this._openRhythmFitModal();
     });

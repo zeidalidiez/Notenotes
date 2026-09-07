@@ -1,3 +1,4 @@
+import { onActivate } from '../ui/Activation.js';
 /**
  * editAudioPlayer — EditMode feature extracted for size; composed back onto
  * EditMode.prototype via Object.assign. Method bodies are unchanged.
@@ -92,7 +93,7 @@ export const EditAudioPlayerMixin = {
         }
       });
     }
-    toolbar.querySelector('#edit-close-btn')?.addEventListener('pointerdown', (e) => {
+    onActivate(toolbar.querySelector('#edit-close-btn'), (e) => {
       e.preventDefault();
       this.loadSnippet(null);
     });

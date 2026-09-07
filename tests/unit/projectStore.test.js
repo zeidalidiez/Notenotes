@@ -30,6 +30,54 @@ test('load returns undefined for an unknown project id', async () => {
   assert.equal(await store.load('does-not-exist'), undefined);
 });
 
+test('restoring an archive cannot be overwritten by an older pending autosave', async () => {
+  const store = await freshStore();
+  const project = createProject('Old pending edit');
+  store.scheduleAutoSave(project);
+  await store.replaceProjectArchive({ ...structuredClone(project), name: 'Restored workspace' });
+  await store.flushAutoSave();
+  assert.equal((await store.load(project.id)).name, 'Restored workspace');
+});
+
+test('library edits remain linked to Canvas clips after saving and loading', async () => {
+  const store = await freshStore();
+  const project = createProject('Linked clips');
+  const snippet = { id: 'linked', type: 'midi', notes: [{ pitch: 60, startTick: 0, durationTick: 240 }] };
+  project.snippets.push(snippet);
+  project.tracks.push({ id: 'track', clips: [{ id: 'clip', snippetId: snippet.id, snippet }] });
+  await store.save(project);
+  const loaded = await store.load(project.id);
+  assert.equal(loaded.snippets[0], loaded.tracks[0].clips[0].snippet);
+  loaded.snippets[0].notes[0].pitch = 65;
+  await store.save(loaded);
+  const reloaded = await store.load(project.id);
+  assert.equal(reloaded.tracks[0].clips[0].snippet.notes[0].pitch, 65);
+  assert.equal(reloaded.snippets.length, 1);
+});
+
+test('legacy divergent clip edits survive normalization and repeated round trips', async () => {
+  const store = await freshStore();
+  const project = createProject('Legacy clip edits');
+  const snippet = { id: 'linked', type: 'midi', notes: [{ pitch: 60 }] };
+  project.snippets.push(snippet);
+  const copy = { ...snippet, notes: [{ pitch: 72 }] };
+  project.tracks.push({ id: 'track', clips: [
+    { id: 'c1', snippetId: 'linked', snippet: structuredClone(copy) },
+    { id: 'c2', snippetId: 'linked', snippet: structuredClone(copy) },
+  ] });
+  await store.save(project);
+  const loaded = await store.load(project.id);
+  assert.equal(loaded.snippets.length, 2);
+  assert.equal(loaded.snippets[0].notes[0].pitch, 60);
+  assert.equal(loaded.tracks[0].clips[0].snippet.notes[0].pitch, 72);
+  assert.equal(loaded.tracks[0].clips[0].snippet, loaded.tracks[0].clips[1].snippet);
+  await store.saveVersion(loaded);
+  const [{ versionId }] = await store.getVersions(loaded.id);
+  const restored = await store.restoreVersion(versionId);
+  assert.equal(restored.snippets.length, 2);
+  assert.equal(restored.tracks[0].clips[0].snippet, restored.snippets[1]);
+});
+
 test('listAll returns summaries sorted newest first', async () => {
   const store = await freshStore();
   const a = createProject('A'); a.updatedAt = 1000;
@@ -153,4 +201,38 @@ test('flushAutoSave persists pending edits once and cancels the debounce', async
   await new Promise(resolve => setTimeout(resolve, 25));
   assert.equal(saves, 1, 'cleared debounce does not save a second time');
   assert.equal(await store.flushAutoSave(), false, 'nothing remains pending');
+});
+
+test('a failed autosave retains its project for an explicit retry', async () => {
+  const store = await freshStore();
+  const project = createProject('Retry');
+  const save = store.save.bind(store);
+  store.save = async () => { throw new Error('Quota exceeded'); };
+  store.scheduleAutoSave(project);
+  await assert.rejects(store.flushAutoSave(), /Quota exceeded/);
+  assert.equal(store.saveState, 'error');
+  assert.equal(store._pendingSave, project);
+  store.save = save;
+  assert.equal(await store.flushAutoSave(), true);
+  assert.equal(store.saveState, 'saved');
+  assert.equal((await store.load(project.id)).name, 'Retry');
+});
+
+test('a failed in-flight autosave cannot replace a newer pending edit', async () => {
+  const store = await freshStore();
+  const first = createProject('Old');
+  const latest = createProject('Latest');
+  let rejectSave;
+  const save = store.save.bind(store);
+  store.save = () => new Promise((resolve, reject) => { rejectSave = reject; });
+  store.scheduleAutoSave(first);
+  const pending = store.flushAutoSave();
+  await Promise.resolve();
+  store.scheduleAutoSave(latest);
+  rejectSave(new Error('Write failed'));
+  await assert.rejects(pending, /Write failed/);
+  assert.equal(store._pendingSave, latest);
+  store.save = save;
+  await store.flushAutoSave();
+  assert.equal((await store.load(latest.id)).name, 'Latest');
 });

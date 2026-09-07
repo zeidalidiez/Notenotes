@@ -10,6 +10,8 @@ Before starting:
 npm ci
 npm test
 npm run build
+npx playwright install chromium
+npm run test:browser
 npm run preview
 ```
 
@@ -33,7 +35,8 @@ Failed check and evidence:
 
 ## Core browser smoke
 
-- App reaches Inspect without a blank screen or error overlay.
+- An empty workspace opens in Create with a first-recording action; an existing
+  snippet library opens in Inspect without a blank screen or error overlay.
 - Create, Canvas, and Inspect switch without console errors.
 - Refresh restores the same project and selected user settings.
 - A new workspace can be created without contaminating the previous one.
@@ -55,6 +58,8 @@ Failed check and evidence:
 - Computer keyboard input follows the active surface and does not double-trigger.
 - Hold/Arpeggio, Step Play, chord glow, correction, and Height Velocity can each
   be enabled and disabled without changing unrelated settings.
+- Change tempo during playback and listen for continuity; Hold releases and
+  Arpeggio steps stay even while dragging or rapidly interacting with the UI.
 
 ## Canvas and Inspect
 
@@ -70,6 +75,13 @@ Failed check and evidence:
 - Inspect audition stops when changing mode or returning to the library.
 
 ## Save, restore, and export
+
+- A failed autosave shows Save failed and offers Retry; retry, reload, and verify
+  that the pending edit survived. Undo a Canvas edit, save, and reload it too.
+- Edit snippet A, open B, and undo: only A changes. Repeat after placing A on
+  Canvas and reloading; its clip remains linked to A.
+- Restore metadata with literal angle brackets, ampersands, and quotes in names
+  and milestone labels. Verify the original text in Inspect, Canvas, and Settings.
 
 - Export a workspace containing MIDI, drums, audio, custom instruments, settings,
   milestones, and Canvas clips; import it into a disposable workspace and compare
@@ -120,6 +132,8 @@ Run these only when the release touches the capability or hardware is available:
 - Create, edit, play synthesized sounds, save, and export without a network.
 - Previously fetched sample packs remain available offline; an unfetched optional
   pack fails clearly rather than hanging.
+- Use Settings to download the complete sound library, relaunch offline, and
+  audition at least one sample instrument from every picker category.
 - Updating to a new service worker version preserves the workspace and does not
   trap the app on an older shell.
 

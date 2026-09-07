@@ -3,6 +3,16 @@
    Deep charcoal palette with silver accent
    ============================================================ */
 
+.save-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+}
+.save-status[data-state="error"] { color: var(--record-red, #f87171); }
+.save-status button { padding: 6px; color: inherit; }
+
 /* --- Reset & Base --- */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -60,7 +70,7 @@
   --space-3xl: 48px;
 
   /* Typography */
-  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-size-xs: 0.6875rem;    /* 11px */
   --font-size-sm: 0.75rem;      /* 12px */
   --font-size-base: 0.875rem;   /* 14px */
@@ -457,6 +467,11 @@ input, textarea, select, [contenteditable] {
   color: var(--text-tertiary);
 }
 .transport-bar__tap {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  border: var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
@@ -614,6 +629,15 @@ input, textarea, select, [contenteditable] {
     flex-wrap: wrap;
   }
 
+  .transport-bar > .beat-indicator { display: none; }
+  .transport-bar > .save-status {
+    order: 4;
+    flex-basis: 100%;
+    justify-content: flex-end;
+    min-height: 14px;
+    font-size: 0.65rem;
+  }
+
   .transport-bar__bpm input {
     display: none;
   }
@@ -629,6 +653,9 @@ input, textarea, select, [contenteditable] {
     flex: 1 1 100%;
     flex-wrap: wrap;
     padding-left: 0;
+    gap: 8px;
+    border-top: var(--border-subtle);
+    padding-top: 8px;
   }
 
   .transport-bar__project-key select {
@@ -668,6 +695,9 @@ input, textarea, select, [contenteditable] {
     padding: var(--space-sm);
     z-index: 250;
     box-shadow: 0 12px 28px rgba(0,0,0,0.55);
+    width: min(340px, calc(100vw - 24px));
+    max-height: calc(100dvh - 160px);
+    overflow-y: auto;
   }
 
   .transport-bar__more.is-open {

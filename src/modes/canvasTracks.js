@@ -1,16 +1,18 @@
+import { onActivate } from '../ui/Activation.js';
 /**
  * canvasTracks — CanvasMode feature extracted for size; composed back onto
  * CanvasMode.prototype via Object.assign. Method bodies are unchanged.
  */
 
-import { TRACK_INSTRUMENTS } from '../engine/PlaybackEngine.js';
 import { DRUM_KITS } from '../instruments/SketchKit.js';
-import { PRESETS, normalizeSoundTraits } from '../instruments/WebAudioSynth.js';
+import { normalizeSoundTraits } from '../instruments/WebAudioSynth.js';
 import { CLIP_TIME_SCALE_PRESETS, clipVisualDurationBars, normalizeClipTimeScale, pushClipsRightForTimeScale } from '../engine/ClipTimeScale.js';
 import { normalizeTrackPan } from '../engine/StereoWidth.js';
 import { showToast } from '../ui/Toast.js';
+import { escapeHtml } from '../utils/html.js';
 import { ChoicePicker } from '../ui/ChoicePicker.js';
-import { midiInstrumentGroups, drumInstrumentGroups } from './instrumentGroups.js';
+import { mountModal } from '../ui/Modal.js';
+import { drumInstrumentGroups, labelForInstrument, midiInstrumentGroups } from './instrumentGroups.js';
 
 export const CanvasTracksMixin = {
   _customPatchInstruments() {
@@ -41,15 +43,7 @@ export const CanvasTracksMixin = {
   },
 
   _instrumentName(instrumentId) {
-    if (instrumentId?.startsWith?.('custom:')) {
-      const id = instrumentId.slice(7);
-      return this._customPatchInstruments().find(instrument => instrument.id === id)?.name
-        || this._customKitInstruments().find(instrument => instrument.id === id)?.name
-        || 'Custom instrument';
-    }
-    if (instrumentId === 'kit') return DRUM_KITS.classic.name;
-    if (DRUM_KITS[instrumentId]) return DRUM_KITS[instrumentId].name;
-    return TRACK_INSTRUMENTS[instrumentId]?.name || instrumentId;
+    return labelForInstrument(instrumentId, this.project);
   },
 
   _tonePresets() {
@@ -177,7 +171,7 @@ export const CanvasTracksMixin = {
       <div class="canvas-time-modal canvas-pan-modal" role="dialog" aria-modal="true" aria-label="Track Pan">
         <div class="canvas-time-modal__header">
           <span class="canvas-time-modal__kicker">Track mix</span>
-          <strong>Pan ${track.name}</strong>
+          <strong>Pan ${escapeHtml(track.name)}</strong>
         </div>
         <div class="canvas-pan-modal__readout" id="canvas-pan-readout">${this._panLabel(current)}</div>
         <input class="canvas-pan-modal__slider" id="canvas-pan-slider" type="range" min="-100" max="100" step="1" value="${currentValue}" aria-label="Track pan" />
@@ -186,35 +180,34 @@ export const CanvasTracksMixin = {
           <button class="canvas-time-modal__option" type="button" data-pan-preset="0"><span>Center</span><small>Reset to middle</small></button>
           <button class="canvas-time-modal__option" type="button" data-pan-preset="100"><span>Hard R</span><small>Send this track right</small></button>
         </div>
-        <p class="canvas-time-modal__note">Canvas WAV export is stereo and keeps this track position. MIDI export ignores pan for now.</p>
+        <p class="canvas-time-modal__note">Canvas WAV and MIDI exports keep this track position.</p>
         <div class="canvas-time-modal__actions">
           <button class="btn btn--ghost" id="canvas-pan-cancel" type="button">Cancel</button>
           <button class="btn" id="canvas-pan-save" type="button">Save</button>
         </div>
       </div>
     `;
-    document.body.appendChild(overlay);
+    const close = mountModal(overlay, { initialFocus: '#canvas-pan-slider' });
 
     const slider = overlay.querySelector('#canvas-pan-slider');
     const readout = overlay.querySelector('#canvas-pan-readout');
-    const close = () => overlay.remove();
     const updateReadout = () => {
       const next = normalizeTrackPan(Number(slider.value) / 100);
       if (readout) readout.textContent = this._panLabel(next);
     };
 
-    overlay.querySelector('#canvas-pan-cancel')?.addEventListener('pointerdown', (e) => {
+    onActivate(overlay.querySelector('#canvas-pan-cancel'), (e) => {
       e.preventDefault();
       close();
     });
-    overlay.querySelector('#canvas-pan-save')?.addEventListener('pointerdown', (e) => {
+    onActivate(overlay.querySelector('#canvas-pan-save'), (e) => {
       e.preventDefault();
       const next = normalizeTrackPan(Number(slider.value) / 100);
       close();
       this._setTrackPan(track, next);
     });
     overlay.querySelectorAll('[data-pan-preset]').forEach(btn => {
-      btn.addEventListener('pointerdown', (e) => {
+      onActivate(btn, (e) => {
         e.preventDefault();
         slider.value = btn.dataset.panPreset;
         updateReadout();
@@ -281,16 +274,14 @@ export const CanvasTracksMixin = {
         </div>
       </div>
     `;
-    document.body.appendChild(overlay);
-
-    const close = () => overlay.remove();
-    overlay.querySelector('#canvas-time-cancel')?.addEventListener('pointerdown', (e) => {
+    const close = mountModal(overlay);
+    onActivate(overlay.querySelector('#canvas-time-cancel'), (e) => {
       e.preventDefault();
       close();
     });
 
     overlay.querySelectorAll('[data-time-scale]').forEach(btn => {
-      btn.addEventListener('pointerdown', (e) => {
+      onActivate(btn, (e) => {
         e.preventDefault();
         const nextScale = normalizeClipTimeScale(btn.dataset.timeScale);
         close();

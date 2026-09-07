@@ -1,3 +1,4 @@
+import { onActivate } from './Activation.js';
 export function editableCustomPatches(instruments = []) {
   return Array.isArray(instruments)
     ? instruments.filter(instrument => instrument?.type === 'patch')
@@ -193,7 +194,7 @@ export class CreateInstrumentPopover {
     });
     popover.querySelector('#ci-brightness')?.addEventListener('input', () => syncSlider('brightness'));
     popover.querySelector('#ci-gain')?.addEventListener('input', () => syncSlider('gain'));
-    popover.querySelector('#ci-save')?.addEventListener('pointerdown', async (event) => {
+    onActivate(popover.querySelector('#ci-save'), async (event) => {
       event.preventDefault();
       await this.onSave?.(popover);
     });

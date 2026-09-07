@@ -1,3 +1,4 @@
+import { onActivate } from '../ui/Activation.js';
 /**
  * canvasEvents — CanvasMode feature extracted for size; composed back onto
  * CanvasMode.prototype via Object.assign. Method bodies are unchanged.
@@ -42,13 +43,13 @@ export const CanvasEventsMixin = {
       this._toggleStageOverlay();
     });
 
-    this.el.querySelector('#canvas-tone-preset')?.addEventListener('pointerdown', (e) => {
+    onActivate(this.el.querySelector('#canvas-tone-preset'), (e) => {
       e.preventDefault();
       this._openTonePresetPicker(e.currentTarget);
     });
 
     // Delegated events on the canvas element
-    this.el.addEventListener('pointerdown', (e) => {
+    onActivate(this.el, (e) => {
       // Mute/Solo buttons
       const addTrackBtn = e.target.closest('[data-add-track-type]');
       if (addTrackBtn) {
@@ -85,6 +86,8 @@ export const CanvasEventsMixin = {
           track.solo = !track.solo;
           btn.classList.toggle('is-solo', track.solo);
         }
+        this.onTrackMixChanged?.(track.id);
+        this.store?.scheduleAutoSave(this.project);
         return;
       }
 

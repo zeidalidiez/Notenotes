@@ -5,6 +5,8 @@
   "category": "Keys",
   "type": "sample",
   "source": "VCSL (CC0)",
+  "sourceRepository": "https://github.com/sgossner/VCSL",
+  "sourceRevision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
   "playbackMode": "gated",
   "gain": 0.52,
   "brightness": 0.8,

@@ -1,4 +1,5 @@
 import { APP_VERSION } from '../version.js';
+import { MAX_IMPORTED_BARS, MAX_IMPORTED_TICKS } from '../engine/ImportLimits.js';
 
 const BACKUP_VERSION = 1;
 export const MAX_BACKUP_FILE_BYTES = 256 * 1024 * 1024;
@@ -89,20 +90,53 @@ function assertOptionalString(value, label) {
   }
 }
 
+function textFields(value, fields, label) {
+  for (const field of fields) assertOptionalString(value[field], `${label} ${field}`);
+}
+
+function optionalNumber(value, label, min = 0, max = MAX_IMPORTED_TICKS, integer = false) {
+  if (value === undefined) return;
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max
+    || (integer && !Number.isInteger(value))) {
+    throw new Error(`${label} must be a finite ${integer ? 'integer ' : ''}number between ${min} and ${max}`);
+  }
+}
+
+function validateEvents(events, label, notes = false) {
+  for (const event of assertRecordArray(events, label)) {
+    optionalNumber(event.startTick, `${label} startTick`);
+    optionalNumber(event.durationTick, `${label} durationTick`);
+    optionalNumber((event.startTick ?? 0) + (event.durationTick ?? 0), `${label} end tick`);
+    optionalNumber(event.velocity, `${label} velocity`, 0, 1);
+    if (notes) {
+      optionalNumber(event.pitch, `${label} pitch`, 0, 127, true);
+      assertOptionalString(event.lyric, `${label} lyric`);
+    } else assertOptionalString(event.type, `${label} type`);
+  }
+}
+
 function validateSnippet(snippet, label) {
   assertRecord(snippet, label);
-  assertOptionalString(snippet.id, `${label} id`);
-  assertOptionalString(snippet.type, `${label} type`);
-  assertOptionalString(snippet.audioDataUrl, `${label} audio data`);
-  assertRecordArray(snippet.notes, `${label} notes`);
-  assertRecordArray(snippet.hits, `${label} hits`);
+  textFields(snippet, ['id', 'name', 'type', 'instrumentId', 'patchId', 'kitId',
+    'audioAssetId', 'audioDataUrl', 'audioUrl', 'audioUnavailableReason'], label);
+  if (snippet.type !== undefined && !['midi', 'drum', 'audio'].includes(snippet.type)) {
+    throw new Error(`${label} type is unsupported`);
+  }
+  optionalNumber(snippet.bpm, `${label} bpm`, 1, 1000);
+  optionalNumber(snippet.durationTicks, `${label} durationTicks`);
+  validateEvents(snippet.notes, `${label} notes`, true);
+  validateEvents(snippet.hits, `${label} hits`);
+  for (const field of ['patchRecorded', 'kitRecorded']) {
+    if (snippet[field] == null) continue;
+    assertRecord(snippet[field], `${label} ${field}`);
+    textFields(snippet[field], ['instrumentId', 'name'], `${label} ${field}`);
+  }
 }
 
 function validateCustomInstrument(instrument, label) {
   assertRecord(instrument, label);
-  assertOptionalString(instrument.id, `${label} id`);
-  assertOptionalString(instrument.type, `${label} type`);
-  assertOptionalString(instrument.audioDataUrl, `${label} audio data`);
+  textFields(instrument, ['id', 'name', 'type', 'audioAssetId', 'audioDataUrl'], label);
+  if (instrument.sourceSnippetId !== null) assertOptionalString(instrument.sourceSnippetId, `${label} sourceSnippetId`);
 }
 
 function validateProject(project, label = 'Workspace project') {
@@ -111,22 +145,45 @@ function validateProject(project, label = 'Workspace project') {
     throw new Error(`${label} needs a project id`);
   }
   assertOptionalString(project.name, `${label} name`);
+  optionalNumber(project.bpm, `${label} bpm`, 1, 1000);
 
   const snippets = assertRecordArray(project.snippets, `${label} snippets`);
   snippets.forEach((snippet, index) => validateSnippet(snippet, `${label} snippet ${index + 1}`));
 
   const tracks = assertRecordArray(project.tracks, `${label} tracks`);
   tracks.forEach((track, trackIndex) => {
+    const trackLabel = `${label} track ${trackIndex + 1}`;
+    textFields(track, ['id', 'name', 'type', 'instrumentId', 'color'], trackLabel);
+    optionalNumber(track.volume, `${trackLabel} volume`, 0, 1);
+    optionalNumber(track.pan, `${trackLabel} pan`, -1, 1);
     const clips = assertRecordArray(track.clips, `${label} track ${trackIndex + 1} clips`);
     clips.forEach((clip, clipIndex) => {
+      const clipLabel = `${trackLabel} clip ${clipIndex + 1}`;
+      textFields(clip, ['id', 'snippetId', 'name', 'color'], clipLabel);
+      optionalNumber(clip.startBar, `${clipLabel} startBar`, 0, MAX_IMPORTED_BARS);
+      optionalNumber(clip.durationBars, `${clipLabel} durationBars`, 0, MAX_IMPORTED_BARS);
+      optionalNumber((clip.startBar ?? 0) + (clip.durationBars ?? 0), `${clipLabel} end bar`, 0, MAX_IMPORTED_BARS);
+      optionalNumber(clip.timeScale, `${clipLabel} timeScale`, 0.125, 8);
       if (clip.snippet !== undefined) {
         validateSnippet(clip.snippet, `${label} track ${trackIndex + 1} clip ${clipIndex + 1} snippet`);
+        if (clip.snippetId !== undefined && clip.snippet.id !== undefined && clip.snippetId !== clip.snippet.id) {
+          throw new Error(`${clipLabel} snippet references disagree`);
+        }
+      } else if (clip.snippetId && !snippets.some(snippet => snippet.id === clip.snippetId)) {
+        throw new Error(`${clipLabel} snippet reference is missing`);
       }
     });
   });
 
   if (project.settings !== undefined) {
     assertRecord(project.settings, `${label} settings`);
+    for (const field of ['masterVolume', 'metronomeVolume']) {
+      optionalNumber(project.settings[field], `${label} ${field}`, 0, 1);
+    }
+    if (project.settings.beatColors !== undefined) {
+      if (!Array.isArray(project.settings.beatColors)) throw new Error(`${label} beatColors must be an array`);
+      for (const color of project.settings.beatColors) assertOptionalString(color, `${label} beat color`);
+    }
     const instruments = assertRecordArray(
       project.settings.customInstruments,
       `${label} custom instruments`,
@@ -140,6 +197,8 @@ function validateProject(project, label = 'Workspace project') {
 function validateSnapshots(snapshots, label) {
   const entries = assertRecordArray(snapshots, label);
   entries.forEach((snapshot, index) => {
+    assertOptionalString(snapshot.label, `${label} entry ${index + 1} label`);
+    optionalNumber(snapshot.bpm, `${label} entry ${index + 1} bpm`, 1, 1000);
     validateProject(snapshot.data, `${label} entry ${index + 1} project`);
   });
 }
@@ -302,4 +361,35 @@ export function customInstrumentsWithFreshIds(instruments = []) {
     createdAt: Date.now(),
     updatedAt: Date.now(),
   }));
+}
+
+/** Import the library as one graph so aliases and source recordings stay linked. */
+export function snippetLibraryWithFreshIds(backup) {
+  const snippets = snippetsWithFreshIds(backup.snippets);
+  const customInstruments = customInstrumentsWithFreshIds(backup.customInstruments);
+  const snippetIds = new Map((backup.snippets || []).map((snippet, i) => [snippet.id, snippets[i].id]));
+  const instrumentIds = new Map((backup.customInstruments || []).map((instrument, i) => [instrument.id, customInstruments[i].id]));
+  const remapInstrument = id => {
+    if (typeof id !== 'string') return id;
+    const prefixed = id.startsWith('custom:');
+    const original = prefixed ? id.slice(7) : id;
+    const replacement = instrumentIds.get(original);
+    return replacement ? `${prefixed ? 'custom:' : ''}${replacement}` : id;
+  };
+  for (const snippet of snippets) {
+    for (const field of ['instrumentId', 'patchId', 'kitId']) {
+      if (snippet[field] !== undefined) snippet[field] = remapInstrument(snippet[field]);
+    }
+    for (const field of ['patchRecorded', 'kitRecorded']) {
+      if (snippet[field]?.instrumentId !== undefined) {
+        snippet[field].instrumentId = remapInstrument(snippet[field].instrumentId);
+      }
+    }
+  }
+  for (const instrument of customInstruments) {
+    if (snippetIds.has(instrument.sourceSnippetId)) {
+      instrument.sourceSnippetId = snippetIds.get(instrument.sourceSnippetId);
+    }
+  }
+  return { snippets, customInstruments };
 }

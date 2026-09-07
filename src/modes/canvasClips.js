@@ -3,8 +3,8 @@
  * CanvasMode.prototype via Object.assign. Method bodies are unchanged.
  */
 
-import { TRACK_INSTRUMENTS } from '../engine/PlaybackEngine.js';
 import { clipVisualDurationBars } from '../engine/ClipTimeScale.js';
+import { isInstrumentAvailable, recordedInstrumentId } from '../engine/InstrumentRegistry.js';
 import { showToast } from '../ui/Toast.js';
 
 export const CanvasClipsMixin = {
@@ -98,16 +98,32 @@ export const CanvasClipsMixin = {
   _recordedInstrumentForSnippet(snippet) {
     if (!snippet) return null;
     if (snippet.type === 'midi') {
-      const id = snippet.patchRecorded?.instrumentId || snippet.instrumentId || snippet.patchId;
-      if (id?.startsWith?.('custom:')) return id;
-      if (TRACK_INSTRUMENTS[id]) return id;
+      const id = recordedInstrumentId(snippet);
+      if (isInstrumentAvailable(id, this.project, 'synth')) return id;
     }
     if (snippet.type === 'drum') {
-      const id = snippet.kitRecorded?.instrumentId || snippet.instrumentId || snippet.kitId;
-      if (id?.startsWith?.('custom:')) return id;
-      if (this._isDrumInstrumentId(id)) return id;
+      const id = recordedInstrumentId(snippet);
+      if (isInstrumentAvailable(id, this.project, 'kit')) return id;
     }
     return null;
+  },
+
+  _placeLibrarySnippet(snippetId) {
+    const snippet = this.project?.snippets?.find(item => item.id === snippetId);
+    if (!snippet) return;
+    let track = this.project.tracks.find(item => this._trackAcceptsSnippet(item, snippet));
+    if (!track) {
+      this._addTrack(this._snippetTrackType(snippet));
+      track = this.project.tracks.at(-1);
+    }
+    const durationBars = snippet.durationTicks / this.transport.ticksPerBar || 1;
+    const end = track.clips.reduce((last, clip) => Math.max(last, this._clipEndBar(clip)), 0);
+    const clip = { id: crypto.randomUUID(), snippetId, snippet, startBar: end, durationBars, timeScale: 1 };
+    const start = this._resolveClipStart(track, clip, end, durationBars);
+    if (start === null) { showToast('No room for that clip on this track'); return; }
+    clip.startBar = start;
+    const previousInstrumentId = this._applyRecordedInstrumentToTrack(track, snippet);
+    this._commitClipAdd(track, clip, snippet, previousInstrumentId);
   },
 
   _applyRecordedInstrumentToTrack(track, snippet) {

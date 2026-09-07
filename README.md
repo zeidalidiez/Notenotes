@@ -24,7 +24,8 @@ somewhere else to finish the song.
 - No account, telemetry, or hosted project service.
 - Your workspace and audio stay in browser storage unless you export them.
 - The core app works offline after it has been loaded and cached. Optional
-  sample packs must be fetched once before they are available offline.
+  CC0 sample packs can be cached individually on first use or downloaded together
+  from Settings for offline use.
 - It is installable as a Progressive Web App, but installation is optional.
 
 Open the [live app](https://zeidalidiez.github.io/Notenotes/) and press a pad.
@@ -47,10 +48,14 @@ colors, and clearly labelled 12-TET approximations of several maqam- and
 raga-inspired collections. Drum pads are rhythmic instruments and are not
 described as being "in key."
 
-Create includes 20 Chip, Modern, and FM synth presets; four synthesized drum
-kits; friendly Tone controls; Height Velocity; Hold and Arpeggio modes; Step
-Play; degree colors; chord suggestions; and gamepad, computer-keyboard, and Web
-MIDI input.
+Create includes Chip, Modern, and FM synth presets; four synthesized drum kits;
+ten compact CC0 sample instruments; friendly Tone controls; Height Velocity; Hold
+and Arpeggio modes; Step Play; degree colors; chord suggestions; and gamepad,
+computer-keyboard, and Web MIDI input.
+
+Empty workspaces open in Create. Choose **Record your first idea**, then play a
+pad or key to start capturing. On phones, **More** holds key, meter, arming, and
+other secondary controls so the playing surface has more room.
 
 ### Canvas
 
@@ -60,6 +65,9 @@ Arrange MIDI, drum, and audio snippets on typed tracks. Move and trim clips,
 switch half-time or double-time non-destructively, mute or solo tracks, set pan
 and color, and export the result. Clips snap to useful edges and avoid accidental
 overlaps.
+
+Click or keyboard-activate a snippet in the Canvas dock to append it to a
+compatible track, or drag it to choose a position.
 
 ### Inspect
 
@@ -74,6 +82,8 @@ bars without changing its pitches or drum choices.
 
 MIDI and drum snippets remember the patch or kit used to audition them and carry
 that choice when first dropped on Canvas.
+Clips stay linked to their library snippet, so editing a snippet updates its
+placements, including after reloading the workspace.
 
 ### Stage
 
@@ -99,6 +109,13 @@ video and GIF export are future work.
   palettes, and URL-enabled accessibility profiles.
 - Enable developer diagnostics with `?debug=1`.
 
+The transport shows pending saves and offers **Retry save** if browser storage
+fails. Canvas MIDI exports preserve named tracks, pan, and volume, with separate
+melodic channels and channel 10 for drums. After 15 melodic tracks, MIDI channels
+are reused while track names remain separate. ABC and sheet output preserve
+chords, overlapping voices, and ties across bars; quantizing very fine free-play
+timing gives the clearest conventional notation.
+
 Notenotes deliberately does not provide accounts, cloud sync, multitrack mixing
 depth, arbitrary effects racks, or a runtime plugin marketplace.
 
@@ -123,6 +140,8 @@ Before opening a pull request:
 ```bash
 npm test
 npm run build
+npx playwright install chromium
+npm run test:browser
 ```
 
 Do not use `--legacy-peer-deps`; the checked-in dependency graph is expected to
@@ -141,7 +160,9 @@ install cleanly.
 | `Shift` + drag note edge | Resize a MIDI note in Inspect |
 
 When an instrument consumes a key as a playable note, it takes precedence over
-a global shortcut.
+a global shortcut. Focused controls keep their normal Enter/Space behavior;
+Ctrl/Cmd shortcuts do not play notes. On macOS, Cmd also works for undo, redo,
+and saving.
 
 ## Technical shape
 

@@ -285,3 +285,89 @@ test('clearing the inspect source returns to Canvas-track playback', () => {
   assert.equal(canvasEvents.length, 1);
   assert.equal(canvasEvents[0].pitch, 60, 'Canvas-track note fires once inspect source is cleared');
 });
+
+test('live track volume is independent from preset gain and preserves zero', () => {
+  freshEngine();
+  const transport = makeFakeTransport({ ticksPerBar: 1920 });
+  const project = midiTrackProject({ notes: [] });
+  project.tracks[0].volume = 0;
+  const pe = new PlaybackEngine(transport, project);
+
+  const synth = pe._getSynthForTrack(project.tracks[0]);
+  assert.equal(synth._output.gain.value, synth.patch.gain, 'preset keeps its own output gain');
+  assert.equal(synth._output._notenotesBus.level.gain.value, 0, 'track bus applies an intentional mute');
+
+  project.tracks[0].volume = 0.45;
+  pe.onTrackMixChanged(project.tracks[0].id);
+  assert.equal(synth._output._notenotesBus.level.gain.value, 0.45);
+});
+
+test('audio clips are decoded ahead, owned by transport, and stopped by panic', async () => {
+  const ctx = freshEngine();
+  const transport = makeFakeTransport({ ticksPerBar: 1920 });
+  const snippet = {
+    id: 'audio-1',
+    type: 'audio',
+    durationTicks: 1920,
+    audioAssetId: 'asset-1',
+  };
+  const project = {
+    snippets: [snippet],
+    tracks: [{
+      id: 'audio-track',
+      type: 'audio',
+      volume: 0,
+      pan: -0.5,
+      clips: [{ id: 'audio-clip', startBar: 0, snippet }],
+    }],
+  };
+  const store = {
+    async audioSnippetToArrayBuffer() { return new ArrayBuffer(44100 * 4); },
+  };
+  const pe = new PlaybackEngine(transport, project, store);
+  await pe.prepareAudioAssets();
+
+  pe._processTick(0, ctx.currentTime + 0.05);
+
+  assert.equal(pe._activeAudioSources.size, 1);
+  assert.equal(ctx.liveSourceCount('BufferSource'), 1);
+  const bus = pe._trackAudioBuses.get('audio-track');
+  assert.equal(bus._notenotesBus.level.gain.value, 0, 'audio tracks honor zero volume too');
+  assert.equal(bus._notenotesBus.panner.pan.value, -0.5);
+
+  pe.panic();
+  assert.equal(pe._activeAudioSources.size, 0);
+  assert.equal(ctx.liveSourceCount('BufferSource'), 0, 'panic stops the scheduled audio source');
+});
+
+test('an uncached audio clip is never started late after asynchronous decoding', async () => {
+  const ctx = freshEngine();
+  const transport = makeFakeTransport({ ticksPerBar: 1920 });
+  const snippet = { id: 'late-audio', type: 'audio', audioAssetId: 'late-asset' };
+  let resolveBytes;
+  const bytes = new Promise(resolve => { resolveBytes = resolve; });
+  const store = { audioSnippetToArrayBuffer: () => bytes };
+  const pe = new PlaybackEngine(transport, { tracks: [] }, store);
+
+  const result = pe._playAudioClip(snippet, ctx.currentTime + 0.01);
+  assert.equal(result, undefined, 'the scheduled callback returns without awaiting storage');
+  assert.equal(ctx.createdCount('BufferSource'), 0);
+
+  resolveBytes(new ArrayBuffer(44100 * 4));
+  await Promise.all([...pe._audioBufferLoads.values()]);
+  assert.equal(ctx.createdCount('BufferSource'), 0, 'load completion only warms the cache');
+
+  pe._playAudioClip(snippet, ctx.currentTime + 0.1);
+  assert.equal(ctx.createdCount('BufferSource'), 1, 'a later, correctly scheduled play uses the cache');
+});
+
+test('destroy unsubscribes PlaybackEngine from transport callbacks', () => {
+  freshEngine();
+  const transport = makeFakeTransport({ ticksPerBar: 1920 });
+  const pe = new PlaybackEngine(transport, { tracks: [] });
+  pe.init();
+  assert.deepEqual(transport.listenerCounts(), { state: 1, tick: 1, loop: 1 });
+
+  pe.destroy();
+  assert.deepEqual(transport.listenerCounts(), { state: 0, tick: 0, loop: 0 });
+});

@@ -4,7 +4,7 @@
  */
 
 import { PRESETS } from '../instruments/WebAudioSynth.js';
-import { loadSampleIndex, loadSampleInstrument } from '../instruments/SamplePack.js';
+import { cachedSampleInstrumentIds, loadSampleIndex, loadSampleInstrument } from '../instruments/SamplePack.js';
 import { ChoicePicker } from '../ui/ChoicePicker.js';
 import { ARP_MODES } from '../engine/ArpeggioManager.js';
 import { showToast } from '../ui/Toast.js';
@@ -55,15 +55,20 @@ export const CreativeInstrumentsMixin = {
       groups.push({
         id: 'builtin-sample',
         label: 'Sample instruments',
-        items: builtinSamples.map(inst => ({
-          value: `builtin:${inst.id}`,
-          label: inst.name,
-          kicker: inst.category ? `${inst.category} - CC0 sample` : 'CC0 sample',
-          description: inst.range
-            ? `Sampled ${inst.range} - notes outside this range fold in by octave`
-            : 'Multi-sampled real instrument (loads on first use)',
-          tags: ['sample', inst.category, inst.range, inst.name].filter(Boolean),
-        })),
+        items: builtinSamples.map(inst => {
+          const offline = this._sampleOfflineIds?.has(inst.id);
+          return {
+            value: `builtin:${inst.id}`,
+            label: inst.name,
+            kicker: offline
+              ? `${inst.category || 'Sample'} - offline ready`
+              : `${inst.category || 'Sample'} - CC0 download`,
+            description: inst.range
+              ? `Sampled ${inst.range} - ${offline ? 'saved for offline use' : 'downloads on first use'}; notes outside this range fold in by octave`
+              : `Multi-sampled real instrument (${offline ? 'offline ready' : 'downloads on first use'})`,
+            tags: ['sample', offline ? 'offline' : 'download', inst.category, inst.range, inst.name].filter(Boolean),
+          };
+        }),
       });
     }
     if (custom.length) {
@@ -101,6 +106,7 @@ export const CreativeInstrumentsMixin = {
   async _openPatchPicker(anchor) {
     if (this.activeInstrument === INSTRUMENTS.KIT) return;
     if (!this._sampleIndex) { try { this._sampleIndex = await loadSampleIndex(); } catch (_) {} }
+    try { this._sampleOfflineIds = await cachedSampleInstrumentIds(); } catch (_) { this._sampleOfflineIds = new Set(); }
     this._patchPicker?.close();
     this._patchPicker = new ChoicePicker({
       title: 'Choose Instrument',
@@ -151,27 +157,36 @@ export const CreativeInstrumentsMixin = {
   },
 
   async _selectPatch(id = 'chip_lead') {
+    const previousId = this._activePatchId;
     this._activePatchId = id;
+    let selected = false;
     if (id.startsWith('custom:')) {
       const instrument = this._customInstruments().find(item => item.id === id.slice(7));
       if (!instrument) {
         showToast('Custom instrument is missing');
-        return;
+      } else {
+        selected = await this._loadSamplePatch(instrument);
       }
-      await this._loadSamplePatch(instrument);
     } else if (id.startsWith('builtin:')) {
-      await this._loadBuiltinSamplePatch(id.slice(8));
+      selected = await this._loadBuiltinSamplePatch(id.slice(8));
     } else {
       const patch = PRESETS[id];
-      if (patch) this.synth.loadPatch(patch);
+      if (patch) {
+        this.synth.loadPatch(patch);
+        selected = true;
+      }
     }
+    // Keep the recorded/displayed identity aligned with the patch users hear.
+    // An optional sample that failed to load must not silently replace it.
+    if (!selected && this._activePatchId === id) this._activePatchId = previousId;
     this._setLiveSoundTraits(this.controllerMode?.currentSoundTraits(this._currentToneTraits || this._ensureSoundTraits()));
+    return selected;
   },
 
   async _loadSamplePatch(instrument) {
     if (!instrument?.audioAssetId || !this.store?.getAudioAssetBlob) {
       showToast('Sample audio is missing');
-      return;
+      return false;
     }
     try {
       const blob = await this.store.getAudioAssetBlob(instrument.audioAssetId);
@@ -198,9 +213,11 @@ export const CreativeInstrumentsMixin = {
         gain: instrument.gain ?? 0.55,
       });
       showToast(`Instrument loaded: ${instrument.name}`);
+      return true;
     } catch (err) {
       console.warn('[CreativeMode] Custom instrument load failed:', err);
       showToast(err?.message || 'Custom instrument failed to load');
+      return false;
     }
   },
 
@@ -211,9 +228,11 @@ export const CreativeInstrumentsMixin = {
       if (this._activePatchId !== `builtin:${id}`) return; // a newer selection superseded this load
       this.synth.loadPatch(patch);
       showToast(`Instrument loaded: ${patch.name}`);
+      return true;
     } catch (err) {
       console.warn('[CreativeMode] Built-in sample load failed:', err);
       showToast('Sample instrument failed to load');
+      return false;
     }
   },
 

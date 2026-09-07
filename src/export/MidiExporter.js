@@ -56,7 +56,8 @@ function trackChunk(events) {
 }
 
 function noteEvents(tick, pitch, duration, velocity, channel) {
-  const vel = Math.max(1, Math.min(127, Math.round((velocity || 0.8) * 127)));
+  const vel = Math.max(0, Math.min(127, Math.round((velocity ?? 0.8) * 127)));
+  if (vel === 0) return [];
   const midi = Math.max(0, Math.min(127, Math.round(pitch)));
   return [
     { tick, order: 1, bytes: [0x90 | channel, midi, vel] },
@@ -72,6 +73,7 @@ function stats(options) {
 }
 
 function addMidiNoteEvents(events, note, startTick, channel, exportStats, timeScale = 1) {
+  if (note.velocity === 0) return;
   const scale = normalizeClipTimeScale(timeScale);
   events.push(...noteEvents(
     startTick + (note.startTick || 0) * scale,
@@ -84,6 +86,7 @@ function addMidiNoteEvents(events, note, startTick, channel, exportStats, timeSc
 }
 
 function addDrumHitEvents(events, hit, startTick, exportStats, timeScale = 1) {
+  if (hit.velocity === 0) return;
   const scale = normalizeClipTimeScale(timeScale);
   events.push(...noteEvents(startTick + (hit.startTick || 0) * scale, DRUM_MIDI[hit.type] || 38, Math.max(1, (PPQ / 8) * scale), hit.velocity, 9));
   exportStats.renderedEvents += 1;
@@ -102,13 +105,23 @@ function tempoEvents(project) {
 
 export function projectToMidiBlob(project, options = {}) {
   const exportStats = stats(options);
-  const events = [...tempoEvents(project)];
+  const tracks = [[textEvent(0x03, project?.name || 'Notenotes'), ...tempoEvents(project)]];
   const ticksPerBar = ticksPerBarForMeter(project?.meter || project?.timeSignature, PPQ);
   const hasSolo = (project?.tracks || []).some(track => track.solo);
   const audibleTracks = (project?.tracks || []).filter(track => !track.muted && (!hasSolo || track.solo));
 
+  let melodicTrack = 0;
+  const melodicChannels = [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15];
   for (const track of audibleTracks) {
     const trackType = track.type || (track.instrumentId === 'kit' || DRUM_KITS[track.instrumentId] ? 'drum' : 'midi');
+    if (trackType === 'audio') continue;
+    const channel = trackType === 'drum' ? 9 : melodicChannels[melodicTrack++ % melodicChannels.length];
+    const events = [
+      textEvent(0x03, track.name || (trackType === 'drum' ? 'Drums' : 'Instrument')),
+      textEvent(0x04, track.instrumentId || trackType),
+      { tick: 0, order: -1, bytes: [0xb0 | channel, 7, Math.round(Math.max(0, Math.min(1, track.volume ?? 1)) * 127)] },
+      { tick: 0, order: -1, bytes: [0xb0 | channel, 10, Math.round((Math.max(-1, Math.min(1, track.pan ?? 0)) + 1) * 63.5)] },
+    ];
     for (const clip of (track.clips || [])) {
       const snippet = clip.snippet;
       if (!snippet) continue;
@@ -125,14 +138,15 @@ export function projectToMidiBlob(project, options = {}) {
       const start = (clip.startBar || 0) * ticksPerBar;
       const timeScale = normalizeClipTimeScale(clip.timeScale);
       if (trackType === 'midi') {
-        for (const note of (snippet.notes || [])) addMidiNoteEvents(events, note, start, 0, exportStats, timeScale);
+        for (const note of (snippet.notes || [])) addMidiNoteEvents(events, note, start, channel, exportStats, timeScale);
       } else if (trackType === 'drum') {
         for (const hit of (snippet.hits || [])) addDrumHitEvents(events, hit, start, exportStats, timeScale);
       }
     }
+    tracks.push(events);
   }
 
-  return midiBlobFromEvents(events);
+  return midiBlobFromTracks(tracks, 1);
 }
 
 export function snippetToMidiBlob(snippet, project, options = {}) {
@@ -154,8 +168,17 @@ export function snippetToMidiBlob(snippet, project, options = {}) {
 }
 
 function midiBlobFromEvents(events) {
-  const header = [...writeAscii('MThd'), ...writeU32(6), ...writeU16(0), ...writeU16(1), ...writeU16(PPQ)];
-  const bytes = new Uint8Array([...header, ...trackChunk(events)]);
+  return midiBlobFromTracks([events], 0);
+}
+
+function textEvent(type, value) {
+  const bytes = Array.from(new TextEncoder().encode(String(value)));
+  return { tick: 0, order: -4, bytes: [0xff, type, ...writeVarLen(bytes.length), ...bytes] };
+}
+
+function midiBlobFromTracks(tracks, format) {
+  const header = [...writeAscii('MThd'), ...writeU32(6), ...writeU16(format), ...writeU16(tracks.length), ...writeU16(PPQ)];
+  const bytes = new Uint8Array([...header, ...tracks.flatMap(trackChunk)]);
   return new Blob([bytes], { type: 'audio/midi' });
 }
 

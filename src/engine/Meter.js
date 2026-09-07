@@ -143,7 +143,8 @@ export function normalizeMeter(input) {
 
   if (input.type === 'metered' && Array.isArray(input.grouping)) {
     const groupingTotal = input.grouping.reduce((sum, value) => sum + Number(value || 0), 0);
-    if (groupingTotal === normalized.numerator) {
+    if (input.grouping.every(value => Number.isInteger(value) && value > 0)
+      && groupingTotal === normalized.numerator) {
       normalized.grouping = input.grouping.map(value => Number(value));
       normalized.pulseCount = normalized.grouping.length;
     }

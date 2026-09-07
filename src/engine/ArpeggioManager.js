@@ -44,10 +44,14 @@ export class ArpeggioManager {
     this._realNoteOn = null;
     this._realNoteOff = null;
     this._realAllOff = null;
+    this._realCancelNote = null;
 
-    this._latched = new Map();      // midi → { timerId }
+    this._latched = new Map();      // midi → { timerId, releaseAt }
     this._arpNotes = new Map();
-    this._arpTimerId = null;
+    this._arpSchedulerId = null;
+    this._arpNextTime = null;
+    this._scheduleAheadSeconds = 0.08;
+    this._schedulerIntervalMs = 25;
     this._arpStep = 0;
     this._pendingChord = [];
     this._pendingTimer = null;
@@ -62,7 +66,7 @@ export class ArpeggioManager {
   get _chordType() { return this.project?.settings?.arpChordType || 'major'; }
   get _arpPattern() { return this.project?.settings?.arpPattern || 'up'; }
   get _arpRate() { return this.project?.settings?.arpRate || '1/8'; }
-  get _holdDuration() { return this.project?.settings?.holdDuration || 3000; }
+  get _holdDuration() { return this.project?.settings?.holdDuration ?? 3000; }
 
   set project(p) { this._project = p; }
   get project() { return this._project; }
@@ -72,29 +76,38 @@ export class ArpeggioManager {
     this._realNoteOn = synth.noteOn.bind(synth);
     this._realNoteOff = synth.noteOff.bind(synth);
     this._realAllOff = synth.allNotesOff.bind(synth);
+    this._realCancelNote = synth.cancelNote?.bind(synth) || null;
 
     const self = this;
     synth.noteOn = function (midi, vel) {
-      self._handleNoteOn(midi, vel || 0.8);
+      self._handleNoteOn(midi, vel ?? 0.8);
     };
     synth.noteOff = function (midi) {
       self._handleNoteOff(midi);
     };
   }
 
-  _safeNoteOn(midi, vel) { if (this._realNoteOn) this._realNoteOn(midi, vel); }
-  _safeNoteOff(midi) { if (this._realNoteOff) this._realNoteOff(midi); }
+  _safeNoteOn(midi, vel, audioTime) { if (this._realNoteOn) this._realNoteOn(midi, vel, audioTime); }
+  _safeNoteOff(midi, audioTime) { if (this._realNoteOff) this._realNoteOff(midi, audioTime); }
   _safeAllOff() { if (this._realAllOff) this._realAllOff(); }
+  _safeCancelNote(midi, audioTime) {
+    if (this._realCancelNote) this._realCancelNote(midi, audioTime);
+    else this._safeNoteOff(midi, audioTime);
+  }
+
+  _audioNow() {
+    return this._synth?.engine?.currentTime ?? this.transport?.engine?.currentTime ?? 0;
+  }
 
   setMode(mode) {
     const prev = this._mode;
-    this._mode = mode;
-    if (mode !== ARP_MODES.ARP) {
+    if (prev === ARP_MODES.ARP && mode !== ARP_MODES.ARP) {
       this._stopArp();
     }
-    if (mode === ARP_MODES.OFF) {
+    if (prev === ARP_MODES.HOLD && mode !== ARP_MODES.HOLD) {
       this._releaseAll();
     }
+    this._mode = mode;
     if (this._onModeChange) this._onModeChange(mode);
 
     if (prev !== mode) {
@@ -110,11 +123,11 @@ export class ArpeggioManager {
   }
 
   _releaseAll() {
-    for (const [midi, data] of this._latched) {
+    for (const data of this._latched.values()) {
       if (data.timerId) clearTimeout(data.timerId);
-      this._safeNoteOff(midi);
     }
     this._latched.clear();
+    this._safeAllOff();
   }
 
   _handleNoteOn(midi, velocity) {
@@ -123,15 +136,22 @@ export class ArpeggioManager {
         const data = this._latched.get(midi);
         if (data.timerId) clearTimeout(data.timerId);
         this._latched.delete(midi);
-        this._safeNoteOff(midi);
+        this._safeCancelNote(midi, this._audioNow());
         return;
       }
+      const now = this._audioNow();
+      const releaseAt = now + this._holdDuration / 1000;
+      const entry = { timerId: null, releaseAt };
       const timerId = setTimeout(() => {
-        this._latched.delete(midi);
-        this._safeNoteOff(midi);
+        if (this._latched.get(midi) === entry) this._latched.delete(midi);
       }, this._holdDuration);
-      this._latched.set(midi, { timerId });
-      this._safeNoteOn(midi, velocity);
+      entry.timerId = timerId;
+      this._latched.set(midi, entry);
+      this._safeNoteOn(midi, velocity, now);
+      // The timer above only cleans up latch state. The audible release is
+      // scheduled immediately on the AudioContext clock so a busy UI cannot
+      // stretch the note.
+      this._safeNoteOff(midi, releaseAt);
       return;
     }
 
@@ -187,41 +207,39 @@ export class ArpeggioManager {
   }
 
   _startArp() {
-    if (this._arpTimerId) return;
+    if (this._arpSchedulerId) return;
     this._arpStep = 0;
-    this._stepArp();
+    const now = this._audioNow();
+    this._arpNextTime = now + 0.02;
+    this._scheduleArpWindow();
+    this._arpSchedulerId = setInterval(() => this._scheduleArpWindow(), this._schedulerIntervalMs);
   }
 
-  _stepArp() {
+  _scheduleArpWindow() {
     if (this._arpNotes.size === 0) return;
+    const now = this._audioNow();
+    const horizon = now + this._scheduleAheadSeconds;
+    if (!Number.isFinite(this._arpNextTime) || this._arpNextTime < now) this._arpNextTime = now;
 
-    const allGroups = [];
-    for (const [, data] of this._arpNotes) {
-      allGroups.push({ notes: data.notes, velocity: data.velocity });
+    while (this._arpNextTime < horizon && this._arpNotes.size > 0) {
+      const allGroups = [...this._arpNotes.values()].map(data => ({
+        notes: data.notes,
+        velocity: data.velocity,
+      }));
+      const stepNotes = this._getPatternNotes(allGroups);
+      if (!stepNotes.length) return;
+
+      const rateCfg = ARP_RATES.find(r => r.id === this._arpRate) || ARP_RATES[2];
+      const beatsPerSecond = this.transport.bpm / 60;
+      const intervalSeconds = Math.max(0.04, (1 / beatsPerSecond) * (rateCfg.divisor / 480));
+      const note = stepNotes[this._arpStep % stepNotes.length];
+      const noteOffTime = this._arpNextTime + intervalSeconds * 0.55;
+
+      this._safeNoteOn(note.midi, note.velocity, this._arpNextTime);
+      this._safeNoteOff(note.midi, noteOffTime);
+      this._arpStep += 1;
+      this._arpNextTime += intervalSeconds;
     }
-
-    const stepNotes = this._getPatternNotes(allGroups);
-    if (stepNotes.length === 0) return;
-
-    const rateCfg = ARP_RATES.find(r => r.id === this._arpRate) || ARP_RATES[2];
-    const bps = this.transport.bpm / 60;
-    const beatMs = 1000 / bps;
-    const intervalMs = Math.max(40, beatMs * (rateCfg.divisor / 480));
-    const noteDuration = Math.floor(intervalMs * 0.55);
-
-    const note = stepNotes[this._arpStep % stepNotes.length];
-    this._safeNoteOn(note.midi, note.velocity);
-
-    this._arpStep++;
-
-    setTimeout(() => {
-      this._safeNoteOff(note.midi);
-    }, noteDuration);
-
-    this._arpTimerId = setTimeout(() => {
-      this._arpTimerId = null;
-      this._stepArp();
-    }, intervalMs);
   }
 
   _getPatternNotes(allGroups) {
@@ -256,12 +274,18 @@ export class ArpeggioManager {
   }
 
   _stopArp() {
-    if (this._arpTimerId) {
-      clearTimeout(this._arpTimerId);
-      this._arpTimerId = null;
+    if (this._arpSchedulerId) {
+      clearInterval(this._arpSchedulerId);
+      this._arpSchedulerId = null;
     }
+    if (this._pendingTimer) {
+      clearTimeout(this._pendingTimer);
+      this._pendingTimer = null;
+    }
+    this._pendingChord = [];
     this._safeAllOff();
     this._arpNotes.clear();
     this._arpStep = 0;
+    this._arpNextTime = null;
   }
 }

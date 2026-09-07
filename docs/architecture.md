@@ -37,11 +37,30 @@ Large audio payloads have their own durable asset path and are reconnected to
 their lightweight project metadata when loaded. Backups, migrations, undo/history,
 and new-project defaults all need to agree when the state shape changes.
 
+Canvas clips link to reusable library snippets. `ProjectSnippets` restores that
+shared identity after JSON, history, and backup round trips. When an older saved
+clip differs from its library entry, normalization preserves its content as a
+separate library snippet instead of discarding either edit.
+
+`ProjectStore` retains dirty state after a failed save and emits save-state
+changes for the transport's status and retry action. Undo commands capture their
+target snippet; the shared undo listener persists both undo and redo operations.
+
 ## Audio and visual clocks
 
 `Transport` uses a short look-ahead loop but schedules actual sound against
 `AudioContext.currentTime`. Playback code should schedule a little ahead and must
-not use animation frames as an audio clock.
+not use animation frames or timer callback arrival as an audio clock. Audio clips
+and optional sample packs are prepared before transport starts; a late asset load
+must not begin halfway through its scheduled event.
+
+The scheduler advances an integer tick cursor and derives timestamps from tempo
+anchors. Tempo changes begin after the already-scheduled horizon so they do not
+reinterpret elapsed playback or duplicate ticks.
+
+`InstrumentRegistry` is the shared source of instrument identity for Create,
+recorded snippets, Canvas, Inspect, live playback, and WAV export. Track volume and
+pan belong to the track bus, downstream of an instrument patch's own output level.
 
 Visual playheads and meters use `requestAnimationFrame` and read current transport
 state. They may redraw late without moving already-scheduled audio. Preserve this
@@ -64,12 +83,15 @@ normally, a matching `WavExporter` path.
 Put pure behavior under `tests/unit/`, keep the quick application contract in the
 smoke suite, and use [`manual-qa.md`](manual-qa.md) for browser, audio-device,
 touch, PWA, and platform checks that cannot be made trustworthy in Node.
+`tests/browser/` exercises real capture, editing, undo, storage, imports, audio
+stop, and MIDI downloads at desktop and mobile sizes using Playwright.
 
 Before a PR, run:
 
 ```bash
 npm test
 npm run build
+npm run test:browser
 ```
 
 Update [`README.md`](../README.md) for durable user-visible behavior. Update

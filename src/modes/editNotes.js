@@ -291,11 +291,12 @@ export const EditNotesMixin = {
     const durationChanged = beforeState?.durationTicks !== afterState?.durationTicks;
 
     if (beforeState && afterState && JSON.stringify(beforeState) !== JSON.stringify(afterState)) {
+      const editedSnippet = this._snippet;
       this.undoManager?.push({
         type: 'editSnippet',
         description,
-        undo: () => this._restoreSnippetState(beforeState),
-        redo: () => this._restoreSnippetState(afterState),
+        undo: () => this._restoreSnippetState(beforeState, editedSnippet),
+        redo: () => this._restoreSnippetState(afterState, editedSnippet),
       });
     }
 
@@ -340,18 +341,23 @@ export const EditNotesMixin = {
     };
   },
 
-  _restoreSnippetState(state) {
-    if (!this._snippet || !state) return;
-    this._snippet.name = state.name;
-    this._snippet.notes = this._cloneForUndo(state.notes || []);
-    this._snippet.hits = this._cloneForUndo(state.hits || []);
-    this._snippet.lyrics = this._cloneForUndo(state.lyrics || []);
-    this._snippet.modulation = this._cloneForUndo(state.modulation || []);
-    this._snippet.durationTicks = state.durationTicks;
-    this._selectedNoteIdx = null;
-    this._selectedEventKind = null;
-    this._rebuildAll();
+  _restoreSnippetState(state, snippet = this._snippet) {
+    if (!snippet || !state) return;
+    snippet.name = state.name;
+    snippet.notes = this._cloneForUndo(state.notes || []);
+    snippet.hits = this._cloneForUndo(state.hits || []);
+    snippet.lyrics = this._cloneForUndo(state.lyrics || []);
+    snippet.modulation = this._cloneForUndo(state.modulation || []);
+    snippet.durationTicks = state.durationTicks;
+    if (snippet === this._snippet) {
+      this._selectedNoteIdx = null;
+      this._selectedEventKind = null;
+      this._rebuildAll();
+    }
     this.store?.scheduleAutoSave(this.project);
-    if (this.onSnippetRenamed) this.onSnippetRenamed(this._snippet);
+    if (this.onSnippetRenamed) this.onSnippetRenamed(snippet);
+    window.dispatchEvent(new CustomEvent('project-snippets-changed', {
+      detail: { snippetId: snippet.id, action: 'updated' },
+    }));
   },
 };

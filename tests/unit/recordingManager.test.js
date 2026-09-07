@@ -48,6 +48,22 @@ test('trims leading empty ticks so the snippet starts at the first event', () =>
   assert.equal(snippet.notes[0].durationTick, 240);
 });
 
+test('a recording starting at tick zero preserves the spacing of later events', () => {
+  const { transport, rm, getSnippet } = setup();
+  rm.setArmed(true);
+  rm.drumHit('kick');
+  transport.seek(480);
+  rm.drumHit('snare');
+  transport.seek(960);
+  rm.noteOn(60);
+  transport.seek(1200);
+  rm.noteOff(60);
+  transport.emitState('stopped', { rawTick: 1440 });
+
+  assert.deepEqual(getSnippet().hits.map(hit => hit.startTick), [0, 480]);
+  assert.equal(getSnippet().notes[0].startTick, 960);
+});
+
 test('finalizes held notes when recording stops via transport state change', () => {
   const { transport, rm, getSnippet } = setup();
   rm.setArmed(true);

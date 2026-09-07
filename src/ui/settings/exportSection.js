@@ -1,3 +1,4 @@
+import { onActivate } from '../Activation.js';
 /**
  * exportSection — SettingsPanel Export tab (MIDI/WAV export, render + binding).
  *
@@ -83,7 +84,7 @@ export const ExportSectionMixin = {
 
   _bindExportEvents() {
     const body = this.el.querySelector('#settings-body');
-    body.querySelector('#export-canvas-midi')?.addEventListener('pointerdown', (e) => {
+    onActivate(body.querySelector('#export-canvas-midi'), (e) => {
       e.preventDefault();
       if (!this.project) return;
       const stats = { renderedEvents: 0, skippedMismatchedClips: 0 };
@@ -96,7 +97,7 @@ export const ExportSectionMixin = {
       showToast(stats.skippedMismatchedClips ? 'Canvas MIDI exported, skipped mismatched clips' : 'Canvas MIDI exported');
     });
 
-    body.querySelector('#export-canvas-wav')?.addEventListener('pointerdown', async (e) => {
+    onActivate(body.querySelector('#export-canvas-wav'), async (e) => {
       e.preventDefault();
       if (!this.project) return;
       const btn = e.currentTarget;
@@ -123,7 +124,7 @@ export const ExportSectionMixin = {
       }
     });
 
-    body.querySelector('#export-snippet-midi')?.addEventListener('pointerdown', (e) => {
+    onActivate(body.querySelector('#export-snippet-midi'), (e) => {
       e.preventDefault();
       const snippetId = body.querySelector('#export-snippet-select')?.value;
       const snippet = this.project?.snippets?.find(s => s.id === snippetId);
@@ -138,7 +139,7 @@ export const ExportSectionMixin = {
       showToast('Snippet MIDI exported');
     });
 
-    body.querySelector('#export-snippet-wav')?.addEventListener('pointerdown', async (e) => {
+    onActivate(body.querySelector('#export-snippet-wav'), async (e) => {
       e.preventDefault();
       const snippetId = body.querySelector('#export-snippet-wav-select')?.value;
       const snippet = this.project?.snippets?.find(s => s.id === snippetId);

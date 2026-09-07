@@ -10,29 +10,52 @@
  *   { id, label, items: [ { value, label, kicker, description, tags } ] }
  */
 
-import { TRACK_INSTRUMENTS } from '../engine/PlaybackEngine.js';
 import { DRUM_KITS } from '../instruments/SketchKit.js';
 import { PRESETS } from '../instruments/WebAudioSynth.js';
+import {
+  BUILTIN_SAMPLE_INSTRUMENTS,
+  resolveInstrumentDefinition,
+} from '../engine/InstrumentRegistry.js';
 
 /** Built-in MIDI patches and sample-based custom patch instruments. */
 export function midiInstrumentGroups(project = null) {
-  const builtIns = Object.values(TRACK_INSTRUMENTS).filter(inst => inst.type === 'synth');
-  const itemForBuiltIn = inst => {
-    const patch = PRESETS[inst.preset] || PRESETS[inst.id] || {};
+  const presets = Object.entries(PRESETS);
+  const itemForPreset = ([id, patch]) => {
     return {
-      value: inst.id,
-      label: inst.name,
-      kicker: (patch.family || 'chip') === 'modern' ? 'Modern synth track' : 'Chip synth track',
+      value: id,
+      label: patch.name || id,
+      kicker: patch.family === 'fm'
+        ? 'FM synth track'
+        : patch.family === 'modern'
+          ? 'Modern synth track'
+          : 'Chip synth track',
       description: describePatch(patch),
-      tags: [patch.family, patch.oscillator?.type, patch.filter?.type, inst.name].filter(Boolean),
+      tags: [patch.family, patch.oscillator?.type, patch.filter?.type, patch.name].filter(Boolean),
     };
   };
-  const chip = builtIns.filter(inst => (PRESETS[inst.preset]?.family || 'chip') === 'chip').map(itemForBuiltIn);
-  const modern = builtIns.filter(inst => PRESETS[inst.preset]?.family === 'modern').map(itemForBuiltIn);
+  const chip = presets.filter(([, patch]) => (patch.family || 'chip') === 'chip').map(itemForPreset);
+  const modern = presets.filter(([, patch]) => patch.family === 'modern').map(itemForPreset);
+  const fm = presets.filter(([, patch]) => patch.family === 'fm').map(itemForPreset);
   const groups = [
     { id: 'chip', label: 'Chip presets', items: chip },
     { id: 'modern', label: 'Modern presets', items: modern },
   ];
+  if (fm.length) groups.push({ id: 'fm', label: 'FM synths (2-operator)', items: fm });
+  if (BUILTIN_SAMPLE_INSTRUMENTS.length) {
+    groups.push({
+      id: 'builtin-sample',
+      label: 'Sample instruments',
+      items: BUILTIN_SAMPLE_INSTRUMENTS.map(inst => ({
+        value: inst.id,
+        label: inst.name,
+        kicker: inst.metadata.category ? `${inst.metadata.category} - CC0 sample` : 'CC0 sample',
+        description: inst.metadata.range
+          ? `Sampled ${inst.metadata.range} - notes outside this range fold in by octave`
+          : 'Multi-sampled real instrument (downloads on first use)',
+        tags: ['sample', inst.metadata.category, inst.metadata.range, inst.name].filter(Boolean),
+      })),
+    });
+  }
   const custom = (project?.settings?.customInstruments || [])
     .filter(instrument => instrument.type === 'patch')
     .map(instrument => ({
@@ -69,24 +92,13 @@ export function drumInstrumentGroups() {
  */
 export function labelForInstrument(instrumentId, project = null) {
   if (!instrumentId) return 'Default';
-  if (instrumentId.startsWith('custom:')) {
-    const custom = (project?.settings?.customInstruments || []).find(
-      inst => inst.id === instrumentId.slice(7)
-    );
-    return custom?.name || instrumentId;
-  }
-  const trackInst = TRACK_INSTRUMENTS[instrumentId];
-  if (trackInst?.name) return trackInst.name;
-  const kit = DRUM_KITS[instrumentId];
-  if (kit?.name) return kit.name;
-  const preset = PRESETS[instrumentId];
-  if (preset?.name) return preset.name;
-  return instrumentId;
+  return resolveInstrumentDefinition(instrumentId, project)?.name || instrumentId;
 }
 
 function describePatch(patch = {}) {
   const bits = [];
-  if (patch.oscillator?.type) bits.push(patch.oscillator.type);
+  if (patch.type === 'fm') bits.push('2-op FM');
+  else if (patch.oscillator?.type) bits.push(patch.oscillator.type);
   if (patch.unison?.voices) bits.push(`${patch.unison.voices}-voice unison`);
   if (patch.filterEnv) bits.push('filter motion');
   if (patch.vibrato) bits.push('vibrato');

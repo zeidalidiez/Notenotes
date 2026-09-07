@@ -222,6 +222,10 @@
     padding: var(--space-xs) var(--space-md);
   }
 
+  .snippet-tray__empty {
+    padding: var(--space-xs);
+  }
+
   .snippet-tray__item {
     min-width: 116px;
   }

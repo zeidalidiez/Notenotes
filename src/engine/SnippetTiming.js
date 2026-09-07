@@ -17,13 +17,12 @@ function eventEndTick(event, fallbackDurationTicks) {
  */
 export function snippetContentEndTick(snippet = {}, fallbackEventTicks = 120) {
   const fallback = positiveInt(fallbackEventTicks, 120);
-  const noteEnds = Array.isArray(snippet?.notes)
-    ? snippet.notes.map(note => eventEndTick(note, fallback))
-    : [];
-  const hitEnds = Array.isArray(snippet?.hits)
-    ? snippet.hits.map(hit => eventEndTick(hit, fallback))
-    : [];
-  return Math.max(0, ...noteEnds, ...hitEnds);
+  let end = 0;
+  for (const events of [snippet?.notes, snippet?.hits]) {
+    if (!Array.isArray(events)) continue;
+    for (const event of events) end = Math.max(end, eventEndTick(event, fallback));
+  }
+  return end;
 }
 
 /**

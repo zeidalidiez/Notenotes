@@ -83,3 +83,28 @@ test('unfinished custom kits stay out of the playable kit surface', () => {
   assert.equal(kit.selectedKitId, 'classic');
   assert.doesNotMatch(kit._renderKitOptions(), /Saved Kit|custom:saved-kit/);
 });
+
+test('setting identical Tone traits keeps the drum effect graph intact', () => {
+  const { ctx, kit } = freshKit();
+  assert.equal(kit.setSoundTraits({ space: { amount: 0.45 }, drive: { amount: 0.2 } }), true);
+  const created = ctx.totalCreated();
+  const disconnects = ctx.disconnectCount();
+
+  assert.equal(kit.setSoundTraits({ space: { amount: 0.45 }, drive: { amount: 0.2 } }), false);
+  assert.equal(ctx.totalCreated(), created);
+  assert.equal(ctx.disconnectCount(), disconnects);
+});
+
+test('zero-velocity hits stay silent and panic stops every scheduled drum source', () => {
+  const { ctx, kit } = freshKit();
+  const createdBefore = ctx.totalCreated();
+  kit._triggerSound('kick', ctx.currentTime, 0);
+  assert.equal(ctx.totalCreated(), createdBefore, 'zero velocity allocates no audio graph');
+
+  kit._triggerSound('cymbal', ctx.currentTime, 0.8);
+  assert.ok(kit._liveSources.size > 0);
+  kit.panic();
+  assert.equal(kit._liveSources.size, 0);
+  ctx.advance(0.01);
+  assert.equal(ctx.liveSourceCount(), 0);
+});

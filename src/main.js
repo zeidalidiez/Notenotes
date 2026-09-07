@@ -8,7 +8,8 @@ import './instruments/instruments.css';
 import './ui/settings.css';
 
 import { AudioEngine } from './engine/AudioEngine.js';
-import { Transport } from './engine/Transport.js';
+import { isDialogTarget, isNativeControl } from './ui/Activation.js';
+import { Transport, TransportState } from './engine/Transport.js';
 import { Metronome } from './engine/Metronome.js';
 import { Quantizer } from './engine/Quantizer.js';
 import { ProjectStore, createProject } from './data/ProjectStore.js';
@@ -100,6 +101,7 @@ class App {
     this._audioUnlockRequestInFlight = false;
     this._audioContextStateBound = false;
     this._audioVisibilityResumeBound = false;
+    this._pendingPlaybackStart = null;
   }
 
   /**
@@ -121,6 +123,12 @@ class App {
     // Load or create project
     await this._loadOrCreateProject();
     this._applyProjectOutputVolumes();
+    this.undoManager.onChange((operation) => {
+      if (operation !== 'undo' && operation !== 'redo') return;
+      this.store.scheduleAutoSave(this.project);
+      this.canvasMode?.refresh();
+      window.dispatchEvent(new CustomEvent('project-snippets-changed'));
+    });
 
     // Pass project reference to creative mode
     this._ensureProjectMusicalContext();
@@ -301,6 +309,12 @@ class App {
       this.creativeMode?.setRecordArmed?.(armed);
     };
     this.transportBar.onPlayToggle = () => this._handlePlayToggle();
+    this.transportBar.onStop = () => this._cancelPendingPlaybackStart();
+    this.transportBar.setSaveState(this.store.saveState);
+    window.addEventListener('notenotes-save-state-changed', (event) => {
+      this.transportBar.setSaveState(event.detail.state);
+    });
+    this.transportBar.onRetrySave = () => this._flushPendingAutoSave('retry');
     this.transportBar.onProjectKeyChange = (context) => {
       this._setProjectMusicalContext(context, { source: 'transport' });
     };
@@ -374,12 +388,10 @@ class App {
     this._bindAudioVisibilityResume();
     this._buildAudioUnlockPrompt();
 
-    // Inspect is the new default landing tab. Apply it last so `_switchMode`
-    // runs after every mode view + EditMode is mounted, and so the onChange
-    // callback (which calls `_switchMode` + canvas refresh) fires exactly
-    // once with the correct active mode.
-    this.modeTabs.setActive(Modes.PIANOROLL);
-    this._switchMode(Modes.PIANOROLL);
+    // A new workspace opens directly on a playable surface. Existing libraries
+    // still open in Inspect. The mode callback performs the initial switch.
+    this.modeTabs.setActive(this.project.snippets?.length ? Modes.PIANOROLL : Modes.CREATIVE);
+    this._syncAudioUnlockPrompt();
 
     console.log('[App] Notenotes ready.');
   }
@@ -819,7 +831,9 @@ class App {
     if (!this._audioUnlockPrompt) return;
     const state = this.engine.ctx?.state || 'new';
     const needsMediaRoute = this._needsIOSMediaRoutePrime();
-    const needsUnlock = !this._initialized || state !== 'running' || needsMediaRoute;
+    const captureWillUnlock = !this.engine._initialized && !needsMediaRoute
+      && this.modeTabs.activeMode === Modes.CREATIVE && !this.project?.snippets?.length;
+    const needsUnlock = !captureWillUnlock && (!this._initialized || state !== 'running' || needsMediaRoute);
     this._audioUnlockPrompt.hidden = !needsUnlock;
     this._audioUnlockPrompt.classList.toggle('is-visible', needsUnlock);
     this._audioUnlockPrompt.setAttribute('aria-label', needsMediaRoute ? 'Enable iOS sound route' : (needsUnlock ? 'Enable audio engine' : 'Audio engine ready'));
@@ -956,6 +970,7 @@ class App {
     // re-establishes the PlaybackEngine's inspect source on the next
     // press, so we don't need to do it eagerly here.
     this.modeTabs.onChange((mode) => {
+      this._cancelPendingPlaybackStart();
       this.transport.stop();
       this.playbackEngine?.setInspectSource?.(null);
       this.editMode?.stopAudioPlayback?.();
@@ -974,7 +989,14 @@ class App {
    * in the browser from silently starting Canvas playback. Outside Inspect,
    * play the Canvas arrangement as before.
    */
-  _handlePlayToggle() {
+  async _handlePlayToggle() {
+    // A second press while assets are preparing means "cancel play", not
+    // "queue another toggle". This also keeps a late decode from restarting
+    // transport after the user has moved on.
+    if (this._pendingPlaybackStart) {
+      this._cancelPendingPlaybackStart();
+      return;
+    }
     const inInspect = this.modeTabs.activeMode === Modes.PIANOROLL;
     const snippet = this._inspectSnippet;
     if (inInspect) {
@@ -983,12 +1005,37 @@ class App {
         this.editMode.toggleAudioPlayback();
       } else {
         this.playbackEngine?.setInspectSource?.(snippet);
-        this.transport.toggle();
+        if (this.transport.state === TransportState.STOPPED) {
+          const request = {};
+          this._pendingPlaybackStart = request;
+          await this.playbackEngine?.prepareInspectSource?.(snippet);
+          if (this._pendingPlaybackStart === request) this._pendingPlaybackStart = null;
+          if (request.cancelled
+            || this.transport.state !== TransportState.STOPPED
+            || this._inspectSnippet !== snippet
+            || this.modeTabs.activeMode !== Modes.PIANOROLL) return;
+        }
+        this.transport.state === TransportState.STOPPED ? this.transport.play() : this.transport.pause();
       }
       return;
     }
     this.playbackEngine?.setInspectSource?.(null);
-    this.transport.toggle();
+    if (this.transport.state === TransportState.STOPPED) {
+      const request = {};
+      this._pendingPlaybackStart = request;
+      await this.playbackEngine?.preparePlaybackAssets?.();
+      if (this._pendingPlaybackStart === request) this._pendingPlaybackStart = null;
+      if (request.cancelled
+        || this.transport.state !== TransportState.STOPPED
+        || this.modeTabs.activeMode === Modes.PIANOROLL) return;
+    }
+    this.transport.state === TransportState.STOPPED ? this.transport.play() : this.transport.pause();
+  }
+
+  _cancelPendingPlaybackStart() {
+    if (!this._pendingPlaybackStart) return;
+    this._pendingPlaybackStart.cancelled = true;
+    this._pendingPlaybackStart = null;
   }
 
   /**
@@ -1168,11 +1215,13 @@ class App {
   _bindKeyboard() {
     document.addEventListener('keydown', (e) => {
       // Don't capture when typing in inputs
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable) return;
+      if (e.defaultPrevented || isDialogTarget(e.target)
+        || ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable) return;
+      const transportShortcut = !isNativeControl(e.target) && !e.ctrlKey && !e.metaKey && !e.altKey && !e.repeat;
 
       // Space → Play/Pause. Routed through `_handlePlayToggle` so Inspect
       // mode can audition the open clip instead of the Canvas arrangement.
-      if (e.code === 'Space') {
+      if (e.code === 'Space' && transportShortcut) {
         e.preventDefault();
         if (this._initialized) {
           this._handlePlayToggle();
@@ -1180,15 +1229,16 @@ class App {
       }
 
       // Enter â†’ Stop and rewind
-      if (e.code === 'Enter') {
+      if (e.code === 'Enter' && transportShortcut) {
         e.preventDefault();
         if (this._initialized) {
+          this._cancelPendingPlaybackStart();
           this.transport.stop();
         }
       }
 
       // Ctrl+Z → Undo
-      if (e.ctrlKey && !e.shiftKey && e.code === 'KeyZ') {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.code === 'KeyZ') {
         e.preventDefault();
         if (this.undoManager.undo()) {
           showToast(`Undo: ${this.undoManager.redoDescription}`);
@@ -1196,7 +1246,7 @@ class App {
       }
 
       // Ctrl+Shift+Z → Redo
-      if (e.ctrlKey && e.shiftKey && e.code === 'KeyZ') {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyZ') {
         e.preventDefault();
         if (this.undoManager.redo()) {
           showToast(`Redo: ${this.undoManager.undoDescription}`);
@@ -1204,17 +1254,18 @@ class App {
       }
 
       // Ctrl+S → Save
-      if (e.ctrlKey && e.code === 'KeyS') {
+      if ((e.ctrlKey || e.metaKey) && e.code === 'KeyS') {
         e.preventDefault();
         if (this.project) {
-          this.store.save(this.project);
-          this.store.saveVersion(this.project);
-          showToast('Project saved');
+          this.store.scheduleAutoSave(this.project);
+          void this.store.flushAutoSave()
+            .then(() => showToast('Project saved'))
+            .catch(() => showToast('Save failed. Retry or export a backup.'));
         }
       }
 
       // 1/3/4/6/7/9 → Pitch bend / Modulation (hold to ramp)
-      if (e.code.startsWith('Digit') || e.code.startsWith('Numpad')) {
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.code.startsWith('Digit') || e.code.startsWith('Numpad'))) {
         if (this.modeTabs.activeMode === Modes.CREATIVE && this.creativeMode?.handlesPerformanceKey?.(e.code)) return;
         const key = e.code.replace('Digit', '').replace('Numpad', '');
         if (['1','3','4','6','7','9'].includes(key) && !e.repeat) {

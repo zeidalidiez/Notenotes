@@ -1,6 +1,7 @@
 import { GamepadInputManager } from '../../engine/GamepadInputManager.js';
 import { showToast } from '../../ui/Toast.js';
 import { PERFORMANCE_KEYS } from '../../ui/PerformanceKeys.js';
+import { isDialogTarget, isNativeControl } from '../../ui/Activation.js';
 
 const EXPECTED_MIDI_ACCESS_ERRORS = new Set(['NotAllowedError', 'SecurityError']);
 
@@ -66,9 +67,11 @@ export class PerformanceInputRouter {
     this._keyboardBound = true;
 
     document.addEventListener('keydown', (e) => {
-      if (!this._isCreativeActive() || isTextInput(e.target) || e.repeat) return;
+      if (!this._isCreativeActive() || isTextInput(e.target) || isDialogTarget(e.target)
+        || e.repeat || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
 
       if (e.code === 'ArrowUp' || e.code === 'ArrowDown') {
+        if (isNativeControl(e.target)) return;
         if (this._shiftActiveInstrumentOctave(e.code === 'ArrowUp' ? 1 : -1)) {
           e.preventDefault();
           e.stopPropagation();

@@ -268,7 +268,7 @@ export class RecordingManager {
     const starts = [
       ...this._capturedNotes.map(note => note.startTick),
       ...this._capturedHits.map(hit => hit.startTick),
-    ].filter(tick => Number.isFinite(tick) && tick > 0);
+    ].filter(tick => Number.isFinite(tick) && tick >= 0);
     if (starts.length === 0) return;
 
     const firstTick = Math.min(...starts);

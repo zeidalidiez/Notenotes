@@ -1,3 +1,4 @@
+import { onActivate } from '../ui/Activation.js';
 /**
  * editRhythmFit — EditMode feature extracted for size; composed back onto
  * EditMode.prototype via Object.assign. Method bodies are unchanged.
@@ -114,15 +115,15 @@ export const EditRhythmFitMixin = {
       if (status) status.textContent = result.changed ? `Previewing ${result.events.length} fitted events.` : 'Already fits those settings.';
     };
 
-    overlay.querySelector('#rhythm-fit-preview')?.addEventListener('pointerdown', (e) => {
+    onActivate(overlay.querySelector('#rhythm-fit-preview'), (e) => {
       e.preventDefault();
       preview();
     });
-    overlay.querySelector('#rhythm-fit-cancel')?.addEventListener('pointerdown', (e) => {
+    onActivate(overlay.querySelector('#rhythm-fit-cancel'), (e) => {
       e.preventDefault();
       close();
     });
-    overlay.querySelector('#rhythm-fit-apply')?.addEventListener('pointerdown', (e) => {
+    onActivate(overlay.querySelector('#rhythm-fit-apply'), (e) => {
       e.preventDefault();
       const beforeState = this._rhythmFitPreviewState || this._snapshotSnippetState();
       if (this._rhythmFitPreviewState) {
@@ -163,11 +164,12 @@ export const EditRhythmFitMixin = {
   _commitRhythmFit(beforeState) {
     const afterState = this._snapshotSnippetState();
     if (beforeState && afterState && JSON.stringify(beforeState) !== JSON.stringify(afterState)) {
+      const editedSnippet = this._snippet;
       this.undoManager?.push({
         type: 'fitRhythm',
         description: 'Fit rhythm',
-        undo: () => this._restoreSnippetState(beforeState),
-        redo: () => this._restoreSnippetState(afterState),
+        undo: () => this._restoreSnippetState(beforeState, editedSnippet),
+        redo: () => this._restoreSnippetState(afterState, editedSnippet),
       });
       this.store?.scheduleAutoSave(this.project);
       window.dispatchEvent(new CustomEvent('project-snippets-changed', {

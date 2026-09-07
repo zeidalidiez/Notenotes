@@ -1,3 +1,4 @@
+import { onActivate } from './Activation.js';
 /**
  * SettingsPanel — Slide-out panel for app-wide settings.
  * Includes quantization, metronome settings, project management,
@@ -15,6 +16,9 @@ import { AiSectionMixin } from './settings/aiSection.js';
 import { ExportSectionMixin } from './settings/exportSection.js';
 import { AccessibilitySectionMixin } from './settings/accessibilitySection.js';
 import { focusableElements, setSubtreeInteractive, setTabActive } from './InteractionState.js';
+import { cacheAllSampleInstruments, cachedSampleInstrumentIds } from '../instruments/SamplePack.js';
+import { SAMPLE_PACK_INDEX } from '../engine/InstrumentRegistry.js';
+import { escapeAttr } from '../utils/html.js';
 
 const LATEST_VERSION_URL = 'https://raw.githubusercontent.com/zeidalidiez/Notenotes/main/src/version.js';
 
@@ -82,7 +86,7 @@ export class SettingsPanel {
           <h3 class="settings-group__title">Project</h3>
           <div class="settings-row">
             <label class="settings-label">Name</label>
-            <input class="settings-input" id="setting-project-name" type="text" value="${this.project?.name || 'Untitled'}" aria-label="Project name"/>
+            <input class="settings-input" id="setting-project-name" type="text" value="${escapeAttr(this.project?.name || 'Untitled')}" aria-label="Project name"/>
           </div>
           <div class="settings-row settings-row--version">
             <label class="settings-label">App Version</label>
@@ -120,6 +124,19 @@ export class SettingsPanel {
           <div class="settings-row">
             <label class="settings-label">Volume</label>
             <input class="settings-range" id="setting-master-vol" type="range" min="0" max="100" value="${Math.round(masterVol * 100)}" aria-label="Master volume"/>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <h3 class="settings-group__title">Sound Library</h3>
+          <p class="settings-desc">The synths and drums always work offline. The optional 2.9 MB CC0 instrument pack downloads only when requested.</p>
+          <div class="settings-row">
+            <label class="settings-label">Sample instruments</label>
+            <span class="settings-value" id="setting-sound-library-status">Checking...</span>
+          </div>
+          <div class="settings-row">
+            <label class="settings-label"></label>
+            <button class="btn btn--ghost" id="setting-sound-library-download" type="button" style="font-size:0.75rem;min-height:30px;padding:2px 10px;">Download for Offline Use</button>
           </div>
         </div>
 
@@ -165,7 +182,7 @@ export class SettingsPanel {
             <label class="settings-label">Beat Colors</label>
             <div style="display: flex; gap: 4px;">
               ${beatColors.map((c, i) => 
-                `<input type="color" class="setting-vis-color" data-index="${i}" value="${c}" aria-label="Beat ${i+1} color" style="width: 24px; height: 24px; padding: 0; border: none; border-radius: 4px;" />`
+                `<input type="color" class="setting-vis-color" data-index="${i}" value="${escapeAttr(c)}" aria-label="Beat ${i+1} color" style="width: 24px; height: 24px; padding: 0; border: none; border-radius: 4px;" />`
               ).join('')}
             </div>
           </div>
@@ -182,7 +199,7 @@ export class SettingsPanel {
   _bindEvents() {
     // Overlay close
     this.el.querySelector('#settings-overlay')?.addEventListener('pointerdown', () => this.close());
-    this.el.querySelector('#settings-close')?.addEventListener('pointerdown', (e) => {
+    onActivate(this.el.querySelector('#settings-close'), (e) => {
       e.preventDefault();
       this.close();
     });
@@ -212,6 +229,7 @@ export class SettingsPanel {
 
   _bindSettingsEvents() {
     const body = this.el.querySelector('#settings-body');
+    void this._loadSoundLibraryStatus();
 
     // Project name
     body.querySelector('#setting-project-name')?.addEventListener('change', (e) => {
@@ -222,7 +240,7 @@ export class SettingsPanel {
       }
     });
 
-    body.querySelector('#setting-install-app')?.addEventListener('pointerdown', async (e) => {
+    onActivate(body.querySelector('#setting-install-app'), async (e) => {
       e.preventDefault();
       const promptEvent = window.notenotesInstallPrompt;
       if (promptEvent) {
@@ -235,9 +253,28 @@ export class SettingsPanel {
       showToast('Chrome: three-dot menu > Cast, save, and share > Install page as app', 7000);
     });
 
-    body.querySelector('#setting-version-check')?.addEventListener('pointerdown', async (e) => {
+    onActivate(body.querySelector('#setting-version-check'), async (e) => {
       e.preventDefault();
       await this._checkLatestVersion();
+    });
+
+    body.querySelector('#setting-sound-library-download')?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const button = e.currentTarget;
+      const status = body.querySelector('#setting-sound-library-status');
+      button.disabled = true;
+      try {
+        await cacheAllSampleInstruments(({ completed, total }) => {
+          if (status) status.textContent = `Downloading ${completed} of ${total}...`;
+        });
+        showToast('CC0 sound library is ready offline');
+      } catch (err) {
+        console.warn('[Settings] Sound library download failed:', err);
+        showToast('Sound library download did not finish');
+      } finally {
+        button.disabled = false;
+        await this._loadSoundLibraryStatus();
+      }
     });
 
     body.querySelector('#setting-debug-logging')?.addEventListener('change', async (e) => {
@@ -332,6 +369,19 @@ export class SettingsPanel {
         this.close();
       });
     }
+
+  async _loadSoundLibraryStatus() {
+    const body = this.el?.querySelector('#settings-body');
+    const status = body?.querySelector('#setting-sound-library-status');
+    const button = body?.querySelector('#setting-sound-library-download');
+    if (!status) return;
+    const cached = await cachedSampleInstrumentIds();
+    const total = SAMPLE_PACK_INDEX.length;
+    status.textContent = cached.size === total
+      ? `All ${total} ready offline`
+      : `${cached.size} of ${total} ready offline`;
+    if (button) button.textContent = cached.size === total ? 'Refresh Offline Library' : 'Download for Offline Use';
+  }
 
   _beatColorsForBeats(beats = 4) {
     const defaults = ['#1e1e2e', '#2a2a3e', '#1e1e2e', '#2a2a3e', '#242436'];

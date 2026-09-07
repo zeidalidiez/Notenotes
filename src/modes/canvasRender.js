@@ -178,7 +178,7 @@ export const CanvasRenderMixin = {
       this._normalizeTrackType(track);
       const trackTypeLabel = this._trackTypeLabel(track.type);
       const instSelect = track.type === 'drum' || track.type === 'midi'
-        ? `<button class="canvas-lane__instrument" data-track-inst="${track.id}" type="button" aria-label="Track instrument" title="${this._instrumentName(track.instrumentId)}">${this._instrumentName(track.instrumentId)}</button>`
+        ? `<button class="canvas-lane__instrument" data-track-inst="${escapeAttr(track.id)}" type="button" aria-label="Track instrument" title="${escapeAttr(this._instrumentName(track.instrumentId))}">${escapeHtml(this._instrumentName(track.instrumentId))}</button>`
         : track.type !== 'midi'
         ? `<span class="canvas-lane__inst-label">LINE Audio</span>`
         : '';
@@ -192,9 +192,9 @@ export const CanvasRenderMixin = {
         </div>
         ${instSelect}
         <div class="canvas-lane__controls">
-          <button class="canvas-lane__ctrl-btn ${track.muted ? 'is-muted' : ''}" data-action="mute" data-track="${track.id}">M</button>
-          <button class="canvas-lane__ctrl-btn ${track.solo ? 'is-solo' : ''}" data-action="solo" data-track="${track.id}">S</button>
-          <button class="canvas-lane__ctrl-btn canvas-lane__ctrl-btn--pan${Math.abs(normalizeTrackPan(track.pan)) > 0.01 ? ' is-panned' : ''}" data-track-pan="${track.id}" type="button" title="Track pan">${this._panLabel(track.pan)}</button>
+          <button class="canvas-lane__ctrl-btn ${track.muted ? 'is-muted' : ''}" data-action="mute" data-track="${escapeAttr(track.id)}">M</button>
+          <button class="canvas-lane__ctrl-btn ${track.solo ? 'is-solo' : ''}" data-action="solo" data-track="${escapeAttr(track.id)}">S</button>
+          <button class="canvas-lane__ctrl-btn canvas-lane__ctrl-btn--pan${Math.abs(normalizeTrackPan(track.pan)) > 0.01 ? ' is-panned' : ''}" data-track-pan="${escapeAttr(track.id)}" type="button" title="Track pan">${this._panLabel(track.pan)}</button>
         </div>
       `;
       lane.appendChild(header);
@@ -435,13 +435,14 @@ export const CanvasRenderMixin = {
       const count = (s.notes?.length || 0) + (s.hits?.length || 0);
       const name = s.name || `${count} notes`;
       const icon = s.type === 'drum' ? 'DRUM' : s.type === 'audio' ? 'LINE' : 'MIDI';
-      return `<div class="canvas-snippet-dock__item" draggable="true" data-snippet-id="${escapeAttr(s.id)}">
+      return `<button class="canvas-snippet-dock__item" type="button" draggable="true" data-snippet-id="${escapeAttr(s.id)}" aria-label="Place ${escapeAttr(name)} on Canvas" title="Click to add, or drag to position">
         <span class="canvas-snippet-dock__type canvas-snippet-dock__type--${escapeAttr(s.type || 'midi')}">${icon}</span> ${escapeHtml(name)}
-      </div>`;
+      </button>`;
     }).join('');
 
     // Make items draggable
     dock.querySelectorAll('.canvas-snippet-dock__item').forEach(item => {
+      item.addEventListener('click', () => this._placeLibrarySnippet(item.dataset.snippetId));
       // Desktop drag
       item.addEventListener('dragstart', (e) => {
         e.dataTransfer.setData('text/snippet-id', item.dataset.snippetId);

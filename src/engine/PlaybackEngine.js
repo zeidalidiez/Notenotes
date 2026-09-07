@@ -12,27 +12,20 @@ import { AudioEngine } from './AudioEngine.js';
 import { TransportState } from './Transport.js';
 import { normalizeClipTimeScale } from './ClipTimeScale.js';
 import { normalizeTrackPan } from './StereoWidth.js';
+import {
+  recordedInstrumentId,
+  resolveInstrumentDefinition,
+} from './InstrumentRegistry.js';
+import { loadSampleInstrument, loadedSampleInstrument } from '../instruments/SamplePack.js';
 
-/** Available instruments for track assignment */
-export const TRACK_INSTRUMENTS = {
-  chip_lead:    { id: 'chip_lead',    name: 'Chip Lead',    type: 'synth', preset: 'chip_lead' },
-  chip_bass:    { id: 'chip_bass',    name: 'Chip Bass',    type: 'synth', preset: 'chip_bass' },
-  cyber_secks:  { id: 'cyber_secks',  name: 'Cyber Secks',  type: 'synth', preset: 'cyber_secks' },
-  heartbound:   { id: 'heartbound',   name: 'Heartbound',   type: 'synth', preset: 'heartbound' },
-  triforce:     { id: 'triforce',     name: 'Triforce',     type: 'synth', preset: 'triforce' },
-  bliff:        { id: 'bliff',        name: 'Bliff',        type: 'synth', preset: 'bliff' },
-  soft_pad:     { id: 'soft_pad',     name: 'Soft Pad',     type: 'synth', preset: 'soft_pad' },
-  shimmer_lead: { id: 'shimmer_lead', name: 'Shimmer Lead', type: 'synth', preset: 'shimmer_lead' },
-  lofi_keys:    { id: 'lofi_keys',    name: 'Lo-fi Keys',   type: 'synth', preset: 'lofi_keys' },
-  warm_bass:    { id: 'warm_bass',    name: 'Warm Bass',    type: 'synth', preset: 'warm_bass' },
-  pluck:        { id: 'pluck',        name: 'Pluck',        type: 'synth', preset: 'pluck' },
-  organ:        { id: 'organ',        name: 'Organ',        type: 'synth', preset: 'organ' },
-  modern_keys:  { id: 'modern_keys',  name: 'Modern Keys',  type: 'synth', preset: 'modern_keys' },
-  modern_pad:   { id: 'modern_pad',   name: 'Modern Pad',   type: 'synth', preset: 'modern_pad' },
-  modern_bass:  { id: 'modern_bass',  name: 'Modern Bass',  type: 'synth', preset: 'modern_bass' },
-  modern_pluck: { id: 'modern_pluck', name: 'Modern Pluck', type: 'synth', preset: 'modern_pluck' },
-  kit:          { id: 'kit',          name: 'Drum Kit',     type: 'kit',   preset: null },
-};
+function normalizeTrackVolume(value, fallback = 1) {
+  const numeric = Number(value);
+  return Math.max(0, Math.min(1.5, Number.isFinite(numeric) ? numeric : fallback));
+}
+
+// Re-exported for existing Canvas consumers; the canonical registry lives in
+// InstrumentRegistry so every surface enumerates the same instrument families.
+export { TRACK_INSTRUMENTS } from './InstrumentRegistry.js';
 
 export class PlaybackEngine {
   /**
@@ -75,12 +68,21 @@ export class PlaybackEngine {
     this._initialized = false;
     this._lastProcessedTick = -1;
     this._audioBuffers = new Map();
+    this._audioBufferLoads = new Map();
+    this._activeAudioSources = new Set();
+    this._trackAudioBuses = new Map();
     this._customSampleBuffers = new Map();
     this._customSampleLoads = new Map();
+    this._builtinSamplePatches = new Map();
+    this._builtinSampleLoads = new Map();
     this._engine = AudioEngine.getInstance();
     this._lastModIdx = new Map();   // snippetId → last modulation index processed
     this._lastClipLocalTick = new Map();
+    this._clipEventIndexes = new WeakMap();
+    this._inspectEventIndex = null;
     this._toneTraitsHandler = null;
+    this._audioAssetsHandler = null;
+    this._unsubscribers = [];
   }
 
   /**
@@ -90,12 +92,12 @@ export class PlaybackEngine {
     if (this._initialized) return;
 
     // Subscribe to transport tick events
-    this.transport.onTick((tick, nextTickTime) => {
+    this._unsubscribers.push(this.transport.onTick((tick, nextTickTime) => {
       this._processTick(tick, nextTickTime);
-    });
+    }));
 
     // On stop, release all active notes
-    this.transport.onStateChange((state) => {
+    this._unsubscribers.push(this.transport.onStateChange((state) => {
       if (state === TransportState.STOPPED) {
         this._allNotesOff();
         this._allInspectNotesOff();
@@ -104,21 +106,29 @@ export class PlaybackEngine {
         this._lastClipLocalTick.clear();
         this._lastInspectLocalTick = null;
       }
-    });
+    }));
 
-    this.transport.onLoop((tick, audioTime) => {
+    this._unsubscribers.push(this.transport.onLoop((tick, audioTime) => {
       this._releaseActiveNotes(audioTime);
+      this._stopAudioSources(audioTime);
       this._lastModIdx.clear();
       this._lastClipLocalTick.clear();
-    });
+    }));
 
     this._toneTraitsHandler = () => this._applySoundTraitsToTrackSynths();
     window.addEventListener('project-sound-traits-changed', this._toneTraitsHandler);
+    this._audioAssetsHandler = () => {
+      this.invalidateSchedule();
+      void this.prepareAudioAssets();
+    };
+    window.addEventListener('project-snippets-changed', this._audioAssetsHandler);
 
     for (const track of this.project?.tracks || []) {
       const instDef = this._instrumentDef(track.instrumentId);
-      if (instDef?.customInstrument) this._prepareCustomInstrument(instDef.customInstrument);
+      this._prepareInstrumentDefinition(instDef);
     }
+
+    void this.prepareAudioAssets();
 
     this._initialized = true;
   }
@@ -139,26 +149,42 @@ export class PlaybackEngine {
     let entry = this._trackSynths.get(track.id);
     if (entry && entry.instrumentId === instId) {
       entry.synth.setPan?.(normalizeTrackPan(track.pan));
+      entry.synth.setTrackVolume?.(normalizeTrackVolume(track.volume));
       return entry.synth;
     }
+    if (entry) {
+      entry.synth.destroy?.();
+      this._trackSynths.delete(track.id);
+      entry = null;
+    }
 
-    // Create new synth for this track
-    const synth = new WebAudioSynth();
-    synth.init();
-
+    let patch = null;
     if (instDef.customInstrument) {
       const buffer = this._customSampleBuffers.get(instDef.customInstrument.id);
       if (!buffer) {
-        this._prepareCustomInstrument(instDef.customInstrument);
+        void this._prepareCustomInstrument(instDef.customInstrument);
         return null;
       }
-      synth.loadPatch(this._samplePatchFromInstrument(instDef.customInstrument, buffer));
+      patch = this._samplePatchFromInstrument(instDef.customInstrument, buffer);
+    } else if (instDef.samplePackId) {
+      patch = this._builtinSamplePatches.get(instDef.samplePackId) || loadedSampleInstrument(instDef.samplePackId);
+      if (!patch) {
+        void this._prepareBuiltinInstrument(instDef.samplePackId);
+        return null;
+      }
     } else {
-      const preset = PRESETS[instDef.preset];
-      if (preset) synth.loadPatch(preset);
+      patch = PRESETS[instDef.preset];
     }
+
+    // Create the graph only after any asynchronous sample asset is available;
+    // otherwise every scheduler tick would leak an unused track bus while load
+    // is pending.
+    const synth = new WebAudioSynth();
+    synth.init();
+    if (patch) synth.loadPatch(patch);
     synth.setSoundTraits(this.project?.settings?.soundTraits);
     synth.setPan?.(normalizeTrackPan(track.pan));
+    synth.setTrackVolume?.(normalizeTrackVolume(track.volume));
 
     this._trackSynths.set(track.id, { synth, instrumentId: instId });
     return synth;
@@ -168,7 +194,7 @@ export class PlaybackEngine {
     const id = kitId || 'classic';
     let entry = this._trackKits.get(track.id);
     if (!entry || entry.kitId !== id) {
-      entry?.kit.panic?.();
+      entry?.kit.destroy?.();
       const kit = new SketchKit();
       kit.init();
       kit.loadKit(id);
@@ -177,36 +203,41 @@ export class PlaybackEngine {
       this._trackKits.set(track.id, entry);
     }
     entry.kit.setPan?.(normalizeTrackPan(track.pan));
+    entry.kit.setTrackVolume?.(normalizeTrackVolume(track.volume));
     return entry.kit;
   }
 
   _instrumentDef(instId) {
-    if (instId === 'kit') {
-      return { id: 'classic', name: DRUM_KITS.classic.name, type: 'kit', kitId: 'classic' };
+    return resolveInstrumentDefinition(instId, this.project);
+  }
+
+  _prepareInstrumentDefinition(instDef) {
+    if (instDef?.customInstrument) return this._prepareCustomInstrument(instDef.customInstrument);
+    if (instDef?.samplePackId) return this._prepareBuiltinInstrument(instDef.samplePackId);
+    return Promise.resolve(null);
+  }
+
+  _prepareBuiltinInstrument(id) {
+    if (!id || !this._engine.ctx) return Promise.resolve(null);
+    const alreadyLoaded = loadedSampleInstrument(id);
+    if (alreadyLoaded) {
+      this._builtinSamplePatches.set(id, alreadyLoaded);
+      return Promise.resolve(alreadyLoaded);
     }
-    if (DRUM_KITS[instId]) {
-      return { id: instId, name: DRUM_KITS[instId].name, type: 'kit', kitId: instId };
-    }
-    if (instId?.startsWith?.('custom:')) {
-      const instrument = (this.project?.settings?.customInstruments || [])
-        .find(item => item.id === instId.slice(7));
-      if (instrument?.type === 'kit') {
-        return {
-          id: instId,
-          name: instrument.name,
-          type: 'kit',
-          kitId: instId,
-          customInstrument: instrument,
-        };
-      }
-      return instrument ? {
-        id: instId,
-        name: instrument.name,
-        type: 'synth',
-        customInstrument: instrument,
-      } : null;
-    }
-    return TRACK_INSTRUMENTS[instId];
+    if (this._builtinSamplePatches.has(id)) return Promise.resolve(this._builtinSamplePatches.get(id));
+    if (this._builtinSampleLoads.has(id)) return this._builtinSampleLoads.get(id);
+    const load = loadSampleInstrument(id)
+      .then(patch => {
+        this._builtinSamplePatches.set(id, patch);
+        return patch;
+      })
+      .catch(err => {
+        console.warn('[PlaybackEngine] Built-in sample instrument load failed:', id, err);
+        return null;
+      })
+      .finally(() => this._builtinSampleLoads.delete(id));
+    this._builtinSampleLoads.set(id, load);
+    return load;
   }
 
   _samplePatchFromInstrument(instrument, buffer) {
@@ -232,9 +263,9 @@ export class PlaybackEngine {
   }
 
   _prepareCustomInstrument(instrument) {
-    if (!instrument?.audioAssetId || !this.store?.getAudioAssetBlob || !this._engine.ctx) return null;
-    if (this._customSampleBuffers.has(instrument.id)) return this._customSampleBuffers.get(instrument.id);
-    if (this._customSampleLoads.has(instrument.id)) return null;
+    if (!instrument?.audioAssetId || !this.store?.getAudioAssetBlob || !this._engine.ctx) return Promise.resolve(null);
+    if (this._customSampleBuffers.has(instrument.id)) return Promise.resolve(this._customSampleBuffers.get(instrument.id));
+    if (this._customSampleLoads.has(instrument.id)) return this._customSampleLoads.get(instrument.id);
 
     const load = (async () => {
       try {
@@ -243,14 +274,31 @@ export class PlaybackEngine {
         const arrayBuffer = await blob.arrayBuffer();
         const buffer = await this._engine.ctx.decodeAudioData(arrayBuffer.slice(0));
         this._customSampleBuffers.set(instrument.id, buffer);
+        return buffer;
       } catch (err) {
         console.warn('[PlaybackEngine] Custom instrument load failed:', instrument.name, err);
+        return null;
       } finally {
         this._customSampleLoads.delete(instrument.id);
       }
     })();
     this._customSampleLoads.set(instrument.id, load);
-    return null;
+    return load;
+  }
+
+  async preparePlaybackAssets() {
+    const loads = [this.prepareAudioAssets()];
+    for (const track of this.project?.tracks || []) {
+      loads.push(this._prepareInstrumentDefinition(this._instrumentDef(track.instrumentId)));
+    }
+    return Promise.allSettled(loads);
+  }
+
+  async prepareInspectSource(snippet = this._inspectSource) {
+    if (!snippet || snippet.type !== 'midi') return null;
+    if (snippet.patchRecorded?.patchSnapshot) return snippet.patchRecorded.patchSnapshot;
+    const definition = this._instrumentDef(recordedInstrumentId(snippet, 'modern_keys'));
+    return this._prepareInstrumentDefinition(definition);
   }
 
   _applySoundTraitsToTrackSynths() {
@@ -283,12 +331,8 @@ export class PlaybackEngine {
     // Resolve the snippet's intended instrument up front. We need this
     // even on the same-reference path so the cache-drop branch can run
     // when the picker mutates `snippet.instrumentId` in place.
-    const midiId = next?.type === 'midi'
-      ? (next.patchRecorded?.instrumentId || next.instrumentId || next.patchId || 'modern_keys')
-      : null;
-    const kitId = next?.type === 'drum'
-      ? (next.kitRecorded?.instrumentId || next.instrumentId || next.kitId || 'classic')
-      : null;
+    const midiId = next?.type === 'midi' ? recordedInstrumentId(next, 'modern_keys') : null;
+    const kitId = next?.type === 'drum' ? recordedInstrumentId(next, 'classic') : null;
 
     if (this._inspectSource === next) {
       // Same snippet reference — but the picker may have just mutated
@@ -298,24 +342,25 @@ export class PlaybackEngine {
       // changing the patch while paused or browsing, not while a note
       // is ringing.
       if (midiId && this._inspectSynthInstrumentId && this._inspectSynthInstrumentId !== midiId) {
-        this._inspectSynth = null;
+        this._dropInspectSynth();
       }
       if (kitId && this._inspectKitInstrumentId && this._inspectKitInstrumentId !== kitId) {
-        this._inspectKit = null;
+        this._dropInspectKit();
       }
       return;
     }
 
     this._allInspectNotesOff();
     this._inspectSource = next;
+    this._inspectEventIndex = null;
     this._lastProcessedTick = -1;
     this._lastInspectLocalTick = null;
 
     if (!next) {
       // Returning to Canvas playback — release the cached synth/kit so
       // the next inspect source starts from a clean slate.
-      this._inspectSynth = null;
-      this._inspectKit = null;
+      this._dropInspectSynth();
+      this._dropInspectKit();
       this._inspectSynthInstrumentId = null;
       this._inspectKitInstrumentId = null;
       return;
@@ -327,26 +372,41 @@ export class PlaybackEngine {
     // yet (the play button hasn't been pressed) — building on demand
     // keeps idle state cheap.
     if (midiId && this._inspectSynthInstrumentId && this._inspectSynthInstrumentId !== midiId) {
-      this._inspectSynth = null;
+      this._dropInspectSynth();
     }
     if (kitId && this._inspectKitInstrumentId && this._inspectKitInstrumentId !== kitId) {
-      this._inspectKit = null;
+      this._dropInspectKit();
     }
   }
 
   _getInspectSynth() {
     if (!this._inspectSynth) {
-      const synth = new WebAudioSynth();
-      synth.init();
       // Prefer the snippet's recorded instrument; fall back to a sensible
       // default so an unrecorded/blank snippet still has something to
       // audition with.
-      const instrumentId = this._inspectSource?.patchRecorded?.instrumentId
-        || this._inspectSource?.instrumentId
-        || this._inspectSource?.patchId
-        || 'modern_keys';
-      const preset = PRESETS[instrumentId] || PRESETS.modern_keys || PRESETS.chip_lead;
-      if (preset) synth.loadPatch(preset);
+      const instrumentId = recordedInstrumentId(this._inspectSource, 'modern_keys');
+      const snapshot = this._inspectSource?.patchRecorded?.patchSnapshot;
+      const instDef = this._instrumentDef(instrumentId);
+      let patch = snapshot || null;
+      if (!snapshot && instDef?.customInstrument) {
+        const buffer = this._customSampleBuffers.get(instDef.customInstrument.id);
+        if (!buffer) {
+          void this._prepareCustomInstrument(instDef.customInstrument);
+          return null;
+        }
+        patch = this._samplePatchFromInstrument(instDef.customInstrument, buffer);
+      } else if (!snapshot && instDef?.samplePackId) {
+        patch = this._builtinSamplePatches.get(instDef.samplePackId) || loadedSampleInstrument(instDef.samplePackId);
+        if (!patch) {
+          void this._prepareBuiltinInstrument(instDef.samplePackId);
+          return null;
+        }
+      } else if (!snapshot) {
+        patch = PRESETS[instDef?.preset] || PRESETS.modern_keys || PRESETS.chip_lead;
+      }
+      const synth = new WebAudioSynth();
+      synth.init();
+      synth.loadPatch(patch);
       synth.setSoundTraits(this.project?.settings?.soundTraits);
       this._inspectSynth = synth;
       this._inspectSynthInstrumentId = instrumentId;
@@ -358,10 +418,7 @@ export class PlaybackEngine {
     if (!this._inspectKit) {
       const kit = new SketchKit();
       kit.init();
-      const instrumentId = this._inspectSource?.kitRecorded?.instrumentId
-        || this._inspectSource?.instrumentId
-        || this._inspectSource?.kitId
-        || 'classic';
+      const instrumentId = recordedInstrumentId(this._inspectSource, 'classic');
       // SketchKit.loadKit() understands built-in kit ids and `custom:` ids.
       try { kit.loadKit(instrumentId); } catch { kit.loadKit('classic'); }
       kit.setSoundTraits(this.project?.settings?.soundTraits);
@@ -375,6 +432,16 @@ export class PlaybackEngine {
     if (this._inspectSynth) this._inspectSynth.allNotesOff();
     if (this._inspectKit) this._inspectKit.panic?.();
     this._inspectActiveNotes.clear();
+  }
+
+  _dropInspectSynth() {
+    this._inspectSynth?.destroy?.();
+    this._inspectSynth = null;
+  }
+
+  _dropInspectKit() {
+    this._inspectKit?.destroy?.();
+    this._inspectKit = null;
   }
 
   _processInspectTick(tick, nextTickTime) {
@@ -395,33 +462,33 @@ export class PlaybackEngine {
     }
     this._lastInspectLocalTick = localTick;
 
+    const events = this._inspectEvents(snippet);
+
     // MIDI notes
-    if (snippet.notes && snippet.notes.length) {
+    const notesAtTick = events.notes.get(localTick) || [];
+    if (notesAtTick.length) {
       const synth = this._getInspectSynth();
       if (synth) {
-        for (const note of snippet.notes) {
-          if (note.startTick === localTick) {
-            synth.setSoundTraits(note.soundTraits || snippet.soundTraits || this.project?.settings?.soundTraits);
-            synth.noteOn(note.pitch, note.velocity || 0.8, nextTickTime);
-            this._inspectActiveNotes.set(`midi-${note.pitch}-${localTick}-${Math.random().toString(36).slice(2, 7)}`, {
-              synth,
-              pitch: note.pitch,
-              endLocal: localTick + (note.durationTick || 240),
-            });
-          }
+        for (const note of notesAtTick) {
+          synth.setSoundTraits(note.soundTraits || snippet.soundTraits || this.project?.settings?.soundTraits);
+          synth.noteOn(note.pitch, note.velocity ?? 0.8, nextTickTime);
+          this._inspectActiveNotes.set(`midi-${note.pitch}-${localTick}-${Math.random().toString(36).slice(2, 7)}`, {
+            synth,
+            pitch: note.pitch,
+            endLocal: localTick + (note.durationTick ?? 240),
+          });
         }
       }
     }
 
     // Drum hits
-    if (snippet.hits && snippet.hits.length) {
+    const hitsAtTick = events.hits.get(localTick) || [];
+    if (hitsAtTick.length) {
       const kit = this._getInspectKit();
       if (kit) {
-        for (const hit of snippet.hits) {
-          if (hit.startTick === localTick) {
-            kit.setSoundTraits(hit.soundTraits || snippet.soundTraits || this.project?.settings?.soundTraits);
-            kit._triggerSound(hit.type || 'kick', nextTickTime, hit.velocity ?? 0.8);
-          }
+        for (const hit of hitsAtTick) {
+          kit.setSoundTraits(hit.soundTraits || snippet.soundTraits || this.project?.settings?.soundTraits);
+          kit._triggerSound(hit.type || 'kick', nextTickTime, hit.velocity ?? 0.8);
         }
       }
     }
@@ -464,7 +531,7 @@ export class PlaybackEngine {
 
       const trackType = track.type || (track.instrumentId === 'kit' || DRUM_KITS[track.instrumentId] ? 'drum' : 'midi');
       const instId = trackType === 'drum' ? (track.instrumentId || 'classic') : (track.instrumentId || 'chip_lead');
-      const instDef = this._instrumentDef(instId);
+      const instDef = trackType === 'audio' ? null : this._instrumentDef(instId);
       if (trackType !== 'audio' && !instDef) continue;
 
       // Check each clip on this track
@@ -484,6 +551,7 @@ export class PlaybackEngine {
 
         const timelineLocalTick = tick - clipStartTick;
         const localTick = timelineLocalTick / timeScale;
+        const events = this._clipEvents(clip, snippet, timeScale);
         const clipKey = clip.id || `${track.id}-${clip.snippetId}-${clipStartTick}`;
         const lastLocalTick = this._lastClipLocalTick.get(clipKey);
         if (lastLocalTick !== undefined && localTick < lastLocalTick) {
@@ -493,34 +561,28 @@ export class PlaybackEngine {
 
         // Play melodic notes
         const synth = instDef?.type === 'synth' ? this._getSynthForTrack(track) : null;
-        if (instDef?.type === 'synth' && synth && snippet.notes) {
-          for (const note of snippet.notes) {
-            const noteStartTick = clipStartTick + Math.round((note.startTick || 0) * timeScale);
-            if (noteStartTick === tick) {
-              synth.setSoundTraits(clip.soundTraits || note.soundTraits || snippet.soundTraits || this.project?.settings?.soundTraits);
-              synth.noteOn(note.pitch, note.velocity || 0.8, nextTickTime);
-              const noteOffTick = tick + Math.max(1, Math.round((note.durationTick || 240) * timeScale));
-              const key = `${track.id}-${note.pitch}`;
-              this._activeNotes.set(key, { synth, pitch: note.pitch, noteOffTick });
-            }
+        if (instDef?.type === 'synth' && synth) {
+          for (const note of events.notes.get(timelineLocalTick) || []) {
+            synth.setSoundTraits(clip.soundTraits || note.soundTraits || snippet.soundTraits || this.project?.settings?.soundTraits);
+            synth.noteOn(note.pitch, note.velocity ?? 0.8, nextTickTime);
+            const noteOffTick = tick + Math.max(1, Math.round((note.durationTick ?? 240) * timeScale));
+            const key = `${track.id}-${note.pitch}`;
+            this._activeNotes.set(key, { synth, pitch: note.pitch, noteOffTick });
           }
         }
 
         // Play drum hits
-        if (instDef?.type === 'kit' && snippet.hits) {
+        if (instDef?.type === 'kit') {
           const kit = this._getKitForTrack(track, instDef.kitId || 'classic');
-          for (const hit of snippet.hits) {
-            const hitStartTick = clipStartTick + Math.round((hit.startTick || 0) * timeScale);
-            if (hitStartTick === tick) {
-              kit.setSoundTraits(clip.soundTraits || hit.soundTraits || snippet.soundTraits || this.project?.settings?.soundTraits);
-              kit._triggerSound(hit.type || 'kick', nextTickTime, hit.velocity ?? 0.8);
-            }
+          for (const hit of events.hits.get(timelineLocalTick) || []) {
+            kit.setSoundTraits(clip.soundTraits || hit.soundTraits || snippet.soundTraits || this.project?.settings?.soundTraits);
+            kit._triggerSound(hit.type || 'kick', nextTickTime, hit.velocity ?? 0.8);
           }
         }
 
         // Play audio snippets
         if (snippet.type === 'audio' && this._hasAudioSource(snippet) && timelineLocalTick === 0) {
-          this._playAudioClip(snippet, nextTickTime, timeScale, normalizeTrackPan(track.pan));
+          this._playAudioClip(snippet, nextTickTime, timeScale, track);
         }
 
         // Apply recorded modulation
@@ -541,11 +603,51 @@ export class PlaybackEngine {
     this._lastProcessedTick = tick;
   }
 
+  invalidateSchedule() {
+    this._clipEventIndexes = new WeakMap();
+    this._inspectEventIndex = null;
+  }
+
+  _eventMap(items = [], scale = 1) {
+    const map = new Map();
+    for (const item of items) {
+      const tick = Math.round((item.startTick ?? 0) * scale);
+      const bucket = map.get(tick) || [];
+      bucket.push(item);
+      map.set(tick, bucket);
+    }
+    return map;
+  }
+
+  _clipEvents(clip, snippet, timeScale) {
+    const cached = this._clipEventIndexes.get(clip);
+    if (cached && cached.snippet === snippet && cached.timeScale === timeScale) return cached;
+    const index = {
+      snippet,
+      timeScale,
+      notes: this._eventMap(snippet.notes, timeScale),
+      hits: this._eventMap(snippet.hits, timeScale),
+    };
+    this._clipEventIndexes.set(clip, index);
+    return index;
+  }
+
+  _inspectEvents(snippet) {
+    if (this._inspectEventIndex?.snippet === snippet) return this._inspectEventIndex;
+    this._inspectEventIndex = {
+      snippet,
+      notes: this._eventMap(snippet.notes),
+      hits: this._eventMap(snippet.hits),
+    };
+    return this._inspectEventIndex;
+  }
+
   /**
    * Release all currently active notes.
    */
   _allNotesOff() {
     this._releaseActiveNotes();
+    this._stopAudioSources();
 
     // Also stop all track synths
     for (const [, entry] of this._trackSynths) {
@@ -558,6 +660,7 @@ export class PlaybackEngine {
 
   panic() {
     this._releaseActiveNotes();
+    this._stopAudioSources();
     for (const [, entry] of this._trackSynths) {
       entry.synth.panic?.();
     }
@@ -578,24 +681,31 @@ export class PlaybackEngine {
   onTrackInstrumentChanged(trackId) {
     const entry = this._trackSynths.get(trackId);
     if (entry) {
-      entry.synth.allNotesOff();
+      entry.synth.destroy?.();
       this._trackSynths.delete(trackId);
     }
     const kitEntry = this._trackKits.get(trackId);
     if (kitEntry) {
-      kitEntry.kit.panic?.();
+      kitEntry.kit.destroy?.();
       this._trackKits.delete(trackId);
     }
     const track = this.project?.tracks?.find(item => item.id === trackId);
     const instDef = this._instrumentDef(track?.instrumentId);
-    if (instDef?.customInstrument) this._prepareCustomInstrument(instDef.customInstrument);
+    this._prepareInstrumentDefinition(instDef);
   }
 
   onTrackMixChanged(trackId) {
     const track = this.project?.tracks?.find(item => item.id === trackId);
     if (!track) return;
     this._trackSynths.get(trackId)?.synth.setPan?.(normalizeTrackPan(track.pan));
+    this._trackSynths.get(trackId)?.synth.setTrackVolume?.(normalizeTrackVolume(track.volume));
     this._trackKits.get(trackId)?.kit.setPan?.(normalizeTrackPan(track.pan));
+    this._trackKits.get(trackId)?.kit.setTrackVolume?.(normalizeTrackVolume(track.volume));
+    const audioBus = this._trackAudioBuses.get(trackId);
+    if (audioBus) {
+      this._engine.setTrackBusPan?.(audioBus, normalizeTrackPan(track.pan));
+      this._engine.setTrackBusVolume?.(audioBus, normalizeTrackVolume(track.volume));
+    }
   }
 
   onCustomInstrumentsChanged(instrumentId = null) {
@@ -610,14 +720,14 @@ export class PlaybackEngine {
     const customRef = instrumentId ? `custom:${instrumentId}` : null;
     for (const [trackId, entry] of this._trackSynths) {
       if (!customRef || entry.instrumentId === customRef) {
-        entry.synth.allNotesOff();
+        entry.synth.destroy?.();
         this._trackSynths.delete(trackId);
       }
     }
 
     for (const [trackId, entry] of this._trackKits) {
       if (!customRef || entry.kitId === customRef) {
-        entry.kit.panic?.();
+        entry.kit.destroy?.();
         this._trackKits.delete(trackId);
       }
     }
@@ -625,48 +735,127 @@ export class PlaybackEngine {
     for (const track of this.project?.tracks || []) {
       if (track.instrumentId?.startsWith?.('custom:')) {
         const instDef = this._instrumentDef(track.instrumentId);
-        if (instDef?.customInstrument) this._prepareCustomInstrument(instDef.customInstrument);
+        this._prepareInstrumentDefinition(instDef);
       }
     }
   }
 
-  async _playAudioClip(snippet, audioTime = null, timeScale = 1, pan = 0) {
+  /**
+   * Decode all audio snippets referenced by the current project before their
+   * scheduled start. This is safe to call repeatedly; loads and decoded buffers
+   * are deduplicated by asset identity.
+   */
+  async prepareAudioAssets() {
+    const snippets = new Map();
+    for (const snippet of this.project?.snippets || []) {
+      if (snippet?.type === 'audio' && this._hasAudioSource(snippet)) {
+        snippets.set(this._audioBufferKey(snippet), snippet);
+      }
+    }
+    for (const track of this.project?.tracks || []) {
+      for (const clip of track.clips || []) {
+        const snippet = clip?.snippet;
+        if (snippet?.type === 'audio' && this._hasAudioSource(snippet)) {
+          snippets.set(this._audioBufferKey(snippet), snippet);
+        }
+      }
+    }
+    return Promise.allSettled([...snippets.values()].map(snippet => this._prepareAudioBuffer(snippet)));
+  }
+
+  _playAudioClip(snippet, audioTime = null, timeScale = 1, track = null) {
     const ctx = this._engine.ctx;
     if (!ctx || !this._hasAudioSource(snippet)) return;
 
     try {
-      let buffer = this._audioBuffers.get(snippet.id);
+      const key = this._audioBufferKey(snippet);
+      const buffer = this._audioBuffers.get(key);
       if (!buffer) {
-        const arrayBuffer = this.store
-          ? await this.store.audioSnippetToArrayBuffer(snippet)
-          : await this._legacyAudioArrayBuffer(snippet);
-        if (!arrayBuffer) {
-          snippet.audioUnavailable = true;
-          snippet.audioUnavailableReason ||= 'Audio data is not available in browser storage.';
-          return;
-        }
-        buffer = await ctx.decodeAudioData(arrayBuffer);
-        this._audioBuffers.set(snippet.id, buffer);
+        // Never await storage or decoding from the scheduled onset. Starting
+        // after that await would put the source in the past and make the clip
+        // audibly late. Cache it for the next play/loop instead.
+        void this._prepareAudioBuffer(snippet);
+        return;
       }
 
       const source = ctx.createBufferSource();
       source.buffer = buffer;
       source.playbackRate.value = 1 / Math.max(0.01, normalizeClipTimeScale(timeScale));
-      const gain = ctx.createGain();
-      const panner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-      gain.gain.value = 0.7;
-      source.connect(gain);
-      if (panner) {
-        panner.pan.setValueAtTime(normalizeTrackPan(pan), audioTime ?? ctx.currentTime);
-        gain.connect(panner);
-        panner.connect(this._engine.masterGain || ctx.destination);
-      } else {
-        gain.connect(this._engine.masterGain || ctx.destination);
-      }
+      const bus = this._getAudioBusForTrack(track);
+      source.connect(bus);
+      const entry = { source };
+      const cleanup = () => {
+        this._activeAudioSources.delete(entry);
+        try { source.disconnect(); } catch (_) {}
+      };
+      source.addEventListener('ended', cleanup, { once: true });
+      this._activeAudioSources.add(entry);
       source.start(audioTime ?? ctx.currentTime);
+      return source;
     } catch (err) {
       console.warn('[PlaybackEngine] Audio playback failed:', err);
+      return null;
     }
+  }
+
+  _getAudioBusForTrack(track = null) {
+    const key = track?.id || '__preview-audio__';
+    let bus = this._trackAudioBuses.get(key);
+    if (!bus) {
+      bus = this._engine.createTrackBus();
+      bus.gain.value = 0.7;
+      this._trackAudioBuses.set(key, bus);
+    }
+    this._engine.setTrackBusPan?.(bus, normalizeTrackPan(track?.pan));
+    this._engine.setTrackBusVolume?.(bus, normalizeTrackVolume(track?.volume));
+    return bus;
+  }
+
+  _stopAudioSources(audioTime = null) {
+    const now = this._engine.ctx?.currentTime ?? 0;
+    const stopAt = audioTime ?? now;
+    for (const entry of [...this._activeAudioSources]) {
+      try { entry.source.stop(stopAt); } catch (_) {}
+      if (stopAt <= now) {
+        this._activeAudioSources.delete(entry);
+        try { entry.source.disconnect(); } catch (_) {}
+      }
+    }
+  }
+
+  _audioBufferKey(snippet) {
+    return snippet?.audioAssetId || snippet?.id || this._audioSource(snippet);
+  }
+
+  _prepareAudioBuffer(snippet) {
+    const ctx = this._engine.ctx;
+    const key = this._audioBufferKey(snippet);
+    if (!ctx || !key || !this._hasAudioSource(snippet)) return Promise.resolve(null);
+    if (this._audioBuffers.has(key)) return Promise.resolve(this._audioBuffers.get(key));
+    if (this._audioBufferLoads.has(key)) return this._audioBufferLoads.get(key);
+
+    const load = (async () => {
+      try {
+        const arrayBuffer = this.store?.audioSnippetToArrayBuffer
+          ? await this.store.audioSnippetToArrayBuffer(snippet)
+          : await this._legacyAudioArrayBuffer(snippet);
+        if (!arrayBuffer) {
+          snippet.audioUnavailable = true;
+          snippet.audioUnavailableReason ||= 'Audio data is not available in browser storage.';
+          return null;
+        }
+        const buffer = await ctx.decodeAudioData(arrayBuffer.slice?.(0) || arrayBuffer);
+        this._audioBuffers.set(key, buffer);
+        return buffer;
+      } catch (err) {
+        console.warn('[PlaybackEngine] Audio preload failed:', snippet?.name || snippet?.id, err);
+        return null;
+      } finally {
+        this._audioBufferLoads.delete(key);
+      }
+    })();
+    this._audioBufferLoads.set(key, load);
+    return load;
   }
 
   _audioSource(snippet) {
@@ -719,15 +908,31 @@ export class PlaybackEngine {
   destroy() {
     this._allNotesOff();
     this._allInspectNotesOff();
+    for (const unsubscribe of this._unsubscribers.splice(0)) unsubscribe?.();
+    if (this._toneTraitsHandler) {
+      window.removeEventListener('project-sound-traits-changed', this._toneTraitsHandler);
+      this._toneTraitsHandler = null;
+    }
+    if (this._audioAssetsHandler) {
+      window.removeEventListener('project-snippets-changed', this._audioAssetsHandler);
+      this._audioAssetsHandler = null;
+    }
+    for (const entry of this._trackSynths.values()) entry.synth.destroy?.();
+    for (const entry of this._trackKits.values()) entry.kit.destroy?.();
     this._trackSynths.clear();
     this._trackKits.clear();
+    for (const bus of this._trackAudioBuses.values()) this._engine.destroyTrackBus?.(bus);
+    this._trackAudioBuses.clear();
+    this._audioBufferLoads.clear();
+    this.invalidateSchedule();
     // Release the dedicated inspect synth/kit references so their audio
     // resources can be garbage-collected, matching how the per-track
     // synths/kit entries are cleared above.
-    this._inspectSynth = null;
-    this._inspectKit = null;
+    this._dropInspectSynth();
+    this._dropInspectKit();
     this._inspectActiveNotes.clear();
     this._lastInspectLocalTick = null;
     this._inspectSource = null;
+    this._initialized = false;
   }
 }

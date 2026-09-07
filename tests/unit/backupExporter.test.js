@@ -1,8 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { MAX_IMPORTED_TICKS } from '../../src/engine/ImportLimits.js';
+import { normalizeMeter } from '../../src/engine/Meter.js';
+import { decodeSnippetShare, encodeSnippetShare, MAX_SHARE_CODE_CHARS } from '../../src/utils/SnippetShare.js';
 
 import {
   MAX_BACKUP_FILE_BYTES,
+  snippetLibraryWithFreshIds,
   readJsonFile,
   validateBackup,
 } from '../../src/export/BackupExporter.js';
@@ -118,4 +122,67 @@ test('validateBackup rejects unsafe keys and excessive nesting', () => {
     () => validateBackup({ kind: 'notenotes-workspace', project: project({ nested }) }),
     /nested too deeply/,
   );
+});
+
+test('backup imports bound timing and metadata before building editor grids', () => {
+  const backup = snippet => ({ kind: 'notenotes-snippets', snippets: [snippet] });
+  for (const snippet of [
+    { durationTicks: Infinity }, { durationTicks: MAX_IMPORTED_TICKS + 1 },
+    { notes: [{ startTick: MAX_IMPORTED_TICKS, durationTick: 1 }] },
+    { hits: [{ startTick: -1 }] }, { notes: [{ pitch: 128 }] },
+    { bpm: '<img src=x onerror=alert(1)>' }, { name: {} }, { type: 'midi" onclick="bad' },
+  ]) assert.throws(() => validateBackup(backup(snippet)));
+  assert.equal(validateBackup(backup({
+    type: 'midi', name: 'Lead <soft> & "warm"', durationTicks: 480,
+    notes: [{ pitch: 0, startTick: 0, durationTick: 480, velocity: 0 }],
+    instrumentId: 'unknown-but-preserved', patchRecorded: { patchSnapshot: null },
+  })), 'snippets');
+  assert.equal(validateBackup({ kind: 'notenotes-workspace', project: project({
+    tracks: [{ volume: 0, pan: 0, clips: [{ startBar: 0.25, durationBars: 0.5, snippet: { type: 'drum' } }] }],
+  }) }), 'workspace');
+});
+
+test('share decoder rejects oversized codes and overflowing event ends; silence survives sharing', () => {
+  const encode = payload => Buffer.from(JSON.stringify({ v: 1, t: 'midi', ...payload })).toString('base64url');
+  assert.equal(decodeSnippetShare('A'.repeat(MAX_SHARE_CODE_CHARS + 1)), null);
+  assert.equal(decodeSnippetShare(encode({ N: [[60, 1e308, 1e308, 80]] })), null);
+  assert.equal(decodeSnippetShare(encode({ d: 1e308, N: [[60, 0, 480, 80]] })), null);
+  const silent = decodeSnippetShare(encodeSnippetShare({ type: 'midi', notes: [{ pitch: 60, startTick: 0, durationTick: 480, velocity: 0 }] }));
+  assert.equal(silent.notes[0].velocity, 0);
+});
+
+test('library import remaps custom instrument aliases and source recordings together', () => {
+  const backup = {
+    snippets: [
+      { id: 'source', type: 'audio' },
+      { id: 'melody', instrumentId: 'custom:patch', patchId: 'patch', patchRecorded: { instrumentId: 'custom:patch' } },
+      { id: 'rhythm', kitId: 'custom:kit', kitRecorded: { instrumentId: 'custom:kit' } },
+      { id: 'builtin', instrumentId: 'fm4' },
+    ],
+    customInstruments: [{ id: 'patch', type: 'patch', sourceSnippetId: 'source' }, { id: 'kit', type: 'kit' }],
+  };
+  const imported = snippetLibraryWithFreshIds(backup);
+  const patch = imported.customInstruments[0];
+  assert.notEqual(patch.id, 'patch');
+  assert.equal(imported.snippets[1].instrumentId, `custom:${patch.id}`);
+  assert.equal(imported.snippets[1].patchId, patch.id);
+  assert.equal(imported.snippets[1].patchRecorded.instrumentId, `custom:${patch.id}`);
+  assert.equal(patch.sourceSnippetId, imported.snippets[0].id);
+  assert.equal(imported.snippets[2].kitRecorded.instrumentId, `custom:${imported.customInstruments[1].id}`);
+  assert.equal(imported.snippets[3].instrumentId, 'fm4');
+  assert.equal(backup.customInstruments[0].id, 'patch', 'source archive stays unchanged');
+});
+
+test('file-based instruments keep nullable source references in workspace and snippet archives', () => {
+  const instrument = { id: 'sample-file', name: 'Sample <soft>', type: 'patch', sourceSnippetId: null };
+  assert.equal(validateBackup({ kind: 'notenotes-snippets', snippets: [], customInstruments: [instrument] }), 'snippets');
+  assert.equal(validateBackup({ kind: 'notenotes-workspace', project: project({ settings: { customInstruments: [instrument] } }) }), 'workspace');
+});
+
+test('meter normalization cannot pass hostile groups to the Canvas grid', () => {
+  for (const grouping of [[1e12, 4 - 1e12], [Infinity, -Infinity], [0, 4], [-1, 5], ['2', '2']]) {
+    const meter = normalizeMeter({ type: 'metered', id: '4/4', grouping });
+    assert.ok(meter.grouping.every(group => Number.isInteger(group) && group > 0 && group <= 4));
+  }
+  assert.deepEqual(normalizeMeter({ type: 'metered', id: '5/8', grouping: [3, 2] }).grouping, [3, 2]);
 });

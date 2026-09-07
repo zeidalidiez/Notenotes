@@ -1,3 +1,4 @@
+import { onActivate } from '../ui/Activation.js';
 /**
  * EditMode — Live Edit / Piano Roll.
  * Per-clip note editor for fine-tuning pitch, timing, duration, and velocity.
@@ -12,7 +13,7 @@ import { showToast } from '../ui/Toast.js';
 import { ChoicePicker } from '../ui/ChoicePicker.js';
 import { renderSnippetPreviewSVG } from '../ui/snippetPreview.js';
 import { icon } from '../ui/icons.js';
-import { PRESETS } from '../instruments/WebAudioSynth.js';
+import { snapshotForInstrument } from '../engine/InstrumentRegistry.js';
 import { drumInstrumentGroups, midiInstrumentGroups, labelForInstrument } from './instrumentGroups.js';
 import { DEFAULT_NOTE_HEIGHT, MIN_PIANO_OCTAVE, MAX_PIANO_OCTAVE } from './editConstants.js';
 import { EditAudioPlayerMixin } from './editAudioPlayer.js';
@@ -151,10 +152,9 @@ export class EditMode {
     }
     snippet.instrumentId = instrumentId;
     if (snippet.type === 'midi') {
-      const preset = PRESETS[instrumentId];
       snippet.patchRecorded = {
         instrumentId,
-        patchSnapshot: preset ? JSON.parse(JSON.stringify(preset)) : null,
+        patchSnapshot: snapshotForInstrument(instrumentId),
         capturedAt: Date.now(),
       };
     } else if (snippet.type === 'drum') {
@@ -239,7 +239,7 @@ export class EditMode {
     const prefs = this._getBrowserPrefs();
 
     this.el.innerHTML = `
-      <div class="edit-browser edit-browser--${prefs.view}">
+      <div class="edit-browser edit-browser--${this._escapeAttr(prefs.view)}">
         <div class="edit-browser__header">
           <div class="edit-browser__title">
             <h2 class="edit-browser__heading">Inspect</h2>
@@ -422,7 +422,11 @@ export class EditMode {
     if (!this.project) return defaults;
     if (!this.project.settings) this.project.settings = {};
     const stored = this.project.settings.inspectBrowser || {};
-    return { ...defaults, ...stored };
+    return {
+      ...defaults, ...stored,
+      view: stored.view === 'grid' ? 'grid' : 'list',
+      search: typeof stored.search === 'string' ? stored.search : '',
+    };
   }
 
   _setBrowserPrefs(partial) {
@@ -441,7 +445,7 @@ export class EditMode {
     });
 
     this.el.querySelectorAll('.edit-browser__pill').forEach(btn => {
-      btn.addEventListener('pointerdown', (e) => {
+      onActivate(btn, (e) => {
         e.preventDefault();
         this.el.querySelectorAll('.edit-browser__pill').forEach(b => b.classList.remove('is-active'));
         btn.classList.add('is-active');
@@ -458,7 +462,7 @@ export class EditMode {
     });
 
     this.el.querySelectorAll('.edit-browser__view-btn').forEach(btn => {
-      btn.addEventListener('pointerdown', (e) => {
+      onActivate(btn, (e) => {
         e.preventDefault();
         this.el.querySelectorAll('.edit-browser__view-btn').forEach(b => b.classList.remove('is-active'));
         btn.classList.add('is-active');
@@ -516,7 +520,7 @@ export class EditMode {
       });
     });
     itemsContainer.querySelectorAll('.edit-browser__delete-btn').forEach(btn => {
-      btn.addEventListener('pointerdown', (e) => {
+      onActivate(btn, (e) => {
         e.preventDefault();
         e.stopPropagation();
         this._deleteBrowserSnippet(btn.dataset.delete);
@@ -694,11 +698,12 @@ export class EditMode {
 
     const afterState = this._snapshotSnippetState();
     if (beforeState && afterState && JSON.stringify(beforeState) !== JSON.stringify(afterState)) {
+      const editedSnippet = this._snippet;
       this.undoManager?.push({
         type: 'setSnippetDuration',
         description: 'Set snippet duration',
-        undo: () => this._restoreSnippetState(beforeState),
-        redo: () => this._restoreSnippetState(afterState),
+        undo: () => this._restoreSnippetState(beforeState, editedSnippet),
+        redo: () => this._restoreSnippetState(afterState, editedSnippet),
       });
     }
 

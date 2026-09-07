@@ -17,6 +17,7 @@ import { AccessibilitySectionMixin } from './settings/accessibilitySection.js';
 import { focusableElements, setSubtreeInteractive, setTabActive } from './InteractionState.js';
 import { cacheAllSampleInstruments, cachedSampleInstrumentIds } from '../instruments/SamplePack.js';
 import { SAMPLE_PACK_INDEX } from '../engine/InstrumentRegistry.js';
+import { escapeAttr } from '../utils/html.js';
 
 const LATEST_VERSION_URL = 'https://raw.githubusercontent.com/zeidalidiez/Notenotes/main/src/version.js';
 
@@ -84,7 +85,7 @@ export class SettingsPanel {
           <h3 class="settings-group__title">Project</h3>
           <div class="settings-row">
             <label class="settings-label">Name</label>
-            <input class="settings-input" id="setting-project-name" type="text" value="${this.project?.name || 'Untitled'}" aria-label="Project name"/>
+            <input class="settings-input" id="setting-project-name" type="text" value="${escapeAttr(this.project?.name || 'Untitled')}" aria-label="Project name"/>
           </div>
           <div class="settings-row settings-row--version">
             <label class="settings-label">App Version</label>
@@ -180,7 +181,7 @@ export class SettingsPanel {
             <label class="settings-label">Beat Colors</label>
             <div style="display: flex; gap: 4px;">
               ${beatColors.map((c, i) => 
-                `<input type="color" class="setting-vis-color" data-index="${i}" value="${c}" aria-label="Beat ${i+1} color" style="width: 24px; height: 24px; padding: 0; border: none; border-radius: 4px;" />`
+                `<input type="color" class="setting-vis-color" data-index="${i}" value="${escapeAttr(c)}" aria-label="Beat ${i+1} color" style="width: 24px; height: 24px; padding: 0; border: none; border-radius: 4px;" />`
               ).join('')}
             </div>
           </div>

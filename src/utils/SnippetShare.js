@@ -1,4 +1,5 @@
 import { cleanNoteLyricText } from '../engine/Lyrics.js';
+import { MAX_IMPORTED_TICKS } from '../engine/ImportLimits.js';
 
 /**
  * SnippetShare - encode a MIDI/drum snippet into a URL-safe code and back.
@@ -160,7 +161,7 @@ export function encodeSnippetShare(snippet) {
       clamp(int(n.pitch) ?? 60, 0, 127),
       Math.max(0, int(n.startTick) ?? 0),
       Math.max(1, int(n.durationTick) ?? PPQ),
-      clamp(Math.round((Number(n.velocity) || 0.8) * 100), 1, 127),
+      clamp(Math.round(Number(n.velocity ?? 0.8) * 100), 0, 100),
     ];
     const lyric = cleanShareLyric(n.lyric, lyricCharsLeft);
     if (lyric) {
@@ -172,7 +173,7 @@ export function encodeSnippetShare(snippet) {
   const H = sharedHits.map(h => [
     String(h.type || 'kick').slice(0, 16),
     Math.max(0, int(h.startTick) ?? 0),
-    clamp(Math.round((Number(h.velocity) || 0.8) * 100), 1, 127),
+    clamp(Math.round(Number(h.velocity ?? 0.8) * 100), 0, 100),
   ]);
 
   const payload = {
@@ -192,7 +193,7 @@ export function encodeSnippetShare(snippet) {
  * importer assigns those). Returns null for anything malformed or empty.
  */
 export function decodeSnippetShare(code) {
-  if (typeof code !== 'string' || !code) return null;
+  if (typeof code !== 'string' || !code || code.length > MAX_SHARE_CODE_CHARS) return null;
   let payload;
   try {
     payload = JSON.parse(bytesToUtf8(base64UrlToBytes(code)));
@@ -202,6 +203,7 @@ export function decodeSnippetShare(code) {
   if (!payload || typeof payload !== 'object') return null;
   if (payload.v !== SNIPPET_SHARE_VERSION) return null;
   if (payload.t !== 'midi' && payload.t !== 'drum') return null;
+  if (payload.d !== undefined && (!Number.isFinite(payload.d) || payload.d < 0 || payload.d > MAX_IMPORTED_TICKS)) return null;
 
   const rawN = Array.isArray(payload.N) ? payload.N.slice(0, MAX_SHARE_EVENTS) : [];
   const rawH = Array.isArray(payload.H) ? payload.H.slice(0, Math.max(0, MAX_SHARE_EVENTS - rawN.length)) : [];
@@ -212,11 +214,13 @@ export function decodeSnippetShare(code) {
     if (!Array.isArray(e)) continue;
     const pitch = int(e[0]); const startTick = int(e[1]); const durationTick = int(e[2]); const vel = int(e[3]);
     if (pitch === null || pitch < 0 || pitch > 127) continue;
+    if ((startTick ?? 0) < 0 || (durationTick ?? PPQ) < 0
+      || (startTick ?? 0) + (durationTick ?? PPQ) > MAX_IMPORTED_TICKS - PPQ) continue;
     const note = {
       pitch,
       startTick: Math.max(0, startTick ?? 0),
       durationTick: Math.max(1, durationTick ?? PPQ),
-      velocity: clamp((vel ?? 80) / 100, 0.01, 1),
+      velocity: clamp((vel ?? 80) / 100, 0, 1),
     };
     const lyric = cleanShareLyric(e[4], lyricCharsLeft);
     if (lyric) {
@@ -231,7 +235,8 @@ export function decodeSnippetShare(code) {
     const type = String(e[0] || '').slice(0, 16);
     const startTick = int(e[1]); const vel = int(e[2]);
     if (!type) continue;
-    hits.push({ type, startTick: Math.max(0, startTick ?? 0), velocity: clamp((vel ?? 80) / 100, 0.01, 1) });
+    if ((startTick ?? 0) < 0 || (startTick ?? 0) > MAX_IMPORTED_TICKS - PPQ) continue;
+    hits.push({ type, startTick: Math.max(0, startTick ?? 0), velocity: clamp((vel ?? 80) / 100, 0, 1) });
   }
   if (!notes.length && !hits.length) return null;
 

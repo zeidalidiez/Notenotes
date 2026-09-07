@@ -8,6 +8,7 @@ import { normalizeSoundTraits } from '../instruments/WebAudioSynth.js';
 import { CLIP_TIME_SCALE_PRESETS, clipVisualDurationBars, normalizeClipTimeScale, pushClipsRightForTimeScale } from '../engine/ClipTimeScale.js';
 import { normalizeTrackPan } from '../engine/StereoWidth.js';
 import { showToast } from '../ui/Toast.js';
+import { escapeHtml } from '../utils/html.js';
 import { ChoicePicker } from '../ui/ChoicePicker.js';
 import { drumInstrumentGroups, labelForInstrument, midiInstrumentGroups } from './instrumentGroups.js';
 
@@ -168,7 +169,7 @@ export const CanvasTracksMixin = {
       <div class="canvas-time-modal canvas-pan-modal" role="dialog" aria-modal="true" aria-label="Track Pan">
         <div class="canvas-time-modal__header">
           <span class="canvas-time-modal__kicker">Track mix</span>
-          <strong>Pan ${track.name}</strong>
+          <strong>Pan ${escapeHtml(track.name)}</strong>
         </div>
         <div class="canvas-pan-modal__readout" id="canvas-pan-readout">${this._panLabel(current)}</div>
         <input class="canvas-pan-modal__slider" id="canvas-pan-slider" type="range" min="-100" max="100" step="1" value="${currentValue}" aria-label="Track pan" />

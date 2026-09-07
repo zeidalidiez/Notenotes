@@ -4,6 +4,7 @@
  */
 
 import { showToast } from '../ui/Toast.js';
+import { escapeAttr, escapeHtml } from '../utils/html.js';
 
 export const EditAudioPlayerMixin = {
   _renderAudioPlayer() {
@@ -19,10 +20,10 @@ export const EditAudioPlayerMixin = {
     audioEl.className = 'edit-audio';
     audioEl.innerHTML = `
       <div class="edit-audio__body">
-        <audio class="edit-audio__player" controls src="${immediateSource}"></audio>
-        <p class="edit-audio__status">${unavailable ? (this._snippet.audioUnavailableReason || 'Audio data unavailable') : ''}</p>
+        <audio class="edit-audio__player" controls src="${escapeAttr(immediateSource)}"></audio>
+        <p class="edit-audio__status">${escapeHtml(unavailable ? (this._snippet.audioUnavailableReason || 'Audio data unavailable') : '')}</p>
         <p class="edit-audio__meta">
-          BPM: ${this._snippet.bpm} ·
+          BPM: ${escapeHtml(this._snippet.bpm)} ·
           Duration: ${(this._snippet.durationTicks / 480).toFixed(1)} beats
         </p>
       </div>

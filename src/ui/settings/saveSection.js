@@ -9,7 +9,8 @@
 import { byteLength, formatBytes, percent, BACKUP_CONTENT_OPTIONS } from './settingsShared.js';
 import { APP_VERSION } from '../../version.js';
 import { showToast } from '../Toast.js';
-import { backupFilename, customInstrumentsWithFreshIds, readJsonFile, saveJsonFile, snippetsBackup, snippetsWithFreshIds, validateBackup, workspaceBackup } from '../../export/BackupExporter.js';
+import { backupFilename, readJsonFile, saveJsonFile, snippetsBackup, snippetLibraryWithFreshIds, validateBackup, workspaceBackup } from '../../export/BackupExporter.js';
+import { escapeAttr, escapeHtml } from '../../utils/html.js';
 import { DEFAULT_VERSION_HISTORY_LIMIT, VERSION_HISTORY_LIMITS } from '../../data/ProjectStore.js';
 import { formatRelativeTime, workspaceBackupStatus } from '../../utils/BackupStatus.js';
 import { LOCAL_BACKUP_FOLDER_KEY, backupFolderPermission, folderBackupSupported, getBackupFolderHandle, saveWorkspaceBackupToFolder, workspaceBackupPayload } from '../../utils/FolderBackup.js';
@@ -152,14 +153,14 @@ export const SaveSectionMixin = {
         const date = new Date(v.timestamp);
         const timeStr = date.toLocaleString();
         return `
-          <div class="version-list__item" data-version-id="${v.versionId}">
+          <div class="version-list__item" data-version-id="${escapeAttr(v.versionId)}">
             <div class="version-list__info">
               <span class="version-list__time">${timeStr}</span>
-              <span class="version-list__meta">${v.bpm} BPM</span>
+              <span class="version-list__meta">${escapeHtml(v.bpm)} BPM</span>
             </div>
             <div class="version-list__actions">
-              <button class="btn btn--ghost version-list__restore" data-version-id="${v.versionId}">Restore</button>
-              <button class="btn btn--ghost version-list__delete" data-version-id="${v.versionId}">Delete</button>
+              <button class="btn btn--ghost version-list__restore" data-version-id="${escapeAttr(v.versionId)}">Restore</button>
+              <button class="btn btn--ghost version-list__delete" data-version-id="${escapeAttr(v.versionId)}">Delete</button>
             </div>
           </div>
         `;
@@ -615,15 +616,16 @@ export const SaveSectionMixin = {
         }
 
         if (!this.project) return;
+        const imported = snippetLibraryWithFreshIds(backup);
         this.project.snippets = [
           ...(this.project.snippets || []),
-          ...snippetsWithFreshIds(backup.snippets),
+          ...imported.snippets,
         ];
         if (Array.isArray(backup.customInstruments) && backup.customInstruments.length) {
           this.project.settings ||= {};
           this.project.settings.customInstruments = [
             ...(this.project.settings.customInstruments || []),
-            ...customInstrumentsWithFreshIds(backup.customInstruments),
+            ...imported.customInstruments,
           ];
           await this.store.migrateCustomInstrumentAudioAssets(this.project.settings.customInstruments);
         }
@@ -678,14 +680,14 @@ export const SaveSectionMixin = {
       listEl.innerHTML = milestones.map(m => {
         const date = new Date(m.timestamp);
         return `
-          <div class="version-list__item" data-milestone-id="${m.milestoneId}">
+          <div class="version-list__item" data-milestone-id="${escapeAttr(m.milestoneId)}">
             <div class="version-list__info">
-              <span class="version-list__time">${m.label}</span>
-              <span class="version-list__meta">${date.toLocaleString()} - ${m.bpm} BPM</span>
+              <span class="version-list__time">${escapeHtml(m.label)}</span>
+              <span class="version-list__meta">${date.toLocaleString()} - ${escapeHtml(m.bpm)} BPM</span>
             </div>
             <div class="version-list__actions">
-              <button class="btn btn--ghost milestone-list__restore" data-milestone-id="${m.milestoneId}">Load</button>
-              <button class="btn btn--ghost milestone-list__delete" data-milestone-id="${m.milestoneId}">Delete</button>
+              <button class="btn btn--ghost milestone-list__restore" data-milestone-id="${escapeAttr(m.milestoneId)}">Load</button>
+              <button class="btn btn--ghost milestone-list__delete" data-milestone-id="${escapeAttr(m.milestoneId)}">Delete</button>
             </div>
           </div>
         `;

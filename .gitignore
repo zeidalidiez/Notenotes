@@ -27,3 +27,5 @@ dist
 review.md
 flow-experiment.md
 plans
+playwright-report/
+test-results/

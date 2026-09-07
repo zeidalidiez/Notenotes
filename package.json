@@ -12,10 +12,12 @@
     "test": "npm run lint:no-emoji && npm run test:smoke && npm run test:unit",
     "test:unit": "node --import ./tests/fixtures/register-loader.mjs --test tests/unit/*.test.js",
     "test:smoke": "node --import ./tests/fixtures/register-loader.mjs tests/smoke.mjs",
+    "test:browser": "playwright test",
     "lint:no-emoji": "node scripts/check-no-emoji.mjs",
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "vite": "^8.1.3"
   },
   "dependencies": {

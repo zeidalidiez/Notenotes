@@ -34,3 +34,17 @@ jobs:
 
       - name: Build project
         run: npm run build
+
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Check desktop and mobile workflows
+        run: npm run test:browser
+
+      - name: Keep browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-results
+          path: test-results/
+          retention-days: 7

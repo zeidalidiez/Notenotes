@@ -30,6 +30,15 @@ test('load returns undefined for an unknown project id', async () => {
   assert.equal(await store.load('does-not-exist'), undefined);
 });
 
+test('restoring an archive cannot be overwritten by an older pending autosave', async () => {
+  const store = await freshStore();
+  const project = createProject('Old pending edit');
+  store.scheduleAutoSave(project);
+  await store.replaceProjectArchive({ ...structuredClone(project), name: 'Restored workspace' });
+  await store.flushAutoSave();
+  assert.equal((await store.load(project.id)).name, 'Restored workspace');
+});
+
 test('library edits remain linked to Canvas clips after saving and loading', async () => {
   const store = await freshStore();
   const project = createProject('Linked clips');

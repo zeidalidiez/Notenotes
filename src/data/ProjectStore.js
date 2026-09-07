@@ -666,6 +666,9 @@ export class ProjectStore {
   }
 
   async replaceProjectArchive(project, archive = {}) {
+    // Finish the old workspace's pending writes before replacing its archive.
+    // A debounce or pagehide flush must not overwrite the restored project.
+    await this.flushAutoSave();
     await this.migrateProjectAudioAssets(project);
     await this.save(project);
 

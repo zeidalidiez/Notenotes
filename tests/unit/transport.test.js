@@ -58,6 +58,58 @@ test('changing meter while playing keeps the raw tick continuous', () => {
   assert.equal(transport.currentRawTick, before);
 });
 
+test('ten minutes of real scheduling emits each tick and pulse once without accumulated drift', () => {
+  for (const bpm of [73, 127, 240]) {
+    const { ctx, transport } = freshTransport();
+    transport.bpm = bpm;
+    transport.loopEnabled = true;
+    transport.setLoop(0, 2);
+    let rawTick = 0;
+    let lastTime = -1;
+    let beats = 0;
+    const secondsPerTick = transport.secondsPerTick;
+    transport.onTick((tick, time) => {
+      assert.equal(tick, rawTick % 3840);
+      assert.ok(time > lastTime);
+      assert.ok(Math.abs(time - rawTick * secondsPerTick) < 1e-9);
+      rawTick++;
+      lastTime = time;
+    });
+    transport.onBeat(() => beats++);
+    transport.play();
+    for (let step = 0; step < 24000; step++) {
+      ctx.currentTime = step * 0.025;
+      transport._schedulerTick();
+    }
+    assert.equal(beats, Math.ceil(rawTick / 480));
+    assert.ok(rawTick > bpm * 480 * 9.9);
+  }
+});
+
+test('scheduler tempo changes preserve contiguous ticks and previously emitted audio times', () => {
+  const { ctx, transport } = freshTransport();
+  const events = [];
+  transport.onTick((tick, time) => events.push({ tick, time }));
+  transport.play();
+  transport._schedulerTick();
+  const before = structuredClone(events);
+  ctx.currentTime = 0.05;
+  const position = transport.currentRawTick;
+  const boundary = transport._nextTickTime;
+  transport.bpm = 173;
+  transport.bpm = 97;
+  assert.equal(transport.currentRawTick, position);
+  ctx.currentTime = 0.5;
+  transport._schedulerTick();
+  assert.deepEqual(events.slice(0, before.length), before);
+  assert.ok(Math.abs(events[before.length].time - boundary) < 1e-12);
+  events.forEach((event, i) => {
+    assert.equal(event.tick, i);
+    if (i > 0) assert.ok(event.time > events[i - 1].time);
+  });
+  assert.ok(Math.abs(events.at(-1).time - events.at(-2).time - transport.secondsPerTick) < 1e-12);
+});
+
 test('arpeggio steps carry explicit AudioContext times from a lookahead window', () => {
   const calls = [];
   const synth = {

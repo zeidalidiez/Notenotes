@@ -50,6 +50,7 @@ export class Transport {
     this._schedulerInterval = 25;    // 25ms timer interval
     this._schedulerTimerId = null;
     this._nextTickTime = 0;
+    this._nextRawTick = 0;
     this._lastLoopCycle = 0;
 
     // Callbacks
@@ -182,6 +183,7 @@ export class Transport {
 
     this._startTime = this.engine.currentTime;
     this._startTick = this._currentTick;
+    this._nextRawTick = this._startTick;
     this._nextTickTime = this.engine.currentTime;
     this._lastLoopCycle = this._loopCycleForRawTick(this._startTick);
     this._resetTempoSegments();
@@ -197,6 +199,7 @@ export class Transport {
 
     this._startTime = this.engine.currentTime;
     this._startTick = this._currentTick;
+    this._nextRawTick = this._startTick;
     this._nextTickTime = this.engine.currentTime;
     this._lastLoopCycle = this._loopCycleForRawTick(this._startTick);
     this._resetTempoSegments();
@@ -296,22 +299,27 @@ export class Transport {
     return Math.floor(this._rawTickFloatAtTime(audioTime) + 1e-7);
   }
 
-  _normalizeTick(rawTick) {
+  _audioTimeForRawTick(tick) {
+    let segment = this._tempoSegments[0];
+    for (const candidate of this._tempoSegments) {
+      if (candidate.tick > tick) break;
+      segment = candidate;
+    }
+    return segment.audioTime + (tick - segment.tick) * segment.secondsPerTick;
+  }
+
+  _normalizeTick(rawTick, loopStart = this.loopStartTick, loopEnd = this.loopEndTick) {
     if (!this.loopEnabled) return Math.max(0, rawTick);
 
-    const loopStart = this.loopStartTick;
-    const loopEnd = this.loopEndTick;
     const loopLength = loopEnd - loopStart;
     if (loopLength <= 0 || rawTick < loopEnd) return Math.max(0, rawTick);
 
     return loopStart + ((rawTick - loopStart) % loopLength);
   }
 
-  _loopCycleForRawTick(rawTick) {
+  _loopCycleForRawTick(rawTick, loopStart = this.loopStartTick, loopEnd = this.loopEndTick) {
     if (!this.loopEnabled) return 0;
 
-    const loopStart = this.loopStartTick;
-    const loopEnd = this.loopEndTick;
     const loopLength = loopEnd - loopStart;
     if (loopLength <= 0 || rawTick < loopEnd) return 0;
 
@@ -333,14 +341,23 @@ export class Transport {
   }
 
   _schedulerTick() {
-    const tickDuration = this.secondsPerTick;
     const lookAheadEnd = this.engine.currentTime + this._scheduleAheadTime;
+    const ticksPerBar = this.ticksPerBar;
+    const loopStart = this.loopStartBar * ticksPerBar;
+    const loopEnd = this.loopEndBar * ticksPerBar;
+    const pulseStarts = [];
+    let pulseCursor = 0;
+    for (const pulseTicks of this.pulseTicks) {
+      pulseStarts.push(pulseCursor);
+      pulseCursor += pulseTicks;
+    }
 
-    while (this._nextTickTime < lookAheadEnd) {
-      // Calculate the tick index for this scheduled moment
-      const rawTick = this._rawTickAtTime(this._nextTickTime);
-      const loopCycle = this._loopCycleForRawTick(rawTick);
-      const tick = this._normalizeTick(rawTick);
+    while (this.state !== TransportState.STOPPED && this._nextTickTime < lookAheadEnd) {
+      // Count musical ticks exactly. Derive each timestamp from a tempo anchor;
+      // accumulated floating-point seconds must never choose which tick fires.
+      const rawTick = this._nextRawTick;
+      const loopCycle = this._loopCycleForRawTick(rawTick, loopStart, loopEnd);
+      const tick = this._normalizeTick(rawTick, loopStart, loopEnd);
 
       // Handle looping
       if (loopCycle > this._lastLoopCycle) {
@@ -355,25 +372,20 @@ export class Transport {
       this._emit(this._onTick, tick, this._nextTickTime);
 
       // Check for pulse boundary
-      const barRelativeTick = ((tick % this.ticksPerBar) + this.ticksPerBar) % this.ticksPerBar;
-      const pulseStarts = [];
-      let pulseCursor = 0;
-      for (const pulseTicks of this.pulseTicks) {
-        pulseStarts.push(pulseCursor);
-        pulseCursor += pulseTicks;
-      }
+      const barRelativeTick = ((tick % ticksPerBar) + ticksPerBar) % ticksPerBar;
       if (pulseStarts.includes(barRelativeTick)) {
         const beat = pulseStarts.indexOf(barRelativeTick);
         this._emit(this._onBeat, beat, this._nextTickTime);
 
         // Check for bar boundary
         if (beat === 0) {
-          const bar = Math.floor(tick / this.ticksPerBar);
+          const bar = Math.floor(tick / ticksPerBar);
           this._emit(this._onBar, bar, this._nextTickTime);
         }
       }
 
-      this._nextTickTime += tickDuration;
+      this._nextRawTick += 1;
+      this._nextTickTime = this._audioTimeForRawTick(this._nextRawTick);
     }
   }
 }

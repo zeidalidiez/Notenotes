@@ -53,6 +53,10 @@ ten compact CC0 sample instruments; friendly Tone controls; Height Velocity; Hol
 and Arpeggio modes; Step Play; degree colors; chord suggestions; and gamepad,
 computer-keyboard, and Web MIDI input.
 
+Empty workspaces open in Create. Choose **Record your first idea**, then play a
+pad or key to start capturing. On phones, **More** holds key, meter, arming, and
+other secondary controls so the playing surface has more room.
+
 ### Canvas
 
 ![Canvas mode with snippets on a multitrack timeline](readme_images/canvas.gif)
@@ -61,6 +65,9 @@ Arrange MIDI, drum, and audio snippets on typed tracks. Move and trim clips,
 switch half-time or double-time non-destructively, mute or solo tracks, set pan
 and color, and export the result. Clips snap to useful edges and avoid accidental
 overlaps.
+
+Click or keyboard-activate a snippet in the Canvas dock to append it to a
+compatible track, or drag it to choose a position.
 
 ### Inspect
 
@@ -102,6 +109,13 @@ video and GIF export are future work.
   palettes, and URL-enabled accessibility profiles.
 - Enable developer diagnostics with `?debug=1`.
 
+The transport shows pending saves and offers **Retry save** if browser storage
+fails. Canvas MIDI exports preserve named tracks, pan, and volume, with separate
+melodic channels and channel 10 for drums. After 15 melodic tracks, MIDI channels
+are reused while track names remain separate. ABC and sheet output preserve
+chords, overlapping voices, and ties across bars; quantizing very fine free-play
+timing gives the clearest conventional notation.
+
 Notenotes deliberately does not provide accounts, cloud sync, multitrack mixing
 depth, arbitrary effects racks, or a runtime plugin marketplace.
 
@@ -126,6 +140,8 @@ Before opening a pull request:
 ```bash
 npm test
 npm run build
+npx playwright install chromium
+npm run test:browser
 ```
 
 Do not use `--legacy-peer-deps`; the checked-in dependency graph is expected to
@@ -144,7 +160,9 @@ install cleanly.
 | `Shift` + drag note edge | Resize a MIDI note in Inspect |
 
 When an instrument consumes a key as a playable note, it takes precedence over
-a global shortcut.
+a global shortcut. Focused controls keep their normal Enter/Space behavior;
+Ctrl/Cmd shortcuts do not play notes. On macOS, Cmd also works for undo, redo,
+and saving.
 
 ## Technical shape
 

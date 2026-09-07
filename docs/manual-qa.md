@@ -10,6 +10,8 @@ Before starting:
 npm ci
 npm test
 npm run build
+npx playwright install chromium
+npm run test:browser
 npm run preview
 ```
 
@@ -33,7 +35,8 @@ Failed check and evidence:
 
 ## Core browser smoke
 
-- App reaches Inspect without a blank screen or error overlay.
+- An empty workspace opens in Create with a first-recording action; an existing
+  snippet library opens in Inspect without a blank screen or error overlay.
 - Create, Canvas, and Inspect switch without console errors.
 - Refresh restores the same project and selected user settings.
 - A new workspace can be created without contaminating the previous one.
@@ -72,6 +75,13 @@ Failed check and evidence:
 - Inspect audition stops when changing mode or returning to the library.
 
 ## Save, restore, and export
+
+- A failed autosave shows Save failed and offers Retry; retry, reload, and verify
+  that the pending edit survived. Undo a Canvas edit, save, and reload it too.
+- Edit snippet A, open B, and undo: only A changes. Repeat after placing A on
+  Canvas and reloading; its clip remains linked to A.
+- Restore metadata with literal angle brackets, ampersands, and quotes in names
+  and milestone labels. Verify the original text in Inspect, Canvas, and Settings.
 
 - Export a workspace containing MIDI, drums, audio, custom instruments, settings,
   milestones, and Canvas clips; import it into a disposable workspace and compare

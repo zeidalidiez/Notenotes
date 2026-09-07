@@ -3,6 +3,16 @@
    Deep charcoal palette with silver accent
    ============================================================ */
 
+.save-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+}
+.save-status[data-state="error"] { color: var(--record-red, #f87171); }
+.save-status button { padding: 6px; color: inherit; }
+
 /* --- Reset & Base --- */
 *, *::before, *::after {
   box-sizing: border-box;

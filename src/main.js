@@ -309,6 +309,11 @@ class App {
     };
     this.transportBar.onPlayToggle = () => this._handlePlayToggle();
     this.transportBar.onStop = () => this._cancelPendingPlaybackStart();
+    this.transportBar.setSaveState(this.store.saveState);
+    window.addEventListener('notenotes-save-state-changed', (event) => {
+      this.transportBar.setSaveState(event.detail.state);
+    });
+    this.transportBar.onRetrySave = () => this._flushPendingAutoSave('retry');
     this.transportBar.onProjectKeyChange = (context) => {
       this._setProjectMusicalContext(context, { source: 'transport' });
     };
@@ -1249,9 +1254,10 @@ class App {
       if (e.ctrlKey && e.code === 'KeyS') {
         e.preventDefault();
         if (this.project) {
-          this.store.save(this.project);
-          this.store.saveVersion(this.project);
-          showToast('Project saved');
+          this.store.scheduleAutoSave(this.project);
+          void this.store.flushAutoSave()
+            .then(() => showToast('Project saved'))
+            .catch(() => showToast('Save failed. Retry or export a backup.'));
         }
       }
 

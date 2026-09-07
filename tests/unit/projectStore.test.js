@@ -193,3 +193,37 @@ test('flushAutoSave persists pending edits once and cancels the debounce', async
   assert.equal(saves, 1, 'cleared debounce does not save a second time');
   assert.equal(await store.flushAutoSave(), false, 'nothing remains pending');
 });
+
+test('a failed autosave retains its project for an explicit retry', async () => {
+  const store = await freshStore();
+  const project = createProject('Retry');
+  const save = store.save.bind(store);
+  store.save = async () => { throw new Error('Quota exceeded'); };
+  store.scheduleAutoSave(project);
+  await assert.rejects(store.flushAutoSave(), /Quota exceeded/);
+  assert.equal(store.saveState, 'error');
+  assert.equal(store._pendingSave, project);
+  store.save = save;
+  assert.equal(await store.flushAutoSave(), true);
+  assert.equal(store.saveState, 'saved');
+  assert.equal((await store.load(project.id)).name, 'Retry');
+});
+
+test('a failed in-flight autosave cannot replace a newer pending edit', async () => {
+  const store = await freshStore();
+  const first = createProject('Old');
+  const latest = createProject('Latest');
+  let rejectSave;
+  const save = store.save.bind(store);
+  store.save = () => new Promise((resolve, reject) => { rejectSave = reject; });
+  store.scheduleAutoSave(first);
+  const pending = store.flushAutoSave();
+  await Promise.resolve();
+  store.scheduleAutoSave(latest);
+  rejectSave(new Error('Write failed'));
+  await assert.rejects(pending, /Write failed/);
+  assert.equal(store._pendingSave, latest);
+  store.save = save;
+  await store.flushAutoSave();
+  assert.equal((await store.load(latest.id)).name, 'Latest');
+});

@@ -35,6 +35,7 @@ export class TransportBar {
      *  play through `_handlePlayToggle`. */
     this.onPlayToggle = null;
     this.onStop = null;
+    this.onRetrySave = null;
     this.onArmRecordClick = null;
     this.onProjectKeyChange = null;
     this.onProjectMeterChange = null;
@@ -77,6 +78,10 @@ export class TransportBar {
 
       <div class="beat-indicator" id="beat-indicator">
         ${this._renderBeatDots()}
+      </div>
+      <div class="save-status" id="save-status" role="status" aria-live="polite">
+        <span id="save-status-label">Saved</span>
+        <button id="save-retry" type="button" hidden>Retry save</button>
       </div>
 
       <div class="transport-bar__bpm">
@@ -150,7 +155,21 @@ export class TransportBar {
     return this.el;
   }
 
+  setSaveState(state) {
+    const status = this.el?.querySelector('#save-status');
+    if (!status) return;
+    status.dataset.state = state;
+    status.querySelector('#save-status-label').textContent = {
+      saved: 'Saved', pending: 'Unsaved', saving: 'Saving…', error: 'Save failed',
+    }[state] || 'Unsaved';
+    status.querySelector('#save-retry').hidden = state !== 'error';
+    status.title = state === 'error'
+      ? 'Changes remain in this tab. Retry saving or export a backup.'
+      : 'Workspace save status in this browser';
+  }
+
   _bindEvents() {
+    this.el.querySelector('#save-retry').addEventListener('click', () => this.onRetrySave?.());
     // Play/pause
     this.el.querySelector('#btn-play').addEventListener('pointerdown', (e) => {
       e.preventDefault();

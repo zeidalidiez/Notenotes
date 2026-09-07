@@ -285,6 +285,8 @@ export class ProjectStore {
     this._autoSaveDelay = 2000; // 2 second debounce
     this._pendingSave = null;
     this._autoSaveInFlight = null;
+    this._saveRevision = 0;
+    this.saveState = 'saved';
     this._audioObjectUrls = new Map();
   }
 
@@ -751,7 +753,10 @@ export class ProjectStore {
    * @param {object} project
    */
   scheduleAutoSave(project) {
+    if (!project) return;
+    this._saveRevision++;
     this._pendingSave = project;
+    this._setSaveState('pending');
     if (this._autoSaveTimer) {
       clearTimeout(this._autoSaveTimer);
     }
@@ -775,6 +780,7 @@ export class ProjectStore {
     }
 
     const project = this._pendingSave;
+    const revision = this._saveRevision;
     this._pendingSave = null;
     if (!project) {
       if (this._autoSaveInFlight) await this._autoSaveInFlight;
@@ -784,6 +790,7 @@ export class ProjectStore {
     const previousSave = this._autoSaveInFlight;
     const autoSave = (previousSave ? previousSave.catch(() => {}) : Promise.resolve())
       .then(async () => {
+        this._setSaveState('saving');
         await this.save(project);
         await this.saveVersion(project);
         console.log('[ProjectStore] Auto-saved:', project.name);
@@ -792,9 +799,25 @@ export class ProjectStore {
 
     try {
       await autoSave;
+      if (revision === this._saveRevision && !this._pendingSave) this._setSaveState('saved');
       return true;
+    } catch (error) {
+      // An older failed write must not replace a newer pending edit.
+      if (revision === this._saveRevision && !this._pendingSave) {
+        this._pendingSave = project;
+        this._setSaveState('error');
+      }
+      throw error;
     } finally {
       if (this._autoSaveInFlight === autoSave) this._autoSaveInFlight = null;
+    }
+  }
+
+  _setSaveState(state) {
+    if (this.saveState === state) return;
+    this.saveState = state;
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('notenotes-save-state-changed', { detail: { state } }));
     }
   }
 

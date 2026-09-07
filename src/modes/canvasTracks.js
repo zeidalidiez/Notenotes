@@ -3,14 +3,13 @@
  * CanvasMode.prototype via Object.assign. Method bodies are unchanged.
  */
 
-import { TRACK_INSTRUMENTS } from '../engine/PlaybackEngine.js';
 import { DRUM_KITS } from '../instruments/SketchKit.js';
-import { PRESETS, normalizeSoundTraits } from '../instruments/WebAudioSynth.js';
+import { normalizeSoundTraits } from '../instruments/WebAudioSynth.js';
 import { CLIP_TIME_SCALE_PRESETS, clipVisualDurationBars, normalizeClipTimeScale, pushClipsRightForTimeScale } from '../engine/ClipTimeScale.js';
 import { normalizeTrackPan } from '../engine/StereoWidth.js';
 import { showToast } from '../ui/Toast.js';
 import { ChoicePicker } from '../ui/ChoicePicker.js';
-import { midiInstrumentGroups, drumInstrumentGroups } from './instrumentGroups.js';
+import { drumInstrumentGroups, labelForInstrument, midiInstrumentGroups } from './instrumentGroups.js';
 
 export const CanvasTracksMixin = {
   _customPatchInstruments() {
@@ -41,15 +40,7 @@ export const CanvasTracksMixin = {
   },
 
   _instrumentName(instrumentId) {
-    if (instrumentId?.startsWith?.('custom:')) {
-      const id = instrumentId.slice(7);
-      return this._customPatchInstruments().find(instrument => instrument.id === id)?.name
-        || this._customKitInstruments().find(instrument => instrument.id === id)?.name
-        || 'Custom instrument';
-    }
-    if (instrumentId === 'kit') return DRUM_KITS.classic.name;
-    if (DRUM_KITS[instrumentId]) return DRUM_KITS[instrumentId].name;
-    return TRACK_INSTRUMENTS[instrumentId]?.name || instrumentId;
+    return labelForInstrument(instrumentId, this.project);
   },
 
   _tonePresets() {

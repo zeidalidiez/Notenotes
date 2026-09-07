@@ -11,9 +11,9 @@
  *   2. Downloads those WAVs and transcodes them to small MONO MP3 (.mp3) with
  *      leading/trailing silence trimmed, a length cap, and a gentle fade-out.
  *   3. Writes public/packs/<id>/<midi>.mp3 plus a manifest.json per instrument
- *      and a public/packs/index.json the app reads.
+ *      plus matching public and bundled catalogs.
  *
- * Requirements: node >= 18, curl, ffmpeg (with the built-in `aac` encoder).
+ * Requirements: Node 20.19+, curl, and ffmpeg with libmp3lame.
  * Usage:  node scripts/build-sample-packs.mjs            # all instruments
  *         node scripts/build-sample-packs.mjs glockenspiel marimba   # subset
  *
@@ -23,6 +23,7 @@
  */
 
 import { execSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdirSync, writeFileSync, existsSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -30,9 +31,13 @@ import { dirname, resolve } from 'node:path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..');
 const OUT_ROOT = resolve(REPO_ROOT, 'public/packs');
+const BUNDLED_INDEX = resolve(REPO_ROOT, 'src/data/samplePackIndex.json');
 const TMP = resolve(REPO_ROOT, '.sample-build-cache');
-const RAW_BASE = 'https://raw.githubusercontent.com/sgossner/VCSL/master';
-const TREE_API = 'https://api.github.com/repos/sgossner/VCSL/git/trees/master?recursive=1';
+// Pin the public-domain source so a rebuild cannot silently change underneath us.
+const VCSL_REVISION = 'c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e';
+const VCSL_REPOSITORY = 'https://github.com/sgossner/VCSL';
+const RAW_BASE = `https://raw.githubusercontent.com/sgossner/VCSL/${VCSL_REVISION}`;
+const TREE_API = `https://api.github.com/repos/sgossner/VCSL/git/trees/${VCSL_REVISION}?recursive=1`;
 
 const NOTE_INDEX = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -142,10 +147,10 @@ function encodePath(p) { return p.split('/').map(encodeURIComponent).join('/'); 
 
 function loadTree() {
   mkdirSync(TMP, { recursive: true });
-  const cache = resolve(TMP, 'vcsl-tree.json');
+  const cache = resolve(TMP, `vcsl-tree-${VCSL_REVISION}.json`);
   if (!existsSync(cache)) {
     console.log('• fetching VCSL file tree …');
-    sh(`curl -sL "${TREE_API}" -o "${cache}"`);
+    sh(`curl -fsSL --retry 3 "${TREE_API}" -o "${cache}"`);
   }
   const tree = JSON.parse(readFileSync(cache, 'utf8')).tree || [];
   return tree.filter((x) => x.type === 'blob' && /\.(wav|flac)$/i.test(x.path));
@@ -169,10 +174,14 @@ function selectZones(inst, allFiles) {
     const rr = /rr1|_01|_1\b/.test(base) ? 0 : 1; // prefer first round-robin
     const cur = byNote.get(midi);
     if (!cur || rank < cur.rank || (rank === cur.rank && rr < cur.rr)) {
-      byNote.set(midi, { path: f.path, rank, rr });
+      byNote.set(midi, { path: f.path, sourceBlob: f.sha, rank, rr });
     }
   }
-  let zones = [...byNote.entries()].map(([midi, v]) => ({ midi, path: v.path }))
+  let zones = [...byNote.entries()].map(([midi, v]) => ({
+    midi,
+    path: v.path,
+    sourceBlob: v.sourceBlob,
+  }))
     .sort((a, b) => a.midi - b.midi);
 
   // Thin to ~every `spacing` semitones (keep first & last). spacing 0 = keep all.
@@ -202,7 +211,7 @@ function buildInstrument(inst, allFiles) {
   for (const z of zones) {
     const midi = z.midi + shift;
     const wav = resolve(TMP, `${inst.id}_${z.midi}.wav`);
-    sh(`curl -sL "${RAW_BASE}/${encodePath(z.path)}" -o "${wav}"`);
+    sh(`curl -fsSL --retry 3 "${RAW_BASE}/${encodePath(z.path)}" -o "${wav}"`);
     const out = resolve(outDir, `${midi}.mp3`);
     const fadeStart = Math.max(0.1, inst.cap - 0.25);
     const af = [
@@ -214,18 +223,27 @@ function buildInstrument(inst, allFiles) {
     ].join(',');
     sh(`ffmpeg -y -loglevel error -i "${wav}" -ac 1 -af "${af}" -t ${inst.cap} -c:a libmp3lame -b:a ${inst.bitrate} "${out}"`);
     const bytes = statSync(out).size;
+    const sha256 = createHash('sha256').update(readFileSync(out)).digest('hex');
     total += bytes;
-    manifestZones.push({ midi, file: `${midi}.mp3`, bytes });
+    manifestZones.push({
+      midi,
+      file: `${midi}.mp3`,
+      bytes,
+      sha256,
+      sourcePath: z.path,
+      sourceBlob: z.sourceBlob,
+    });
   }
 
   const mids = manifestZones.map((z) => z.midi);
   const lo = Math.min(...mids), hi = Math.max(...mids);
   const manifest = {
     id: inst.id, name: inst.name, icon: inst.icon, category: inst.category,
-    type: 'sample', source: 'VCSL (CC0)', playbackMode: inst.playbackMode,
+    type: 'sample', source: 'VCSL (CC0)', sourceRepository: VCSL_REPOSITORY,
+    sourceRevision: VCSL_REVISION, playbackMode: inst.playbackMode,
     gain: inst.gain, brightness: inst.brightness, envelope: inst.env,
     range: { lo, hi, label: `${midiToName(lo)}–${midiToName(hi)}` },
-    zones: manifestZones.map(({ midi, file }) => ({ midi, file })),
+    zones: manifestZones,
   };
   writeFileSync(resolve(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
   console.log(`  ✓ ${inst.id}: ${manifestZones.length} zones, ${(total / 1024).toFixed(0)} KB`);
@@ -234,22 +252,41 @@ function buildInstrument(inst, allFiles) {
 
 function main() {
   const filter = process.argv.slice(2);
+  const unknown = filter.filter(id => !INSTRUMENTS.some(instrument => instrument.id === id));
+  if (unknown.length) throw new Error(`Unknown instrument id(s): ${unknown.join(', ')}`);
   const targets = filter.length ? INSTRUMENTS.filter((i) => filter.includes(i.id)) : INSTRUMENTS;
   mkdirSync(OUT_ROOT, { recursive: true });
   const allFiles = loadTree();
   console.log(`• building ${targets.length} instrument(s) from ${allFiles.length} VCSL files\n`);
 
-  const index = [];
+  const indexPath = resolve(OUT_ROOT, 'index.json');
+  const previousIndex = filter.length && existsSync(indexPath)
+    ? JSON.parse(readFileSync(indexPath, 'utf8'))
+    : [];
+  const built = [];
   let grand = 0;
   for (const inst of targets) {
     const res = buildInstrument(inst, allFiles);
-    if (res) { index.push(res.manifest); grand += res.bytes; }
+    if (res) { built.push(res.manifest); grand += res.bytes; }
   }
-  writeFileSync(resolve(OUT_ROOT, 'index.json'), JSON.stringify(
-    index.map(({ id, name, icon, category, range }) => ({ id, name, icon, category, range: range && range.label, path: `${id}/manifest.json` })),
-    null, 2,
-  ));
-  console.log(`\n• done — ${index.length} instruments, ${(grand / 1024 / 1024).toFixed(2)} MB total in public/packs/`);
+  const byId = new Map(previousIndex.map(entry => [entry.id, entry]));
+  for (const manifest of built) byId.set(manifest.id, manifest);
+  const index = INSTRUMENTS.map(instrument => byId.get(instrument.id)).filter(Boolean);
+  const catalog = index.map(({ id, name, icon, category, range }) => ({
+    id,
+    name,
+    icon,
+    category,
+    range: typeof range === 'string' ? range : range?.label,
+    path: `${id}/manifest.json`,
+  }));
+  const serializedCatalog = `${JSON.stringify(catalog, null, 2)}\n`;
+  writeFileSync(indexPath, serializedCatalog);
+  // Vite intentionally forbids importing source data from public/. Keep a
+  // bundled copy for the synchronous registry while public/ remains the pack
+  // distribution catalog. This build script is the single writer for both.
+  writeFileSync(BUNDLED_INDEX, serializedCatalog);
+  console.log(`\n• done — built ${built.length} instrument(s), ${(grand / 1024 / 1024).toFixed(2)} MB; index contains ${index.length}`);
 }
 
 main();

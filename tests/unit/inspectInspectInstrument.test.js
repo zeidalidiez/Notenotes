@@ -62,6 +62,36 @@ test('setInspectSource on a MIDI snippet builds the synth with the snippet instr
   assert.equal(pe._inspectSynthInstrumentId, 'heartbound');
 });
 
+test('Inspect honors the recorded patch snapshot instead of the mutable live preset', () => {
+  freshEngine();
+  const transport = makeFakeTransport({ ticksPerBar: 1920 });
+  const pe = new PlaybackEngine(transport, { tracks: [], settings: {} });
+  const snippet = midiSnippet('heartbound');
+  snippet.patchRecorded.patchSnapshot = {
+    name: 'Frozen Snapshot',
+    family: 'chip',
+    oscillator: { type: 'sine' },
+    envelope: { attack: 0.01, decay: 0.1, sustain: 0.5, release: 0.1 },
+    filter: { type: 'lowpass', frequency: 4000, Q: 1 },
+    gain: 0.2,
+  };
+
+  pe.setInspectSource(snippet);
+  const synth = pe._getInspectSynth();
+
+  assert.equal(synth.patch.name, 'Frozen Snapshot');
+  assert.equal(synth.patch.oscillator.type, 'sine');
+});
+
+test('Playback resolves FM and built-in sample identities from the shared registry', () => {
+  freshEngine();
+  const transport = makeFakeTransport({ ticksPerBar: 1920 });
+  const pe = new PlaybackEngine(transport, { tracks: [], settings: {} });
+
+  assert.equal(pe._instrumentDef('fm_epiano')?.preset, 'fm_epiano');
+  assert.equal(pe._instrumentDef('builtin:grand-piano')?.samplePackId, 'grand-piano');
+});
+
 test('changing the MIDI snippet\'s instrument drops the cached synth', () => {
   freshEngine();
   const transport = makeFakeTransport({ ticksPerBar: 1920 });

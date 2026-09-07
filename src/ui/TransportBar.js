@@ -34,6 +34,7 @@ export class TransportBar {
      *  of `transport.toggle()`. `main.js` uses this to route Inspect-mode
      *  play through `_handlePlayToggle`. */
     this.onPlayToggle = null;
+    this.onStop = null;
     this.onArmRecordClick = null;
     this.onProjectKeyChange = null;
     this.onProjectMeterChange = null;
@@ -164,6 +165,7 @@ export class TransportBar {
       const isDoubleStop = now - this._lastStopPress < 650;
       this._lastStopPress = now;
       if (this._recordArmed && this.onArmRecordClick) this.onArmRecordClick(false);
+      if (this.onStop) this.onStop();
       this.transport.stop();
       if (isDoubleStop && this.onPanicClick) this.onPanicClick();
     });

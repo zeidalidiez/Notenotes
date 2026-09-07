@@ -100,6 +100,7 @@ class App {
     this._audioUnlockRequestInFlight = false;
     this._audioContextStateBound = false;
     this._audioVisibilityResumeBound = false;
+    this._pendingPlaybackStart = null;
   }
 
   /**
@@ -301,6 +302,7 @@ class App {
       this.creativeMode?.setRecordArmed?.(armed);
     };
     this.transportBar.onPlayToggle = () => this._handlePlayToggle();
+    this.transportBar.onStop = () => this._cancelPendingPlaybackStart();
     this.transportBar.onProjectKeyChange = (context) => {
       this._setProjectMusicalContext(context, { source: 'transport' });
     };
@@ -956,6 +958,7 @@ class App {
     // re-establishes the PlaybackEngine's inspect source on the next
     // press, so we don't need to do it eagerly here.
     this.modeTabs.onChange((mode) => {
+      this._cancelPendingPlaybackStart();
       this.transport.stop();
       this.playbackEngine?.setInspectSource?.(null);
       this.editMode?.stopAudioPlayback?.();
@@ -974,7 +977,14 @@ class App {
    * in the browser from silently starting Canvas playback. Outside Inspect,
    * play the Canvas arrangement as before.
    */
-  _handlePlayToggle() {
+  async _handlePlayToggle() {
+    // A second press while assets are preparing means "cancel play", not
+    // "queue another toggle". This also keeps a late decode from restarting
+    // transport after the user has moved on.
+    if (this._pendingPlaybackStart) {
+      this._cancelPendingPlaybackStart();
+      return;
+    }
     const inInspect = this.modeTabs.activeMode === Modes.PIANOROLL;
     const snippet = this._inspectSnippet;
     if (inInspect) {
@@ -983,12 +993,37 @@ class App {
         this.editMode.toggleAudioPlayback();
       } else {
         this.playbackEngine?.setInspectSource?.(snippet);
-        this.transport.toggle();
+        if (this.transport.state === TransportState.STOPPED) {
+          const request = {};
+          this._pendingPlaybackStart = request;
+          await this.playbackEngine?.prepareInspectSource?.(snippet);
+          if (this._pendingPlaybackStart === request) this._pendingPlaybackStart = null;
+          if (request.cancelled
+            || this.transport.state !== TransportState.STOPPED
+            || this._inspectSnippet !== snippet
+            || this.modeTabs.activeMode !== Modes.PIANOROLL) return;
+        }
+        this.transport.state === TransportState.STOPPED ? this.transport.play() : this.transport.pause();
       }
       return;
     }
     this.playbackEngine?.setInspectSource?.(null);
-    this.transport.toggle();
+    if (this.transport.state === TransportState.STOPPED) {
+      const request = {};
+      this._pendingPlaybackStart = request;
+      await this.playbackEngine?.preparePlaybackAssets?.();
+      if (this._pendingPlaybackStart === request) this._pendingPlaybackStart = null;
+      if (request.cancelled
+        || this.transport.state !== TransportState.STOPPED
+        || this.modeTabs.activeMode === Modes.PIANOROLL) return;
+    }
+    this.transport.state === TransportState.STOPPED ? this.transport.play() : this.transport.pause();
+  }
+
+  _cancelPendingPlaybackStart() {
+    if (!this._pendingPlaybackStart) return;
+    this._pendingPlaybackStart.cancelled = true;
+    this._pendingPlaybackStart = null;
   }
 
   /**
@@ -1183,6 +1218,7 @@ class App {
       if (e.code === 'Enter') {
         e.preventDefault();
         if (this._initialized) {
+          this._cancelPendingPlaybackStart();
           this.transport.stop();
         }
       }

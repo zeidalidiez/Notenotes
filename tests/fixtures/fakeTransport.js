@@ -10,6 +10,8 @@ import { TransportState } from '../../src/engine/Transport.js';
 
 export function makeFakeTransport(opts = {}) {
   const stateListeners = [];
+  const tickListeners = [];
+  const loopListeners = [];
   const t = {
     state: opts.state ?? TransportState.PLAYING,
     ticksPerBar: opts.ticksPerBar ?? 1920,
@@ -25,12 +27,41 @@ export function makeFakeTransport(opts = {}) {
         if (i !== -1) stateListeners.splice(i, 1);
       };
     },
+    onTick(fn) {
+      tickListeners.push(fn);
+      return () => {
+        const i = tickListeners.indexOf(fn);
+        if (i !== -1) tickListeners.splice(i, 1);
+      };
+    },
+    onLoop(fn) {
+      loopListeners.push(fn);
+      return () => {
+        const i = loopListeners.indexOf(fn);
+        if (i !== -1) loopListeners.splice(i, 1);
+      };
+    },
     /** Test helper: set the position both transport getters report. */
     seek(tick) { this.currentTick = tick; this.currentRawTick = tick; },
     /** Test helper: emit a state change to RecordingManager's listener. */
     emitState(state, meta = {}) {
       this.state = state;
       for (const fn of [...stateListeners]) fn(state, meta);
+    },
+    emitTick(tick, audioTime = 0) {
+      this.currentTick = tick;
+      this.currentRawTick = tick;
+      for (const fn of [...tickListeners]) fn(tick, audioTime);
+    },
+    emitLoop(tick, audioTime = 0) {
+      for (const fn of [...loopListeners]) fn(tick, audioTime);
+    },
+    listenerCounts() {
+      return {
+        state: stateListeners.length,
+        tick: tickListeners.length,
+        loop: loopListeners.length,
+      };
     },
   };
   return t;

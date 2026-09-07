@@ -55,6 +55,8 @@ Failed check and evidence:
 - Computer keyboard input follows the active surface and does not double-trigger.
 - Hold/Arpeggio, Step Play, chord glow, correction, and Height Velocity can each
   be enabled and disabled without changing unrelated settings.
+- Change tempo during playback and listen for continuity; Hold releases and
+  Arpeggio steps stay even while dragging or rapidly interacting with the UI.
 
 ## Canvas and Inspect
 
@@ -120,6 +122,8 @@ Run these only when the release touches the capability or hardware is available:
 - Create, edit, play synthesized sounds, save, and export without a network.
 - Previously fetched sample packs remain available offline; an unfetched optional
   pack fails clearly rather than hanging.
+- Use Settings to download the complete sound library, relaunch offline, and
+  audition at least one sample instrument from every picker category.
 - Updating to a new service worker version preserves the workspace and does not
   trap the app on an older shell.
 

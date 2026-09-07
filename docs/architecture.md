@@ -41,7 +41,13 @@ and new-project defaults all need to agree when the state shape changes.
 
 `Transport` uses a short look-ahead loop but schedules actual sound against
 `AudioContext.currentTime`. Playback code should schedule a little ahead and must
-not use animation frames as an audio clock.
+not use animation frames or timer callback arrival as an audio clock. Audio clips
+and optional sample packs are prepared before transport starts; a late asset load
+must not begin halfway through its scheduled event.
+
+`InstrumentRegistry` is the shared source of instrument identity for Create,
+recorded snippets, Canvas, Inspect, live playback, and WAV export. Track volume and
+pan belong to the track bus, downstream of an instrument patch's own output level.
 
 Visual playheads and meters use `requestAnimationFrame` and read current transport
 state. They may redraw late without moving already-scheduled audio. Preserve this

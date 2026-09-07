@@ -15,6 +15,8 @@ import { AiSectionMixin } from './settings/aiSection.js';
 import { ExportSectionMixin } from './settings/exportSection.js';
 import { AccessibilitySectionMixin } from './settings/accessibilitySection.js';
 import { focusableElements, setSubtreeInteractive, setTabActive } from './InteractionState.js';
+import { cacheAllSampleInstruments, cachedSampleInstrumentIds } from '../instruments/SamplePack.js';
+import { SAMPLE_PACK_INDEX } from '../engine/InstrumentRegistry.js';
 
 const LATEST_VERSION_URL = 'https://raw.githubusercontent.com/zeidalidiez/Notenotes/main/src/version.js';
 
@@ -124,6 +126,19 @@ export class SettingsPanel {
         </div>
 
         <div class="settings-group">
+          <h3 class="settings-group__title">Sound Library</h3>
+          <p class="settings-desc">The synths and drums always work offline. The optional 2.9 MB CC0 instrument pack downloads only when requested.</p>
+          <div class="settings-row">
+            <label class="settings-label">Sample instruments</label>
+            <span class="settings-value" id="setting-sound-library-status">Checking...</span>
+          </div>
+          <div class="settings-row">
+            <label class="settings-label"></label>
+            <button class="btn btn--ghost" id="setting-sound-library-download" type="button" style="font-size:0.75rem;min-height:30px;padding:2px 10px;">Download for Offline Use</button>
+          </div>
+        </div>
+
+        <div class="settings-group">
           <h3 class="settings-group__title">Arpeggio</h3>
           <div class="settings-row">
             <label class="settings-label">Rate</label>
@@ -212,6 +227,7 @@ export class SettingsPanel {
 
   _bindSettingsEvents() {
     const body = this.el.querySelector('#settings-body');
+    void this._loadSoundLibraryStatus();
 
     // Project name
     body.querySelector('#setting-project-name')?.addEventListener('change', (e) => {
@@ -238,6 +254,25 @@ export class SettingsPanel {
     body.querySelector('#setting-version-check')?.addEventListener('pointerdown', async (e) => {
       e.preventDefault();
       await this._checkLatestVersion();
+    });
+
+    body.querySelector('#setting-sound-library-download')?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const button = e.currentTarget;
+      const status = body.querySelector('#setting-sound-library-status');
+      button.disabled = true;
+      try {
+        await cacheAllSampleInstruments(({ completed, total }) => {
+          if (status) status.textContent = `Downloading ${completed} of ${total}...`;
+        });
+        showToast('CC0 sound library is ready offline');
+      } catch (err) {
+        console.warn('[Settings] Sound library download failed:', err);
+        showToast('Sound library download did not finish');
+      } finally {
+        button.disabled = false;
+        await this._loadSoundLibraryStatus();
+      }
     });
 
     body.querySelector('#setting-debug-logging')?.addEventListener('change', async (e) => {
@@ -332,6 +367,19 @@ export class SettingsPanel {
         this.close();
       });
     }
+
+  async _loadSoundLibraryStatus() {
+    const body = this.el?.querySelector('#settings-body');
+    const status = body?.querySelector('#setting-sound-library-status');
+    const button = body?.querySelector('#setting-sound-library-download');
+    if (!status) return;
+    const cached = await cachedSampleInstrumentIds();
+    const total = SAMPLE_PACK_INDEX.length;
+    status.textContent = cached.size === total
+      ? `All ${total} ready offline`
+      : `${cached.size} of ${total} ready offline`;
+    if (button) button.textContent = cached.size === total ? 'Refresh Offline Library' : 'Download for Offline Use';
+  }
 
   _beatColorsForBeats(beats = 4) {
     const defaults = ['#1e1e2e', '#2a2a3e', '#1e1e2e', '#2a2a3e', '#242436'];

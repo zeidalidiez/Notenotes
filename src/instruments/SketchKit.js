@@ -5,7 +5,7 @@
  */
 
 import { AudioEngine } from '../engine/AudioEngine.js';
-import { SOUND_TRAITS, normalizeSoundTraits } from './WebAudioSynth.js';
+import { SOUND_TRAITS, normalizeSoundTraits, soundTraitsEqual } from './WebAudioSynth.js';
 import { showToast } from '../ui/Toast.js';
 import { ChoicePicker } from '../ui/ChoicePicker.js';
 import { dwellSettings, tremorAllows } from '../ui/AccessibilityProfiles.js';
@@ -21,13 +21,15 @@ import './heightVelocity.css';
 // DRUM_KITS is re-exported for backward compatibility (consumers import it from SketchKit.js).
 export { DRUM_KITS };
 
+const IMPULSE_CACHE = new WeakMap();
+
 function titleCase(value = '') {
   return String(value).toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
 }
 
 export function normalizeDrumVelocity(value, fallback = 0.8) {
   const numeric = Number(value);
-  return Number.isFinite(numeric) ? Math.max(0.01, Math.min(1, numeric)) : fallback;
+  return Number.isFinite(numeric) ? Math.max(0, Math.min(1, numeric)) : fallback;
 }
 
 export function drumVelocityGain(value) {
@@ -57,6 +59,7 @@ export class SketchKit {
     this._activePadTimers = new Map();
     this._dwellTimers = new Map();
     this._toneClickOutsideHandler = null;
+    this._liveSources = new Set();
 
     window.addEventListener('settings-pads-changed', () => {
       if (this.el) this._refreshPads();
@@ -94,14 +97,22 @@ export class SketchKit {
   }
 
   setSoundTraits(traits = {}) {
-    this.soundTraits = normalizeSoundTraits(traits);
-    if (this._toneInput && this._output) this._rebuildEffects();
+    const normalized = normalizeSoundTraits(traits);
+    const changed = !soundTraitsEqual(this.soundTraits, normalized);
+    this.soundTraits = normalized;
+    if (changed && this._toneInput && this._output) this._rebuildEffects();
     this._syncToneSliders();
+    return changed;
   }
 
   setPan(pan = 0) {
     if (!this._output) this.init();
     this.engine.setTrackBusPan?.(this._output, pan);
+  }
+
+  setTrackVolume(volume = 1) {
+    if (!this._output) this.init();
+    this.engine.setTrackBusVolume?.(this._output, volume);
   }
 
   get _padCount() {
@@ -314,6 +325,8 @@ export class SketchKit {
   _triggerSound(sid, atTime, velocity = 0.8) {
     const ctx = this.engine.ctx;
     if (!ctx || !this._output) return;
+    velocity = normalizeDrumVelocity(velocity);
+    if (velocity <= 0) return;
     const t = atTime !== undefined ? atTime : ctx.currentTime;
     const p = this._activeKit.sounds[sid];
     if (!p) return;
@@ -338,6 +351,16 @@ export class SketchKit {
     }
   }
 
+  _startSource(source, startAt, stopAt = null) {
+    this._liveSources.add(source);
+    source.addEventListener?.('ended', () => {
+      this._liveSources.delete(source);
+      try { source.disconnect(); } catch (_) {}
+    }, { once: true });
+    source.start(startAt);
+    if (stopAt !== null) source.stop(stopAt);
+  }
+
   _synthTone(ctx, t, p, velocity = 0.8) {
     const h = drumHumanize();
     const decay = p.decay * h.decayMul, vol = p.vol * h.gainMul * drumVelocityGain(velocity);
@@ -348,14 +371,14 @@ export class SketchKit {
     g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + decay);
     o.connect(g); g.connect(this._drumOutput());
-    o.start(t); o.stop(t + decay);
+    this._startSource(o, t, t + decay);
     if (p.clicks) {
       const cO = ctx.createOscillator(), cG = ctx.createGain();
       cO.type = 'square'; cO.frequency.value = 700 + Math.random() * 220;
       cG.gain.setValueAtTime(vol * 0.4, t);
       cG.gain.exponentialRampToValueAtTime(0.001, t + 0.01);
       cO.connect(cG); cG.connect(this._drumOutput());
-      cO.start(t); cO.stop(t + 0.01);
+      this._startSource(cO, t, t + 0.01);
     }
   }
 
@@ -368,14 +391,14 @@ export class SketchKit {
     const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = p.noiseHp;
     const g = ctx.createGain(); g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + noiselen);
-    n.connect(f); f.connect(g); g.connect(this._drumOutput()); n.start(t);
+    n.connect(f); f.connect(g); g.connect(this._drumOutput()); this._startSource(n, t);
 
     const o = ctx.createOscillator(); o.type = p.osc;
     o.frequency.setValueAtTime(p.bodyFreq * h.freqMul, t);
     o.frequency.exponentialRampToValueAtTime(p.bodyFreq * h.freqMul * 0.4, t + p.bodyDecay * 0.5);
     const bg = ctx.createGain(); bg.gain.setValueAtTime(vol * 0.7, t);
     bg.gain.exponentialRampToValueAtTime(0.001, t + p.bodyDecay);
-    o.connect(bg); bg.connect(this._drumOutput()); o.start(t); o.stop(t + p.bodyDecay);
+    o.connect(bg); bg.connect(this._drumOutput()); this._startSource(o, t, t + p.bodyDecay);
   }
 
   _synthClap(ctx, t, p, velocity = 0.8) {
@@ -389,7 +412,7 @@ export class SketchKit {
       f.frequency.value = p.bpFreq * h.freqMul; f.Q.value = p.bpQ;
       const g = ctx.createGain(); g.gain.setValueAtTime(vol, off);
       g.gain.exponentialRampToValueAtTime(0.001, off + p.decay);
-      n.connect(f); f.connect(g); g.connect(this._drumOutput()); n.start(off);
+      n.connect(f); f.connect(g); g.connect(this._drumOutput()); this._startSource(n, off);
     }
   }
 
@@ -413,7 +436,7 @@ export class SketchKit {
     for (const r of ratios) {
       const o = ctx.createOscillator(); o.type = 'square';
       o.frequency.value = base * r * (0.99 + Math.random() * 0.02);
-      o.connect(bp); o.start(t); o.stop(stopAt);
+      o.connect(bp); this._startSource(o, t, stopAt);
     }
     bp.connect(hp); hp.connect(mg); mg.connect(this._drumOutput());
 
@@ -424,7 +447,7 @@ export class SketchKit {
     const ng = ctx.createGain();
     ng.gain.setValueAtTime(vol * 0.45, t);
     ng.gain.exponentialRampToValueAtTime(0.0008, t + dur);
-    n.connect(nf); nf.connect(ng); ng.connect(this._drumOutput()); n.start(t);
+    n.connect(nf); nf.connect(ng); ng.connect(this._drumOutput()); this._startSource(n, t);
   }
 
   _synthRim(ctx, t, p, velocity = 0.8) {
@@ -437,14 +460,14 @@ export class SketchKit {
     f.frequency.value = p.bpFreq * h.freqMul; f.Q.value = p.bpQ;
     const g = ctx.createGain(); g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + noiselen);
-    n.connect(f); f.connect(g); g.connect(this._drumOutput()); n.start(t);
+    n.connect(f); f.connect(g); g.connect(this._drumOutput()); this._startSource(n, t);
 
     const o = ctx.createOscillator(); o.type = 'sine';
     o.frequency.setValueAtTime(p.rimFreq * h.freqMul, t);
     o.frequency.exponentialRampToValueAtTime(p.rimFreq * h.freqMul * 0.25, t + p.rimDecay);
     const rg = ctx.createGain(); rg.gain.setValueAtTime(vol * 0.5, t);
     rg.gain.exponentialRampToValueAtTime(0.001, t + p.rimDecay * 2);
-    o.connect(rg); rg.connect(this._drumOutput()); o.start(t); o.stop(t + p.rimDecay * 2);
+    o.connect(rg); rg.connect(this._drumOutput()); this._startSource(o, t, t + p.rimDecay * 2);
   }
 
   _synthShaker(ctx, t, p, velocity = 0.8) {
@@ -458,7 +481,7 @@ export class SketchKit {
       const g = ctx.createGain();
       g.gain.setValueAtTime(vol * (1 - i / steps), off);
       g.gain.exponentialRampToValueAtTime(0.001, off + 0.025);
-      n.connect(f); f.connect(g); g.connect(this._drumOutput()); n.start(off);
+      n.connect(f); f.connect(g); g.connect(this._drumOutput()); this._startSource(n, off);
     }
   }
 
@@ -513,7 +536,23 @@ export class SketchKit {
   }
 
   panic() {
+    const now = this.engine.currentTime;
+    for (const source of this._liveSources) {
+      try { source.stop(now); } catch (_) {}
+      try { source.disconnect(); } catch (_) {}
+    }
+    this._liveSources.clear();
     if (this._toneInput && this._output) this._rebuildEffects();
+  }
+
+  destroy() {
+    const output = this._output;
+    this.panic();
+    this._teardownEffects();
+    try { this._toneInput?.disconnect(); } catch (_) {}
+    this.engine.destroyTrackBus?.(output);
+    this._toneInput = null;
+    this._output = null;
   }
 
   _toggleTonePopover() {
@@ -769,21 +808,7 @@ export class SketchKit {
     const ctx = this.engine.ctx;
     if (!ctx || !this._toneInput || !this._output) return;
 
-    try { this._toneInput.disconnect(); } catch (_) {}
-    for (const node of this._effectNodes) {
-      try { if (typeof node.stop === 'function') node.stop(); } catch (_) {}
-      try { node.disconnect(); } catch (_) {}
-    }
-    if (this._lfo) {
-      try { this._lfo.stop(); } catch (_) {}
-      try { this._lfo.disconnect(); } catch (_) {}
-    }
-    if (this._lfoGain) {
-      try { this._lfoGain.disconnect(); } catch (_) {}
-    }
-    this._effectNodes = [];
-    this._lfo = null;
-    this._lfoGain = null;
+    this._teardownEffects();
 
     let current = this._toneInput;
 
@@ -883,6 +908,24 @@ export class SketchKit {
     }
   }
 
+  _teardownEffects() {
+    try { this._toneInput?.disconnect(); } catch (_) {}
+    for (const node of this._effectNodes) {
+      try { if (typeof node.stop === 'function') node.stop(); } catch (_) {}
+      try { node.disconnect(); } catch (_) {}
+    }
+    if (this._lfo) {
+      try { this._lfo.stop(); } catch (_) {}
+      try { this._lfo.disconnect(); } catch (_) {}
+    }
+    if (this._lfoGain) {
+      try { this._lfoGain.disconnect(); } catch (_) {}
+    }
+    this._effectNodes = [];
+    this._lfo = null;
+    this._lfoGain = null;
+  }
+
   _makeCrushCurve(amount) {
     const samples = 256;
     const curve = new Float32Array(samples);
@@ -907,6 +950,13 @@ export class SketchKit {
 
   _makeImpulse(duration, decay) {
     const ctx = this.engine.ctx;
+    let cache = IMPULSE_CACHE.get(ctx);
+    if (!cache) {
+      cache = new Map();
+      IMPULSE_CACHE.set(ctx, cache);
+    }
+    const cacheKey = `${duration.toFixed(4)}:${decay.toFixed(4)}`;
+    if (cache.has(cacheKey)) return cache.get(cacheKey);
     const length = Math.max(1, Math.floor(ctx.sampleRate * duration));
     const impulse = ctx.createBuffer(2, length, ctx.sampleRate);
     const preDelay = Math.floor(ctx.sampleRate * 0.018);
@@ -931,6 +981,7 @@ export class SketchKit {
         if (idx < length) data[idx] += (0.32 / (r + 1)) * (channel ? -1 : 1);
       }
     }
+    cache.set(cacheKey, impulse);
     return impulse;
   }
 

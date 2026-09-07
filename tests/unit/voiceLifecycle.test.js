@@ -201,3 +201,38 @@ test('panic() clears the voice map and stops every source immediately', () => {
   ctx.advance(0.05);
   assert.equal(ctx.liveSourceCount('Oscillator'), 0, 'panic stops oscillators at currentTime');
 });
+
+test('setting identical Tone traits does not rebuild the synth graph or reallocate its room', () => {
+  const { ctx } = freshEngine();
+  const synth = new WebAudioSynth();
+  synth.init();
+
+  assert.equal(synth.setSoundTraits({ space: { amount: 0.5 }, echo: { amount: 0.25 } }), true);
+  const created = ctx.totalCreated();
+  const disconnects = ctx.disconnectCount();
+  const firstConvolver = [...ctx._registry.all].find(node => node.kind === 'Convolver');
+  assert.ok(firstConvolver?.buffer, 'space builds one reusable impulse response');
+
+  assert.equal(synth.setSoundTraits({ space: { amount: 0.5 }, echo: { amount: 0.25 } }), false);
+  assert.equal(ctx.totalCreated(), created, 'no nodes are recreated for the same normalized traits');
+  assert.equal(ctx.disconnectCount(), disconnects, 'existing echo and reverb tails stay connected');
+
+  const second = new WebAudioSynth();
+  second.init();
+  second.setSoundTraits({ space: { amount: 0.5 }, echo: { amount: 0.25 } });
+  const convolvers = [...ctx._registry.all].filter(node => node.kind === 'Convolver');
+  assert.equal(convolvers.at(-1).buffer, firstConvolver.buffer, 'matching rooms share a cached impulse');
+});
+
+test('audio unlock nudge is not recreated for every synth note once the context is running', () => {
+  const { ctx } = freshEngine();
+  const synth = new WebAudioSynth();
+  synth.init();
+  synth.loadPatch(PRESETS.chip_lead);
+  const before = ctx.createdCount('Oscillator');
+
+  synth.noteOn(60, 0.8, ctx.currentTime);
+  synth.noteOn(62, 0.8, ctx.currentTime);
+
+  assert.equal(ctx.createdCount('Oscillator') - before, 2, 'only the two musical oscillators are created');
+});

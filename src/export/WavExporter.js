@@ -13,12 +13,38 @@ import {
 import { normalizeStereoWidth, normalizeTrackPan, panForVoice, stereoGainsForPan } from '../engine/StereoWidth.js';
 import { normalizeWavChannelMode } from './WavChannelMode.js';
 import { pickZone, playableMidi } from '../instruments/sampleZone.js';
-
-const SAMPLE_PACKS_BASE = `${(import.meta.env && import.meta.env.BASE_URL) || '/'}packs`;
+import { fetchSamplePackAsset } from '../instruments/SamplePack.js';
+import { recordedInstrumentId, resolveInstrumentDefinition } from '../engine/InstrumentRegistry.js';
 
 const TICKS_PER_BEAT = 480;
 const SAMPLE_RATE = 44100;
 const TWO_PI = Math.PI * 2;
+
+function hashSeed(value) {
+  let text = '';
+  try { text = JSON.stringify(value); } catch { text = String(value || 'notenotes'); }
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function seededRandom(seed) {
+  let state = (Number(seed) >>> 0) || 0x6d2b79f5;
+  return () => {
+    state += 0x6d2b79f5;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function exportRandom(options, source) {
+  return options?.random || seededRandom(options?.seed ?? hashSeed(source));
+}
 
 const DEFAULT_EXPORT_PATCH = {
   name: 'Default',
@@ -171,13 +197,13 @@ function mixSample(buffer, index, value, pan = 0) {
   if (isStereoBuffer(buffer)) {
     if (index >= 0 && index < buffer.length) {
       const gains = stereoGainsForPan(pan);
-      buffer.left[index] = Math.max(-1, Math.min(1, buffer.left[index] + value * gains.left));
-      buffer.right[index] = Math.max(-1, Math.min(1, buffer.right[index] + value * gains.right));
+      buffer.left[index] += value * gains.left;
+      buffer.right[index] += value * gains.right;
     }
     return;
   }
   if (index >= 0 && index < buffer.length) {
-    buffer[index] = Math.max(-1, Math.min(1, buffer[index] + value));
+    buffer[index] += value;
   }
 }
 
@@ -204,11 +230,11 @@ function hasSnippetTone(snippet, fallbackTraits = {}) {
     || (snippet?.hits || []).some(hit => hasToneTraits(hit.soundTraits));
 }
 
-function applyToneTraits(input, traits = {}) {
+function applyToneTraits(input, traits = {}, random = Math.random) {
   if (isStereoBuffer(input)) {
     return {
-      left: applyToneTraits(input.left, traits),
-      right: applyToneTraits(input.right, traits),
+      left: applyToneTraits(input.left, traits, random),
+      right: applyToneTraits(input.right, traits, random),
       length: input.length,
     };
   }
@@ -221,7 +247,7 @@ function applyToneTraits(input, traits = {}) {
     const driveDucking = Math.pow(1 - drive * 0.78, 2);
     let last = 0;
     for (let i = 0; i < out.length; i++) {
-      last = last * 0.72 + (Math.random() * 2 - 1) * 0.28;
+      last = last * 0.72 + (random() * 2 - 1) * 0.28;
       const envelope = Math.min(1, Math.abs(out[i]) * 8);
       out[i] += last * envelope * noise * 0.18 * driveDucking;
     }
@@ -449,7 +475,7 @@ function renderKick(buffer, startSec, velocity = 0.9, params = null, pan = 0) {
   }
 }
 
-function renderNoiseHit(buffer, startSec, kind = 'snare', velocity = 0.75, params = null, pan = 0) {
+function renderNoiseHit(buffer, startSec, kind = 'snare', velocity = 0.75, params = null, pan = 0, random = Math.random) {
   const start = Math.max(0, Math.floor(startSec * SAMPLE_RATE));
   const lenSec = params?.decay || params?.noiseDecay || (kind === 'hihat' ? 0.11 : kind === 'cymbal' ? 0.45 : 0.22);
   const len = Math.floor(lenSec * SAMPLE_RATE);
@@ -460,24 +486,24 @@ function renderNoiseHit(buffer, startSec, kind = 'snare', velocity = 0.75, param
   for (let i = 0; i < len; i++) {
     const t = i / SAMPLE_RATE;
     const env = drumTransientEnvelope(kind, t, lenSec);
-    const noise = shapedDrumNoiseSample(kind, Math.random() * 2 - 1, noiseState, t);
+    const noise = shapedDrumNoiseSample(kind, random() * 2 - 1, noiseState, t);
     last = kind === 'snare' || kind === 'clap' ? (last * 0.5 + noise * 0.5) : noise;
     const body = kind === 'snare' || kind === 'rim' ? Math.sin(2 * Math.PI * bodyFreq * t) * 0.25 : 0;
     mixSample(buffer, start + i, (last * 0.55 + body) * env * vol * velocity, pan);
   }
 }
 
-function renderHit(buffer, hit, startSec, secPerTick, kitId = 'classic', pan = 0) {
-  const time = startSec + (hit.startTick || 0) * secPerTick;
-  const velocity = hit.velocity || 0.8;
+function renderHit(buffer, hit, startSec, secPerTick, kitId = 'classic', pan = 0, random = Math.random) {
+  const time = startSec + (hit.startTick ?? 0) * secPerTick;
+  const velocity = hit.velocity ?? 0.8;
   const kit = DRUM_KITS[kitId] || DRUM_KITS.classic;
   const params = kit.sounds?.[hit.type] || null;
   if (hit.type === 'kick' || hit.type === 'tomlo' || hit.type === 'tommid' || hit.type === 'tomhi') renderKick(buffer, time, velocity, params, pan);
-  else renderNoiseHit(buffer, time, hit.type || 'snare', velocity, params, pan);
+  else renderNoiseHit(buffer, time, hit.type || 'snare', velocity, params, pan, random);
 }
 
 function renderSnippetEvents(buffer, snippet, startSec, bpm, options = {}) {
-  const sourceBpm = options.useSnippetBpm === false ? bpm : (snippet.bpm || bpm);
+  const sourceBpm = options.useSnippetBpm === false ? bpm : (snippet.bpm ?? bpm);
   const secPerTick = secondsPerTickFor(snippet, sourceBpm);
   const timeScale = normalizeClipTimeScale(options.timeScale);
   const gain = clampGain(options.gain);
@@ -485,31 +511,31 @@ function renderSnippetEvents(buffer, snippet, startSec, bpm, options = {}) {
     for (const note of snippet.notes || []) {
       renderTone(
         buffer,
-        startSec + (note.startTick || 0) * secPerTick * timeScale,
-        Math.max(secPerTick, (note.durationTick || TICKS_PER_BEAT) * secPerTick * timeScale),
-        note.pitch || 60,
-        (note.velocity || 0.8) * gain,
+        startSec + (note.startTick ?? 0) * secPerTick * timeScale,
+        Math.max(secPerTick, (note.durationTick ?? TICKS_PER_BEAT) * secPerTick * timeScale),
+        note.pitch ?? 60,
+        (note.velocity ?? 0.8) * gain,
       );
     }
   }
   if (options.includeDrums !== false) {
     const hasClipTraits = hasToneTraits(options.toneTraits);
     for (const hit of snippet.hits || []) {
-      const hitWithGain = { ...hit, velocity: (hit.velocity || 0.8) * gain };
+      const hitWithGain = { ...hit, velocity: (hit.velocity ?? 0.8) * gain };
       const traits = hasClipTraits ? options.toneTraits : (hit.soundTraits || options.toneTraits || snippet.soundTraits);
       if (hasToneTraits(traits)) {
         const hitSamples = ensureLength(null, sampleLength(buffer) / SAMPLE_RATE, isStereoBuffer(buffer));
-        renderHit(hitSamples, { ...hitWithGain, startTick: (hitWithGain.startTick || 0) * timeScale }, startSec, secPerTick, options.kitId, options.pan);
-        mixBuffer(buffer, applyToneTraits(hitSamples, traits));
+        renderHit(hitSamples, { ...hitWithGain, startTick: (hitWithGain.startTick ?? 0) * timeScale }, startSec, secPerTick, options.kitId, options.pan, options.random);
+        mixBuffer(buffer, applyToneTraits(hitSamples, traits, options.random));
       } else {
-        renderHit(buffer, { ...hitWithGain, startTick: (hitWithGain.startTick || 0) * timeScale }, startSec, secPerTick, options.kitId, options.pan);
+        renderHit(buffer, { ...hitWithGain, startTick: (hitWithGain.startTick ?? 0) * timeScale }, startSec, secPerTick, options.kitId, options.pan, options.random);
       }
     }
   }
 }
 
 function renderMidiWithTone(target, snippet, startSec, bpm, baseTraits = {}, gain = 1, options = {}) {
-  const sourceBpm = options.useSnippetBpm === false ? bpm : (snippet.bpm || bpm);
+  const sourceBpm = options.useSnippetBpm === false ? bpm : (snippet.bpm ?? bpm);
   const secPerTick = secondsPerTickFor(snippet, sourceBpm);
   const timeScale = normalizeClipTimeScale(options.timeScale);
   const renderGain = clampGain(gain);
@@ -520,14 +546,14 @@ function renderMidiWithTone(target, snippet, startSec, bpm, baseTraits = {}, gai
     const noteSamples = ensureLength(null, sampleLength(target) / SAMPLE_RATE, isStereoBuffer(target));
     renderPatchTone(
       noteSamples,
-      startSec + (note.startTick || 0) * secPerTick * timeScale,
-      Math.max(secPerTick, (note.durationTick || TICKS_PER_BEAT) * secPerTick * timeScale),
-      note.pitch || 60,
-      (note.velocity || 0.8) * renderGain,
+      startSec + (note.startTick ?? 0) * secPerTick * timeScale,
+      Math.max(secPerTick, (note.durationTick ?? TICKS_PER_BEAT) * secPerTick * timeScale),
+      note.pitch ?? 60,
+      (note.velocity ?? 0.8) * renderGain,
       patch,
       options.pan || 0,
     );
-    mixBuffer(target, applyToneTraits(noteSamples, noteTraits));
+    mixBuffer(target, applyToneTraits(noteSamples, noteTraits, options.random));
   }
 }
 
@@ -641,10 +667,10 @@ async function decodeBuiltinInstrument(id) {
   try {
     const Ctx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
     const ctx = new Ctx(1, 1, SAMPLE_RATE);
-    const manifest = await (await fetch(`${SAMPLE_PACKS_BASE}/${id}/manifest.json`)).json();
+    const manifest = await (await fetchSamplePackAsset(`${id}/manifest.json`)).json();
     const zones = [];
     for (const z of manifest.zones || []) {
-      const res = await fetch(`${SAMPLE_PACKS_BASE}/${id}/${z.file}`);
+      const res = await fetchSamplePackAsset(`${id}/${z.file}`);
       const decoded = await ctx.decodeAudioData(await res.arrayBuffer());
       zones.push({ rootMidi: z.midi, decoded });
     }
@@ -670,7 +696,7 @@ async function decodeBuiltinInstrument(id) {
 /** Render a MIDI snippet through a multi-zone built-in pack (nearest-zone per note). */
 function renderMidiWithBuiltinSample(target, snippet, pack, startSec, bpm, gain = 1, options = {}) {
   for (const note of snippet.notes || []) {
-    const playPitch = playableMidi(pack.zones, note.pitch || 60);
+    const playPitch = playableMidi(pack.zones, note.pitch ?? 60);
     const zone = pickZone(pack.zones, playPitch);
     if (!zone) continue;
     const inst = { ...pack.meta, rootMidi: zone.rootMidi };
@@ -696,16 +722,16 @@ function renderSampleNote(target, decoded, instrument, note, startSec, bpm, gain
   if (!decoded) return;
   const secPerTick = secondsPerTickFor(options.meterSource || {}, bpm);
   const timeScale = normalizeClipTimeScale(options.timeScale);
-  const noteStart = startSec + (note.startTick || 0) * secPerTick * timeScale;
-  const rate = Math.pow(2, ((note.pitch || 60) - (instrument.rootMidi ?? 60)) / 12);
+  const noteStart = startSec + (note.startTick ?? 0) * secPerTick * timeScale;
+  const rate = Math.pow(2, ((note.pitch ?? 60) - (instrument.rootMidi ?? 60)) / 12);
   const durationSec = instrument.playbackMode === 'oneShot'
     ? decoded.duration / Math.max(0.01, rate)
-    : Math.max(secPerTick, (note.durationTick || TICKS_PER_BEAT) * secPerTick * timeScale) + 0.18;
+    : Math.max(secPerTick, (note.durationTick ?? TICKS_PER_BEAT) * secPerTick * timeScale) + 0.18;
   const start = Math.max(0, Math.floor(noteStart * SAMPLE_RATE));
   const len = Math.max(1, Math.floor(durationSec * SAMPLE_RATE));
   const attack = Math.max(1, Math.floor((instrument.attack ?? 0.005) * SAMPLE_RATE));
   const release = Math.max(1, Math.floor((instrument.release ?? 0.18) * SAMPLE_RATE));
-  const renderGain = clampGain((note.velocity || 0.8) * (instrument.gain ?? 0.55) * gain);
+  const renderGain = clampGain((note.velocity ?? 0.8) * (instrument.gain ?? 0.55) * gain);
   const brightness = instrument.brightness ?? 0.7;
   const samplePatch = normalizeExportPatch({
     filter: {
@@ -729,9 +755,9 @@ function renderSampleNote(target, decoded, instrument, note, startSec, bpm, gain
     let sample = sampleAt(decoded, sourceIndex);
     const cutoff = filterFrequencyForPatch(
       samplePatch,
-      note.pitch || instrument.rootMidi || 60,
+      note.pitch ?? instrument.rootMidi ?? 60,
       i / SAMPLE_RATE,
-      note.velocity || 0.8,
+      note.velocity ?? 0.8,
     );
     sample = filterStep(sample, filterState, samplePatch.filter.type, cutoff);
     mixSample(target, targetIndex, sample * renderGain * a * r, options.pan || 0);
@@ -744,7 +770,7 @@ function renderMidiWithCustomInstrument(target, snippet, decoded, instrument, st
   }
 }
 
-function normalize(buffer) {
+function normalize(buffer, targetPeak = 0.98) {
   let peak = 0;
   if (isStereoBuffer(buffer)) {
     for (let i = 0; i < buffer.length; i++) {
@@ -753,8 +779,8 @@ function normalize(buffer) {
   } else {
     for (let i = 0; i < buffer.length; i++) peak = Math.max(peak, Math.abs(buffer[i]));
   }
-  if (peak <= 0.98) return buffer;
-  const gain = 0.98 / peak;
+  if (peak <= targetPeak) return buffer;
+  const gain = targetPeak / peak;
   if (isStereoBuffer(buffer)) {
     for (let i = 0; i < buffer.length; i++) {
       buffer.left[i] *= gain;
@@ -767,8 +793,12 @@ function normalize(buffer) {
 }
 
 function encodeWav(samples) {
+  // Mix into floating-point headroom without clipping individual additions.
+  // Bring dense arrangements into the master shaper's designed input range
+  // once, then apply glue and a final safety normalization.
+  normalize(samples, 0.98);
   applyMasterGlue(samples);
-  normalize(samples);
+  normalize(samples, 0.98);
   const channels = isStereoBuffer(samples) ? 2 : 1;
   const frameCount = sampleLength(samples);
   const bytesPerSample = 2;
@@ -811,27 +841,67 @@ function encodeWav(samples) {
 }
 
 export async function snippetToWavBlob(snippet, project = {}, options = {}) {
+  const random = exportRandom(options, { snippet, projectBpm: project?.bpm });
   const bpm = snippet?.bpm || project?.bpm || 120;
   const traits = snippet?.soundTraits || project?.settings?.soundTraits || {};
   const channelMode = normalizeWavChannelMode(options.channelMode, 'auto');
   const toneTail = (snippet?.type === 'midi' || snippet?.type === 'drum') && hasSnippetTone(snippet, traits) ? 3 : 0.75;
   let durationSec = Math.max(1, (snippet?.durationTicks || ticksPerBar(snippet)) * secondsPerTickFor(snippet, bpm)) + toneTail;
   let decoded = null;
+  let customDecoded = null;
+  let builtinPack = null;
+  const instrumentId = snippet?.type === 'midi' ? recordedInstrumentId(snippet) : null;
+  const instrument = instrumentId ? resolveInstrumentDefinition(instrumentId, project) : null;
   if (snippet?.type === 'audio') {
     decoded = await decodeAudioSnippet(snippet, options);
     if (!decoded) throw new Error('Audio recording is unavailable');
     durationSec = Math.max(durationSec, decoded?.duration || 0);
+  } else if (snippet?.type === 'midi' && instrument?.customInstrument) {
+    customDecoded = await decodeCustomInstrument(instrument.customInstrument, options);
+    if (!customDecoded) throw new Error('Custom instrument audio is unavailable');
+    durationSec = Math.max(durationSec, customDecoded.duration + toneTail);
+  } else if (snippet?.type === 'midi' && instrument?.samplePackId) {
+    builtinPack = await decodeBuiltinInstrument(instrument.samplePackId);
+    if (!builtinPack) throw new Error('Built-in instrument audio is unavailable');
+    const longest = Math.max(...builtinPack.zones.map(zone => zone.decoded.duration || 0), 0.5);
+    durationSec = Math.max(durationSec, longest + toneTail);
   }
   const patch = snippet?.type === 'midi' ? patchForSnippetExport(snippet, options) : null;
   const autoStereo = normalizeStereoWidth(patch?.stereoWidth || 0) > 0
     || (decoded?.numberOfChannels || 0) > 1
+    || (customDecoded?.numberOfChannels || 0) > 1
     || normalizeTrackPan(options.pan) !== 0;
   const samples = ensureLength(null, durationSec, channelMode === 'stereo' || (channelMode === 'auto' && autoStereo));
   if (decoded) mixAudioBuffer(samples, decoded, 0, 1, 1, options.pan || 0);
+  else if (builtinPack) {
+    const toneLayer = hasToneTraits(traits)
+      ? ensureLength(null, durationSec, isStereoBuffer(samples))
+      : samples;
+    renderMidiWithBuiltinSample(toneLayer, snippet || {}, builtinPack, 0, bpm, 1, {
+      meterSource: snippet,
+      pan: options.pan || 0,
+    });
+    if (toneLayer !== samples) mixBuffer(samples, applyToneTraits(toneLayer, traits, random));
+  } else if (customDecoded) {
+    const toneLayer = hasToneTraits(traits)
+      ? ensureLength(null, durationSec, isStereoBuffer(samples))
+      : samples;
+    renderMidiWithCustomInstrument(
+      toneLayer,
+      snippet || {},
+      customDecoded,
+      instrument.customInstrument,
+      0,
+      bpm,
+      1,
+      { meterSource: snippet, pan: options.pan || 0 },
+    );
+    if (toneLayer !== samples) mixBuffer(samples, applyToneTraits(toneLayer, traits, random));
+  }
   else if (snippet?.type === 'midi') {
-    renderMidiWithTone(samples, snippet || {}, 0, bpm, traits, 1, { patch, pan: options.pan || 0 });
+    renderMidiWithTone(samples, snippet || {}, 0, bpm, traits, 1, { patch, pan: options.pan || 0, random });
   } else {
-    renderSnippetEvents(samples, snippet || {}, 0, bpm, { toneTraits: traits, pan: options.pan || 0 });
+    renderSnippetEvents(samples, snippet || {}, 0, bpm, { toneTraits: traits, pan: options.pan || 0, random });
   }
   return encodeWav(withWavChannelMode(samples, channelMode));
 }
@@ -843,7 +913,7 @@ export function debugRenderBuiltInPatchWav(presetId = 'chip_lead', options = {})
   const traits = options.traits || {};
   const samples = ensureLength(null, durationSec + 2.2, normalizeStereoWidth(patch.stereoWidth || 0) > 0 || normalizeTrackPan(options.pan) !== 0);
   renderPatchTone(samples, 0, durationSec, midi, options.velocity || 0.85, patch, options.pan || 0);
-  return encodeWav(applyToneTraits(samples, traits));
+  return encodeWav(applyToneTraits(samples, traits, exportRandom(options, { presetId, midi, durationSec })));
 }
 
 export function debugRenderAllBuiltInPatchWavs(options = {}) {
@@ -853,6 +923,7 @@ export function debugRenderAllBuiltInPatchWavs(options = {}) {
 }
 
 export async function projectToWavBlob(project, options = {}) {
+  const random = exportRandom(options, project);
   const bpm = project?.bpm || 120;
   const channelMode = normalizeWavChannelMode(options.channelMode, 'stereo');
   const secPerTick = secondsPerTickFor(project, bpm);
@@ -929,7 +1000,7 @@ export async function projectToWavBlob(project, options = {}) {
         if (hasToneTraits(traits)) {
           const toneLayer = ensureLength(null, sampleLength(samples) / SAMPLE_RATE, isStereoBuffer(samples));
           renderMidiWithBuiltinSample(toneLayer, snippet, job.builtinPack, startSec, bpm, gain, { useSnippetBpm: false, meterSource: project, timeScale: job.timeScale, pan });
-          mixBuffer(samples, applyToneTraits(toneLayer, traits));
+          mixBuffer(samples, applyToneTraits(toneLayer, traits, random));
         } else {
           renderMidiWithBuiltinSample(samples, snippet, job.builtinPack, startSec, bpm, gain, { useSnippetBpm: false, meterSource: project, timeScale: job.timeScale, pan });
         }
@@ -937,15 +1008,15 @@ export async function projectToWavBlob(project, options = {}) {
         if (hasToneTraits(traits)) {
           const toneLayer = ensureLength(null, sampleLength(samples) / SAMPLE_RATE, isStereoBuffer(samples));
           renderMidiWithCustomInstrument(toneLayer, snippet, job.customDecoded, job.customInstrument, startSec, bpm, gain, { useSnippetBpm: false, meterSource: project, timeScale: job.timeScale, pan });
-          mixBuffer(samples, applyToneTraits(toneLayer, traits));
+          mixBuffer(samples, applyToneTraits(toneLayer, traits, random));
         } else {
           renderMidiWithCustomInstrument(samples, snippet, job.customDecoded, job.customInstrument, startSec, bpm, gain, { useSnippetBpm: false, meterSource: project, timeScale: job.timeScale, pan });
         }
       } else {
-        renderMidiWithTone(samples, snippet, startSec, bpm, traits, gain, { useSnippetBpm: false, patch: job.patch, timeScale: job.timeScale, pan });
+        renderMidiWithTone(samples, snippet, startSec, bpm, traits, gain, { useSnippetBpm: false, patch: job.patch, timeScale: job.timeScale, pan, random });
       }
     } else {
-      renderSnippetEvents(samples, snippet, startSec, bpm, { includeMidi: false, toneTraits: traits, gain, useSnippetBpm: false, kitId: job.kitId, timeScale: job.timeScale, pan });
+      renderSnippetEvents(samples, snippet, startSec, bpm, { includeMidi: false, toneTraits: traits, gain, useSnippetBpm: false, kitId: job.kitId, timeScale: job.timeScale, pan, random });
     }
   }
 

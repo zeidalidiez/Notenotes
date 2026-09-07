@@ -35,6 +35,7 @@ export class Transport {
     this._currentTick = 0;
     this._startTime = 0; // AudioContext time when playback started
     this._startTick = 0; // Tick position when playback started
+    this._tempoSegments = [];
 
     // Loop
     this.loopEnabled = true;
@@ -63,7 +64,9 @@ export class Transport {
 
   get bpm() { return this._bpm; }
   set bpm(value) {
-    this._bpm = Math.max(40, Math.min(240, Math.round(value)));
+    const next = Math.max(40, Math.min(240, Math.round(value)));
+    if (next === this._bpm) return;
+    this._changeClockRate(() => { this._bpm = next; });
   }
 
   get timeSignature() { return this._timeSignature; }
@@ -73,8 +76,14 @@ export class Transport {
 
   get meter() { return this._meter; }
   set meter(value) {
-    this._meter = normalizeMeter(value);
-    this._timeSignature = meterToTimeSignature(this._meter);
+    const next = normalizeMeter(value);
+    const same = this._meter?.id === next.id
+      && JSON.stringify(this._meter?.grouping || []) === JSON.stringify(next.grouping || []);
+    if (same) return;
+    this._changeClockRate(() => {
+      this._meter = next;
+      this._timeSignature = meterToTimeSignature(this._meter);
+    });
   }
 
   /** Ticks per bar based on current time signature */
@@ -175,6 +184,7 @@ export class Transport {
     this._startTick = this._currentTick;
     this._nextTickTime = this.engine.currentTime;
     this._lastLoopCycle = this._loopCycleForRawTick(this._startTick);
+    this._resetTempoSegments();
 
     this.state = TransportState.PLAYING;
     this._emit(this._onStateChange, this.state);
@@ -189,6 +199,7 @@ export class Transport {
     this._startTick = this._currentTick;
     this._nextTickTime = this.engine.currentTime;
     this._lastLoopCycle = this._loopCycleForRawTick(this._startTick);
+    this._resetTempoSegments();
 
     this.state = TransportState.RECORDING;
     this._emit(this._onStateChange, this.state);
@@ -238,10 +249,51 @@ export class Transport {
     this.loopEndBar = Math.min(this.maxBars, Math.max(this.loopStartBar + 1, endBar));
   }
 
+  _resetTempoSegments() {
+    this._tempoSegments = [{
+      audioTime: this._startTime,
+      tick: this._startTick,
+      secondsPerTick: this.secondsPerTick,
+    }];
+  }
+
+  _changeClockRate(applyChange) {
+    if (this.state === TransportState.STOPPED || !this.engine.ctx) {
+      applyChange();
+      this._tempoSegments = [];
+      return;
+    }
+
+    // Audio already emitted inside the lookahead window cannot be unscheduled.
+    // Make the new rate effective at the first unscheduled audio time, with an
+    // exact tick anchor computed under the old rate. Current position therefore
+    // remains continuous and scheduled events never overlap or disappear.
+    const effectiveTime = Math.max(this.engine.currentTime, this._nextTickTime);
+    const anchorTick = this._rawTickFloatAtTime(effectiveTime);
+    applyChange();
+    this._tempoSegments = this._tempoSegments.filter(segment => segment.audioTime < effectiveTime);
+    this._tempoSegments.push({
+      audioTime: effectiveTime,
+      tick: anchorTick,
+      secondsPerTick: this.secondsPerTick,
+    });
+  }
+
+  _rawTickFloatAtTime(audioTime) {
+    if (!this._tempoSegments.length) {
+      const elapsed = audioTime - this._startTime;
+      return this._startTick + elapsed / this.secondsPerTick;
+    }
+    let segment = this._tempoSegments[0];
+    for (const candidate of this._tempoSegments) {
+      if (candidate.audioTime > audioTime) break;
+      segment = candidate;
+    }
+    return segment.tick + (audioTime - segment.audioTime) / segment.secondsPerTick;
+  }
+
   _rawTickAtTime(audioTime) {
-    const elapsed = audioTime - this._startTime;
-    const ticksPerSecond = 1 / this.secondsPerTick;
-    return this._startTick + Math.floor(elapsed * ticksPerSecond);
+    return Math.floor(this._rawTickFloatAtTime(audioTime) + 1e-7);
   }
 
   _normalizeTick(rawTick) {

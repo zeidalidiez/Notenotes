@@ -25,6 +25,7 @@ export class AudioEngine {
     this._mediaRoutePrimed = false;
     this._mediaRoutePrimePromise = null;
     this._volume = DEFAULT_MASTER_VOLUME;
+    this._gesturePrimed = false;
   }
 
   static getInstance() {
@@ -50,9 +51,9 @@ export class AudioEngine {
     if (this._initialized) return;
 
     this.ctx = new (window.AudioContext || window.webkitAudioContext)({
-      sampleRate: 44100,
       latencyHint: 'interactive'
     });
+    this._gesturePrimed = false;
 
     // Immediately resume if suspended
     if (this.ctx.state === 'suspended') {
@@ -100,6 +101,7 @@ export class AudioEngine {
    */
   unlockGesture() {
     if (!this.ctx) return;
+    if (this._gesturePrimed && this.ctx.state === 'running') return;
     if (this.ctx.state === 'suspended') {
       this.ctx.resume().catch(() => {});
     }
@@ -114,6 +116,7 @@ export class AudioEngine {
       gain.connect(this.ctx.destination);
       source.start(now);
       source.stop(now + 0.04);
+      this._gesturePrimed = true;
     } catch (e) { /* non-critical unlock nudge */ }
   }
 
@@ -187,25 +190,52 @@ export class AudioEngine {
   }
 
   /**
-   * Create a fresh GainNode connected to master.
-   * Used for instrument/track sub-mixes.
+   * Create a fresh track bus connected to master.
+   *
+   * The returned node remains a GainNode for compatibility with instruments:
+   * its gain is the instrument/patch level. A second, private gain stage owns
+   * the Canvas track volume, followed by an optional stereo panner. Keeping
+   * those stages separate prevents a track-volume update from overwriting a
+   * preset's carefully tuned output gain.
    * @returns {GainNode}
    */
   createTrackBus() {
-    const gain = this.ctx.createGain();
-    gain.connect(this.masterGain);
-    return gain;
+    const input = this.ctx.createGain();
+    const level = this.ctx.createGain();
+    const panner = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
+    input.connect(level);
+    if (panner) {
+      level.connect(panner);
+      panner.connect(this.masterGain);
+    } else {
+      level.connect(this.masterGain);
+    }
+    input._notenotesBus = { level, panner };
+    return input;
   }
 
-  setTrackBusPan(gain, pan = 0) {
-    if (!gain || !this.ctx || !this.masterGain || !this.ctx.createStereoPanner) return;
-    const value = Math.max(-1, Math.min(1, Number(pan) || 0));
-    if (!gain._notenotesPanner) {
-      try { gain.disconnect(this.masterGain); } catch (_) {}
-      gain._notenotesPanner = this.ctx.createStereoPanner();
-      gain.connect(gain._notenotesPanner);
-      gain._notenotesPanner.connect(this.masterGain);
-    }
-    gain._notenotesPanner.pan.setTargetAtTime(value, this.currentTime, 0.01);
+  setTrackBusPan(input, pan = 0) {
+    const panner = input?._notenotesBus?.panner;
+    if (!panner || !this.ctx) return;
+    const numeric = Number(pan);
+    const value = Math.max(-1, Math.min(1, Number.isFinite(numeric) ? numeric : 0));
+    panner.pan.setTargetAtTime(value, this.currentTime, 0.01);
+  }
+
+  setTrackBusVolume(input, volume = 1) {
+    const level = input?._notenotesBus?.level;
+    if (!level || !this.ctx) return;
+    const numeric = Number(volume);
+    const value = Math.max(0, Math.min(1.5, Number.isFinite(numeric) ? numeric : 1));
+    level.gain.setTargetAtTime(value, this.currentTime, 0.01);
+  }
+
+  destroyTrackBus(input) {
+    if (!input) return;
+    const { level, panner } = input._notenotesBus || {};
+    try { input.disconnect(); } catch (_) {}
+    try { level?.disconnect(); } catch (_) {}
+    try { panner?.disconnect(); } catch (_) {}
+    try { delete input._notenotesBus; } catch (_) {}
   }
 }

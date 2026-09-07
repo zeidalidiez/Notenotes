@@ -12,7 +12,7 @@ import { showToast } from '../ui/Toast.js';
 import { ChoicePicker } from '../ui/ChoicePicker.js';
 import { renderSnippetPreviewSVG } from '../ui/snippetPreview.js';
 import { icon } from '../ui/icons.js';
-import { PRESETS } from '../instruments/WebAudioSynth.js';
+import { snapshotForInstrument } from '../engine/InstrumentRegistry.js';
 import { drumInstrumentGroups, midiInstrumentGroups, labelForInstrument } from './instrumentGroups.js';
 import { DEFAULT_NOTE_HEIGHT, MIN_PIANO_OCTAVE, MAX_PIANO_OCTAVE } from './editConstants.js';
 import { EditAudioPlayerMixin } from './editAudioPlayer.js';
@@ -151,10 +151,9 @@ export class EditMode {
     }
     snippet.instrumentId = instrumentId;
     if (snippet.type === 'midi') {
-      const preset = PRESETS[instrumentId];
       snippet.patchRecorded = {
         instrumentId,
-        patchSnapshot: preset ? JSON.parse(JSON.stringify(preset)) : null,
+        patchSnapshot: snapshotForInstrument(instrumentId),
         capturedAt: Date.now(),
       };
     } else if (snippet.type === 'drum') {

@@ -3,8 +3,8 @@
  * CanvasMode.prototype via Object.assign. Method bodies are unchanged.
  */
 
-import { TRACK_INSTRUMENTS } from '../engine/PlaybackEngine.js';
 import { clipVisualDurationBars } from '../engine/ClipTimeScale.js';
+import { isInstrumentAvailable, recordedInstrumentId } from '../engine/InstrumentRegistry.js';
 import { showToast } from '../ui/Toast.js';
 
 export const CanvasClipsMixin = {
@@ -98,14 +98,12 @@ export const CanvasClipsMixin = {
   _recordedInstrumentForSnippet(snippet) {
     if (!snippet) return null;
     if (snippet.type === 'midi') {
-      const id = snippet.patchRecorded?.instrumentId || snippet.instrumentId || snippet.patchId;
-      if (id?.startsWith?.('custom:')) return id;
-      if (TRACK_INSTRUMENTS[id]) return id;
+      const id = recordedInstrumentId(snippet);
+      if (isInstrumentAvailable(id, this.project, 'synth')) return id;
     }
     if (snippet.type === 'drum') {
-      const id = snippet.kitRecorded?.instrumentId || snippet.instrumentId || snippet.kitId;
-      if (id?.startsWith?.('custom:')) return id;
-      if (this._isDrumInstrumentId(id)) return id;
+      const id = recordedInstrumentId(snippet);
+      if (isInstrumentAvailable(id, this.project, 'kit')) return id;
     }
     return null;
   },

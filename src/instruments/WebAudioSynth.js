@@ -21,6 +21,7 @@ import { humanize } from '../engine/Humanize.js';
 
 /** Maximum simultaneous voices */
 const MAX_VOICES = 8;
+const IMPULSE_CACHE = new WeakMap();
 
 export const SOUND_TRAITS = {
   crush: { id: 'crush', name: 'Crush', hint: 'Blocky bitcrush edge', defaultAmount: 0.35 },
@@ -50,6 +51,12 @@ export function normalizeSoundTraits(traits = {}) {
     };
   }
   return normalized;
+}
+
+export function soundTraitsEqual(left = {}, right = {}) {
+  return Object.keys(SOUND_TRAITS).every(id => (
+    (left?.[id]?.amount ?? 0) === (right?.[id]?.amount ?? 0)
+  ));
 }
 
 /** Default synth patch */
@@ -93,6 +100,8 @@ export class WebAudioSynth {
     this._output = null;
     /** Active voice map: midi note → voice object */
     this._voices = new Map();
+    /** Every source graph not yet ended, including voices with a future noteOff. */
+    this._liveVoices = new Set();
     /** Voice queue for stealing */
     this._voiceQueue = [];
     /** Live sample sources in trigger order; hard-bounds concurrent BufferSource nodes */
@@ -159,13 +168,21 @@ export class WebAudioSynth {
   }
 
   setSoundTraits(traits = {}) {
-    this.soundTraits = normalizeSoundTraits(traits);
+    const normalized = normalizeSoundTraits(traits);
+    if (soundTraitsEqual(this.soundTraits, normalized)) return false;
+    this.soundTraits = normalized;
     if (this._toneInput && this._output) this._rebuildEffects();
+    return true;
   }
 
   setPan(pan = 0) {
     if (!this._output) this.init();
     this.engine.setTrackBusPan?.(this._output, pan);
+  }
+
+  setTrackVolume(volume = 1) {
+    if (!this._output) this.init();
+    this.engine.setTrackBusVolume?.(this._output, volume);
   }
 
   /**
@@ -273,6 +290,9 @@ export class WebAudioSynth {
    * @param {number} [atTime] - AudioContext time to schedule the note
    */
   noteOn(midi, velocity = 0.8, atTime) {
+    const numericVelocity = Number(velocity);
+    velocity = Number.isFinite(numericVelocity) ? Math.max(0, Math.min(1, numericVelocity)) : 0.8;
+    if (velocity <= 0) return;
     if (!this._output || !this._toneInput) this.init();
     this.engine.unlockGesture?.();
     if (!this._output) return;
@@ -330,8 +350,9 @@ export class WebAudioSynth {
       }
       source.start(now);
 
-      const voice = { source, filter, env, midi, startTime: now, velocity, sample: true };
+      const voice = { source, filter, env, midi, startTime: now, velocity, sample: true, envelope: { ...p.envelope } };
       this._voices.set(midi, voice);
+      this._liveVoices.add(voice);
       this._voiceQueue.push(midi);
       const liveEntry = { source, env };
       this._liveSampleSources.push(liveEntry);
@@ -413,9 +434,10 @@ export class WebAudioSynth {
 
       const voice = {
         oscillators: [carrier], fmMod: mod, fmModGain: modGain, vibrato, filter, env,
-        midi, startTime: now, velocity, kind: 'fm',
+        midi, startTime: now, velocity, kind: 'fm', envelope: { ...p.envelope },
       };
       this._voices.set(midi, voice);
+      this._liveVoices.add(voice);
       this._voiceQueue.push(midi);
       carrier.addEventListener('ended', () => {
         if (this._voices.get(midi) === voice) {
@@ -471,8 +493,12 @@ export class WebAudioSynth {
     if (noise) noise.source.start(now);
 
     // Store voice
-    const voice = { oscillators, oscillators2, vibrato, noise, filter, env, midi, startTime: now, velocity };
+    const voice = {
+      oscillators, oscillators2, vibrato, noise, filter, env, midi,
+      startTime: now, velocity, envelope: { ...p.envelope },
+    };
     this._voices.set(midi, voice);
+    this._liveVoices.add(voice);
     this._voiceQueue.push(midi);
 
     // Dispose nodes once the voice's oscillators stop (via noteOff / stealing /
@@ -501,17 +527,43 @@ export class WebAudioSynth {
 
     const ctx = this.engine.ctx;
     const now = atTime !== undefined ? atTime : ctx.currentTime;
-    const p = this.patch;
+    this._scheduleVoiceRelease(voice, now);
+
+    // Remove only the current key mapping. The live-voice set retains the graph
+    // until its ended event, so Panic can still cancel noteOffs scheduled ahead.
+    if (this._voices.get(midi) === voice) this._voices.delete(midi);
+    const queueIdx = this._voiceQueue.indexOf(midi);
+    if (queueIdx !== -1) this._voiceQueue.splice(queueIdx, 1);
+  }
+
+  /** Cancel every still-live incarnation of one MIDI note at an audio-clock time. */
+  cancelNote(midi, atTime) {
+    const now = atTime ?? this.engine.currentTime;
+    let cancelled = false;
+    for (const voice of this._liveVoices) {
+      if (voice.midi !== midi) continue;
+      this._scheduleVoiceRelease(voice, now);
+      cancelled = true;
+    }
+    this._voices.delete(midi);
+    this._voiceQueue = this._voiceQueue.filter(note => note !== midi);
+    return cancelled;
+  }
+
+  _scheduleVoiceRelease(voice, now) {
+    if (!voice) return;
+    const envelope = voice.envelope || this.patch.envelope;
+    const releaseSeconds = Math.max(0, Number(envelope.release) || 0);
 
     // Release envelope
-    const releaseLevel = this._envelopeLevelAt(p.envelope, now - (voice.startTime ?? now), voice.velocity ?? 1);
+    const releaseLevel = this._envelopeLevelAt(envelope, now - (voice.startTime ?? now), voice.velocity ?? 1);
     voice.env.gain.cancelScheduledValues(now);
     voice.env.gain.setValueAtTime(Math.max(0.0001, releaseLevel), now);
     // We use setTargetAtTime for a smoother release instead of linearRamp to avoid clicks if the value isn't exact
-    voice.env.gain.setTargetAtTime(0, now, p.envelope.release / 3);
+    voice.env.gain.setTargetAtTime(0, now, Math.max(0.003, releaseSeconds / 3));
 
     // Schedule oscillator stop after release
-    const stopAt = now + p.envelope.release + 0.1;
+    const stopAt = now + releaseSeconds + 0.1;
     if (voice.source) { try { voice.source.stop(stopAt); } catch (_) {} }
     if (voice.osc) { try { voice.osc.stop(stopAt); } catch (_) {} }
     if (voice.osc2) { try { voice.osc2.stop(stopAt); } catch (_) {} }
@@ -520,25 +572,22 @@ export class WebAudioSynth {
     if (voice.vibrato?.lfo) { try { voice.vibrato.lfo.stop(stopAt); } catch (_) {} }
     if (voice.noise) { try { voice.noise.source.stop(stopAt); } catch (_) {} }
     if (voice.fmMod) { try { voice.fmMod.stop(stopAt); } catch (_) {} }
-
-    // Remove from map
-    this._voices.delete(midi);
-    const queueIdx = this._voiceQueue.indexOf(midi);
-    if (queueIdx !== -1) this._voiceQueue.splice(queueIdx, 1);
+    voice.releaseScheduledAt = now;
   }
 
   /**
    * Stop all playing notes immediately.
    */
   allNotesOff() {
-    for (const midi of [...this._voices.keys()]) {
-      this.noteOff(midi);
-    }
+    const now = this.engine.currentTime;
+    for (const voice of this._liveVoices) this._scheduleVoiceRelease(voice, now);
+    this._voices.clear();
+    this._voiceQueue = [];
   }
 
   panic() {
     const now = this.engine.currentTime;
-    for (const voice of this._voices.values()) {
+    for (const voice of this._liveVoices) {
       if (voice.source) { try { voice.source.stop(now); } catch (_) {} }
       if (voice.osc) { try { voice.osc.stop(now); } catch (_) {} }
       if (voice.osc2) { try { voice.osc2.stop(now); } catch (_) {} }
@@ -550,9 +599,20 @@ export class WebAudioSynth {
     }
     for (const entry of this._liveSampleSources) this._stopSampleSourceNow(entry, now);
     this._liveSampleSources = [];
+    this._liveVoices.clear();
     this._voices.clear();
     this._voiceQueue = [];
     if (this._toneInput && this._output) this._rebuildEffects();
+  }
+
+  destroy() {
+    const output = this._output;
+    this.panic();
+    this._teardownEffects();
+    try { this._toneInput?.disconnect(); } catch (_) {}
+    this.engine.destroyTrackBus?.(output);
+    this._toneInput = null;
+    this._output = null;
   }
 
   /**
@@ -577,6 +637,7 @@ export class WebAudioSynth {
    */
   _disposeVoiceNodes(voice) {
     if (!voice) return;
+    this._liveVoices.delete(voice);
     const drop = (node) => { try { node && node.disconnect(); } catch (_) {} };
     drop(voice.source); drop(voice.filter); drop(voice.env);
     for (const o of voice.oscillators || []) drop(o);
@@ -617,20 +678,7 @@ export class WebAudioSynth {
     const ctx = this.engine.ctx;
     if (!ctx || !this._toneInput || !this._output) return;
 
-    try { this._toneInput.disconnect(); } catch (_) {}
-    for (const node of this._effectNodes) {
-      try { node.disconnect(); } catch (_) {}
-    }
-    if (this._lfo) {
-      try { this._lfo.stop(); } catch (_) {}
-      try { this._lfo.disconnect(); } catch (_) {}
-    }
-    if (this._lfoGain) {
-      try { this._lfoGain.disconnect(); } catch (_) {}
-    }
-    this._effectNodes = [];
-    this._lfo = null;
-    this._lfoGain = null;
+    this._teardownEffects();
 
     let current = this._toneInput;
 
@@ -713,6 +761,24 @@ export class WebAudioSynth {
     }
   }
 
+  _teardownEffects() {
+    try { this._toneInput.disconnect(); } catch (_) {}
+    for (const node of this._effectNodes) {
+      try { if (typeof node.stop === 'function') node.stop(); } catch (_) {}
+      try { node.disconnect(); } catch (_) {}
+    }
+    if (this._lfo) {
+      try { this._lfo.stop(); } catch (_) {}
+      try { this._lfo.disconnect(); } catch (_) {}
+    }
+    if (this._lfoGain) {
+      try { this._lfoGain.disconnect(); } catch (_) {}
+    }
+    this._effectNodes = [];
+    this._lfo = null;
+    this._lfoGain = null;
+  }
+
   _makeCrushCurve(amount) {
     const samples = 256;
     const curve = new Float32Array(samples);
@@ -726,6 +792,13 @@ export class WebAudioSynth {
 
   _makeImpulse(duration, decay) {
     const ctx = this.engine.ctx;
+    let cache = IMPULSE_CACHE.get(ctx);
+    if (!cache) {
+      cache = new Map();
+      IMPULSE_CACHE.set(ctx, cache);
+    }
+    const cacheKey = `${duration.toFixed(4)}:${decay.toFixed(4)}`;
+    if (cache.has(cacheKey)) return cache.get(cacheKey);
     const length = Math.max(1, Math.floor(ctx.sampleRate * duration));
     const impulse = ctx.createBuffer(2, length, ctx.sampleRate);
     const preDelay = Math.floor(ctx.sampleRate * 0.018);
@@ -750,6 +823,7 @@ export class WebAudioSynth {
         if (idx < length) data[idx] += (0.32 / (r + 1)) * (channel ? -1 : 1);
       }
     }
+    cache.set(cacheKey, impulse);
     return impulse;
   }
 

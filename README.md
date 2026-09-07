@@ -24,7 +24,8 @@ somewhere else to finish the song.
 - No account, telemetry, or hosted project service.
 - Your workspace and audio stay in browser storage unless you export them.
 - The core app works offline after it has been loaded and cached. Optional
-  sample packs must be fetched once before they are available offline.
+  CC0 sample packs can be cached individually on first use or downloaded together
+  from Settings for offline use.
 - It is installable as a Progressive Web App, but installation is optional.
 
 Open the [live app](https://zeidalidiez.github.io/Notenotes/) and press a pad.
@@ -47,10 +48,10 @@ colors, and clearly labelled 12-TET approximations of several maqam- and
 raga-inspired collections. Drum pads are rhythmic instruments and are not
 described as being "in key."
 
-Create includes 20 Chip, Modern, and FM synth presets; four synthesized drum
-kits; friendly Tone controls; Height Velocity; Hold and Arpeggio modes; Step
-Play; degree colors; chord suggestions; and gamepad, computer-keyboard, and Web
-MIDI input.
+Create includes Chip, Modern, and FM synth presets; four synthesized drum kits;
+ten compact CC0 sample instruments; friendly Tone controls; Height Velocity; Hold
+and Arpeggio modes; Step Play; degree colors; chord suggestions; and gamepad,
+computer-keyboard, and Web MIDI input.
 
 ### Canvas
 

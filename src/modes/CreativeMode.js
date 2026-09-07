@@ -40,6 +40,7 @@ import { CreativeAiSeedMixin } from './creativeAiSeed.js';
 import { CreativeToneMixin } from './creativeTone.js';
 import { icon } from '../ui/icons.js';
 import { setSubtreeInteractive, setTabActive } from '../ui/InteractionState.js';
+import { snapshotForInstrument } from '../engine/InstrumentRegistry.js';
 
 export class CreativeMode {
   constructor(engine, transport, quantizer, store, project, modManager) {
@@ -786,11 +787,10 @@ export class CreativeMode {
   _stampRecordedPatch(snippet) {
     if (!snippet || snippet.type !== 'midi') return;
     const instrumentId = this._activePatchId || 'chip_lead';
-    const patch = PRESETS[instrumentId] ? JSON.parse(JSON.stringify(PRESETS[instrumentId])) : null;
     snippet.instrumentId = instrumentId;
     snippet.patchRecorded = {
       instrumentId,
-      patchSnapshot: patch,
+      patchSnapshot: snapshotForInstrument(instrumentId),
       capturedAt: Date.now(),
     };
     snippet.schemaVersion = Math.max(snippet.schemaVersion || 1, 2);

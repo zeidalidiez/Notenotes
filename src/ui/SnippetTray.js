@@ -118,6 +118,9 @@ export class SnippetTray {
     if (toggle) toggle.setAttribute('aria-expanded', this._collapsed ? 'false' : 'true');
 
     if (this.snippets.length === 0) {
+      this._collapsed = false;
+      this.el.classList.remove('is-collapsed');
+      toggle?.setAttribute('aria-expanded', 'true');
       list.innerHTML = `<div class="snippet-tray__empty" id="snippet-empty">
         <button class="btn btn--primary" id="record-first-idea" type="button">Record your first idea</button>
       </div>`;

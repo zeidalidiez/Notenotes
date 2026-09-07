@@ -467,6 +467,11 @@ input, textarea, select, [contenteditable] {
   color: var(--text-tertiary);
 }
 .transport-bar__tap {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  border: var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;

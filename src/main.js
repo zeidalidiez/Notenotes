@@ -9,7 +9,7 @@ import './ui/settings.css';
 
 import { AudioEngine } from './engine/AudioEngine.js';
 import { isDialogTarget, isNativeControl } from './ui/Activation.js';
-import { Transport } from './engine/Transport.js';
+import { Transport, TransportState } from './engine/Transport.js';
 import { Metronome } from './engine/Metronome.js';
 import { Quantizer } from './engine/Quantizer.js';
 import { ProjectStore, createProject } from './data/ProjectStore.js';
@@ -391,6 +391,7 @@ class App {
     // A new workspace opens directly on a playable surface. Existing libraries
     // still open in Inspect. The mode callback performs the initial switch.
     this.modeTabs.setActive(this.project.snippets?.length ? Modes.PIANOROLL : Modes.CREATIVE);
+    this._syncAudioUnlockPrompt();
 
     console.log('[App] Notenotes ready.');
   }
@@ -830,7 +831,9 @@ class App {
     if (!this._audioUnlockPrompt) return;
     const state = this.engine.ctx?.state || 'new';
     const needsMediaRoute = this._needsIOSMediaRoutePrime();
-    const needsUnlock = !this._initialized || state !== 'running' || needsMediaRoute;
+    const captureWillUnlock = !this.engine._initialized && !needsMediaRoute
+      && this.modeTabs.activeMode === Modes.CREATIVE && !this.project?.snippets?.length;
+    const needsUnlock = !captureWillUnlock && (!this._initialized || state !== 'running' || needsMediaRoute);
     this._audioUnlockPrompt.hidden = !needsUnlock;
     this._audioUnlockPrompt.classList.toggle('is-visible', needsUnlock);
     this._audioUnlockPrompt.setAttribute('aria-label', needsMediaRoute ? 'Enable iOS sound route' : (needsUnlock ? 'Enable audio engine' : 'Audio engine ready'));

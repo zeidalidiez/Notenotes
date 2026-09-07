@@ -75,6 +75,8 @@ bars without changing its pitches or drum choices.
 
 MIDI and drum snippets remember the patch or kit used to audition them and carry
 that choice when first dropped on Canvas.
+Clips stay linked to their library snippet, so editing a snippet updates its
+placements, including after reloading the workspace.
 
 ### Stage
 

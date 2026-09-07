@@ -37,6 +37,11 @@ Large audio payloads have their own durable asset path and are reconnected to
 their lightweight project metadata when loaded. Backups, migrations, undo/history,
 and new-project defaults all need to agree when the state shape changes.
 
+Canvas clips link to reusable library snippets. `ProjectSnippets` restores that
+shared identity after JSON, history, and backup round trips. When an older saved
+clip differs from its library entry, normalization preserves its content as a
+separate library snippet instead of discarding either edit.
+
 ## Audio and visual clocks
 
 `Transport` uses a short look-ahead loop but schedules actual sound against

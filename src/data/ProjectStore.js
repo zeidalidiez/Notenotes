@@ -9,6 +9,7 @@ import { METER_PRESETS, meterToTimeSignature, normalizeMeter } from '../engine/M
 import { DEFAULT_PROGRESSION_CONTEXT, DEFAULT_PROGRESSION_GLOW, normalizeProgressionContext, normalizeProgressionGlow } from '../engine/Progressions.js';
 import { normalizePadLayout } from '../engine/PadLayout.js';
 import { ACCESSIBILITY_DEFAULTS, ensureAccessibilitySettings } from '../ui/AccessibilityProfiles.js';
+import { normalizeProjectSnippets } from './ProjectSnippets.js';
 
 const DB_NAME = 'notenotes';
 const DB_VERSION = 4;
@@ -468,6 +469,7 @@ export class ProjectStore {
 
   async migrateProjectAudioAssets(project) {
     if (!project) return false;
+    normalizeProjectSnippets(project);
     const snippetChanged = await this.migrateSnippetsAudioAssets(walkSnippets(project));
     const instrumentChanged = await this.migrateCustomInstrumentAudioAssets(walkCustomInstruments(project));
     return snippetChanged || instrumentChanged;
@@ -508,6 +510,7 @@ export class ProjectStore {
 
   _normalizeProjectMeter(project) {
     if (!project) return project;
+    normalizeProjectSnippets(project);
     const meter = normalizeMeter(project.meter || project.timeSignature);
     project.meter = meter;
     project.timeSignature = meterToTimeSignature(meter);

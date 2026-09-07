@@ -27,8 +27,8 @@ export class UndoManager {
     };
   }
 
-  _emitChange() {
-    for (const fn of this._onChangeCallbacks) fn();
+  _emitChange(operation) {
+    for (const fn of this._onChangeCallbacks) fn(operation);
   }
 
   /**
@@ -45,7 +45,7 @@ export class UndoManager {
       this._undoStack.shift();
     }
 
-    this._emitChange();
+    this._emitChange('push');
   }
 
   /**
@@ -57,7 +57,7 @@ export class UndoManager {
     const action = this._undoStack.pop();
     action.undo();
     this._redoStack.push(action);
-    this._emitChange();
+    this._emitChange('undo');
     return true;
   }
 
@@ -70,7 +70,7 @@ export class UndoManager {
     const action = this._redoStack.pop();
     action.redo();
     this._undoStack.push(action);
-    this._emitChange();
+    this._emitChange('redo');
     return true;
   }
 
@@ -96,6 +96,6 @@ export class UndoManager {
   clear() {
     this._undoStack = [];
     this._redoStack = [];
-    this._emitChange();
+    this._emitChange('clear');
   }
 }

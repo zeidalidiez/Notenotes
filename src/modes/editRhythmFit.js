@@ -163,11 +163,12 @@ export const EditRhythmFitMixin = {
   _commitRhythmFit(beforeState) {
     const afterState = this._snapshotSnippetState();
     if (beforeState && afterState && JSON.stringify(beforeState) !== JSON.stringify(afterState)) {
+      const editedSnippet = this._snippet;
       this.undoManager?.push({
         type: 'fitRhythm',
         description: 'Fit rhythm',
-        undo: () => this._restoreSnippetState(beforeState),
-        redo: () => this._restoreSnippetState(afterState),
+        undo: () => this._restoreSnippetState(beforeState, editedSnippet),
+        redo: () => this._restoreSnippetState(afterState, editedSnippet),
       });
       this.store?.scheduleAutoSave(this.project);
       window.dispatchEvent(new CustomEvent('project-snippets-changed', {

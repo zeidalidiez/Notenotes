@@ -693,11 +693,12 @@ export class EditMode {
 
     const afterState = this._snapshotSnippetState();
     if (beforeState && afterState && JSON.stringify(beforeState) !== JSON.stringify(afterState)) {
+      const editedSnippet = this._snippet;
       this.undoManager?.push({
         type: 'setSnippetDuration',
         description: 'Set snippet duration',
-        undo: () => this._restoreSnippetState(beforeState),
-        redo: () => this._restoreSnippetState(afterState),
+        undo: () => this._restoreSnippetState(beforeState, editedSnippet),
+        redo: () => this._restoreSnippetState(afterState, editedSnippet),
       });
     }
 

@@ -122,6 +122,12 @@ class App {
     // Load or create project
     await this._loadOrCreateProject();
     this._applyProjectOutputVolumes();
+    this.undoManager.onChange((operation) => {
+      if (operation !== 'undo' && operation !== 'redo') return;
+      this.store.scheduleAutoSave(this.project);
+      this.canvasMode?.refresh();
+      window.dispatchEvent(new CustomEvent('project-snippets-changed'));
+    });
 
     // Pass project reference to creative mode
     this._ensureProjectMusicalContext();

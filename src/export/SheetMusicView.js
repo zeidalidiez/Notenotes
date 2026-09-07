@@ -64,8 +64,16 @@ export class SheetMusicView {
     }
     return snippets.map((s) => {
       const count = (s.notes?.length || 0) + (s.hits?.length || 0);
-      return `<option value="${s.id}">${s.name || 'Snippet'} (${count} events)</option>`;
+      const id = this._escapeHtml(s.id);
+      const name = this._escapeHtml(s.name || 'Snippet');
+      return `<option value="${id}">${name} (${count} events)</option>`;
     }).join('');
+  }
+
+  _escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
   }
 
   _renderSheet() {

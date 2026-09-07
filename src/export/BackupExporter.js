@@ -135,7 +135,8 @@ function validateSnippet(snippet, label) {
 
 function validateCustomInstrument(instrument, label) {
   assertRecord(instrument, label);
-  textFields(instrument, ['id', 'name', 'type', 'sourceSnippetId', 'audioAssetId', 'audioDataUrl'], label);
+  textFields(instrument, ['id', 'name', 'type', 'audioAssetId', 'audioDataUrl'], label);
+  if (instrument.sourceSnippetId !== null) assertOptionalString(instrument.sourceSnippetId, `${label} sourceSnippetId`);
 }
 
 function validateProject(project, label = 'Workspace project') {

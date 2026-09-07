@@ -115,8 +115,7 @@ test('keeps lyric-heavy MIDI share codes within the URL budget', () => {
     N: notes.map(note => [note.pitch, note.startTick, note.durationTick, 80, note.lyric]),
     H: [],
   }));
-  const decodedPayloadLyricChars = decodedFromPayload.notes.reduce((sum, note) => sum + (note.lyric?.length || 0), 0);
-  assert.ok(decodedPayloadLyricChars <= MAX_SHARE_TOTAL_LYRIC_CHARS);
+  assert.equal(decodedFromPayload, null, 'oversized crafted codes are rejected before decoding');
 });
 
 test('strips HTML/control characters from the shared name (no markup in a link)', () => {
@@ -236,7 +235,7 @@ test('caps mixed note and hit shares to a combined event budget', () => {
     N: notes.map(note => [note.pitch, note.startTick, note.durationTick, 80, note.lyric]),
     H: hits.map(hit => [hit.type, hit.startTick, 80]),
   }));
-  assert.equal(decodedFromPayload.notes.length + decodedFromPayload.hits.length, MAX_SHARE_EVENTS);
+  assert.equal(decodedFromPayload, null, 'oversized crafted codes are rejected before decoding');
 });
 
 test('trims dense shares until the final encoded code fits the URL budget', () => {

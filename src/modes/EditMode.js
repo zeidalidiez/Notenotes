@@ -238,7 +238,7 @@ export class EditMode {
     const prefs = this._getBrowserPrefs();
 
     this.el.innerHTML = `
-      <div class="edit-browser edit-browser--${prefs.view}">
+      <div class="edit-browser edit-browser--${this._escapeAttr(prefs.view)}">
         <div class="edit-browser__header">
           <div class="edit-browser__title">
             <h2 class="edit-browser__heading">Inspect</h2>
@@ -421,7 +421,11 @@ export class EditMode {
     if (!this.project) return defaults;
     if (!this.project.settings) this.project.settings = {};
     const stored = this.project.settings.inspectBrowser || {};
-    return { ...defaults, ...stored };
+    return {
+      ...defaults, ...stored,
+      view: stored.view === 'grid' ? 'grid' : 'list',
+      search: typeof stored.search === 'string' ? stored.search : '',
+    };
   }
 
   _setBrowserPrefs(partial) {

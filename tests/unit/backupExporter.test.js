@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MAX_IMPORTED_TICKS } from '../../src/engine/ImportLimits.js';
+import { normalizeMeter } from '../../src/engine/Meter.js';
 import { decodeSnippetShare, encodeSnippetShare, MAX_SHARE_CODE_CHARS } from '../../src/utils/SnippetShare.js';
 
 import {
@@ -170,4 +171,18 @@ test('library import remaps custom instrument aliases and source recordings toge
   assert.equal(imported.snippets[2].kitRecorded.instrumentId, `custom:${imported.customInstruments[1].id}`);
   assert.equal(imported.snippets[3].instrumentId, 'fm4');
   assert.equal(backup.customInstruments[0].id, 'patch', 'source archive stays unchanged');
+});
+
+test('file-based instruments keep nullable source references in workspace and snippet archives', () => {
+  const instrument = { id: 'sample-file', name: 'Sample <soft>', type: 'patch', sourceSnippetId: null };
+  assert.equal(validateBackup({ kind: 'notenotes-snippets', snippets: [], customInstruments: [instrument] }), 'snippets');
+  assert.equal(validateBackup({ kind: 'notenotes-workspace', project: project({ settings: { customInstruments: [instrument] } }) }), 'workspace');
+});
+
+test('meter normalization cannot pass hostile groups to the Canvas grid', () => {
+  for (const grouping of [[1e12, 4 - 1e12], [Infinity, -Infinity], [0, 4], [-1, 5], ['2', '2']]) {
+    const meter = normalizeMeter({ type: 'metered', id: '4/4', grouping });
+    assert.ok(meter.grouping.every(group => Number.isInteger(group) && group > 0 && group <= 4));
+  }
+  assert.deepEqual(normalizeMeter({ type: 'metered', id: '5/8', grouping: [3, 2] }).grouping, [3, 2]);
 });
